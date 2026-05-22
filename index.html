@@ -341,11 +341,26 @@
       </div>
       <div class="p-7">
         <form id="formBaja" class="space-y-5" onsubmit="procesarBaja(event)">
+          <!-- Buscador autocomplete -->
           <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">No. Empleado <span class="text-red-500">*</span></label>
-            <input type="number" id="baja_numeroEmpleado" required placeholder="Ej. 001"
-              class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-red-400 focus:border-transparent transition">
+            <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
+              Buscar Colaborador <span class="text-red-500">*</span>
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                <i class="fas fa-search text-slate-400 text-sm"></i>
+              </div>
+              <input type="text" id="baja_busqueda" autocomplete="off" placeholder="Escribe nombre o número de empleado..."
+                class="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-red-400 focus:border-transparent transition">
+              <!-- Lista de sugerencias -->
+              <div id="baja_sugerencias" class="hidden absolute z-50 top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-lg overflow-hidden max-h-64 overflow-y-auto"></div>
+            </div>
+            <!-- Campos ocultos -->
+            <input type="hidden" id="baja_idEmpleado">
+            <input type="hidden" id="baja_nombreEmpleado">
           </div>
+          <!-- Badge del empleado seleccionado -->
+          <div id="baja_empleado_badge" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4"></div>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Fecha de Baja <span class="text-red-500">*</span></label>
@@ -435,6 +450,6 @@
   </div><!-- /max-w -->
 </main>
 
-<script src="app.js?v=3.0"></script>
+<script src="app.js?v=5.0"></script>
 </body>
 </html>
