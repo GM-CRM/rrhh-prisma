@@ -1,6 +1,6 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec"; // <--- NO OLVIDES PONER LA NUEVA URL
+// TU NUEVA URL - Carga directa
+const API_URL = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
 
-// Menú Móvil
 function toggleMenu() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
@@ -19,7 +19,6 @@ function showModule(moduleId) {
 function mostrarLoader(texto = "Procesando...") { document.getElementById('loader-text').innerText = texto; document.getElementById('global-loader').style.display = 'flex'; }
 function ocultarLoader() { document.getElementById('global-loader').style.display = 'none'; }
 
-// Formulario Dinámico
 const empresas = ["Newspot Mexico", "Centro De Telecomunicaciones Y Publicidad De Mexico", "Global Media", "Editora Mexicana", "Cable Master", "Fember Press", "Infomonitor", "RTV Comunicacion", "Radio Expresion Cultural"];
 const camposAlta = [
     { id: "numeroEmpleado", label: "No. Empleado", type: "number", req: true }, { id: "fechaIngreso", label: "Fecha Ingreso", type: "date", req: true },
@@ -48,7 +47,6 @@ async function procesarAlta(event) {
     event.preventDefault(); mostrarLoader("Subiendo archivos y creando expediente...");
     let payload = {}; camposAlta.forEach(c => payload[c.id] = document.getElementById(`alta_${c.id}`).value);
     
-    // Convertir archivos a Base64
     const fileInput = document.getElementById('alta_archivos');
     let docsBase64 = [];
     if(fileInput.files.length > 0) {
@@ -62,7 +60,11 @@ async function procesarAlta(event) {
 
     try {
         const r = await enviarPeticion("alta", payload); ocultarLoader();
-        if(r.status === "success") { Swal.fire('¡Éxito!', r.message, 'success'); document.getElementById('formAlta').reset(); fileInput.value = ''; }
+        if(r.status === "success") { 
+            Swal.fire('¡Éxito!', r.message, 'success'); 
+            document.getElementById('formAlta').reset(); fileInput.value = ''; 
+            forzarActualizacion(); // Recargar datos internamente
+        }
         else Swal.fire('Error', r.message, 'error');
     } catch (e) { ocultarLoader(); Swal.fire('Error', e.message, 'error'); }
 }
@@ -72,23 +74,47 @@ async function procesarBaja(event) {
     const payload = { numeroEmpleado: document.getElementById('baja_numeroEmpleado').value, fechaBaja: document.getElementById('baja_fechaBaja').value, tipoSalida: document.getElementById('baja_tipoSalida').value, motivoSalida: document.getElementById('baja_motivoSalida').value, montoFiniquito: document.getElementById('baja_montoFiniquito').value };
     try {
         const r = await enviarPeticion("baja", payload); ocultarLoader();
-        if(r.status === "success") { Swal.fire('Baja Exitosa', 'Guardado en maestro.', 'success'); document.getElementById('formBaja').reset(); }
+        if(r.status === "success") { 
+            Swal.fire('Baja Exitosa', 'Guardado en maestro.', 'success'); 
+            document.getElementById('formBaja').reset(); 
+            forzarActualizacion();
+        }
         else Swal.fire('Aviso', r.message, 'warning');
     } catch (e) { ocultarLoader(); Swal.fire('Error', e.message, 'error'); }
 }
 
 let cacheGlobal = [];
-async function obtenerDatos() {
-    mostrarLoader("Descargando DB...");
-    try { const r = await enviarPeticion("exportar_datos", {}); ocultarLoader(); if(r.status==="success"){ cacheGlobal=r.data; return r.data; } return []; }
+
+// Función Clave: Destruye las filas fantasma de Excel
+async function obtenerDatos(forzar = false) {
+    if(!forzar && cacheGlobal.length > 0) return cacheGlobal;
+    
+    mostrarLoader("Descargando e indexando BD...");
+    try { 
+        const r = await enviarPeticion("exportar_datos", {}); 
+        ocultarLoader(); 
+        if(r.status === "success"){ 
+            // ELIMINA FILAS EN BLANCO Y BASURA DE EXCEL
+            cacheGlobal = r.data.filter(emp => emp["NO. EMPLEADO"] && emp["NO. EMPLEADO"].toString().trim() !== "");
+            return cacheGlobal; 
+        } 
+        return []; 
+    }
     catch(e){ ocultarLoader(); return []; }
+}
+
+async function forzarActualizacion() {
+    await obtenerDatos(true);
+    cargarDashboard();
+    if(document.getElementById('module-basedatos').classList.contains('active')) cargarDatosTabla();
 }
 
 async function cargarDatosTabla() {
     const datos = await obtenerDatos();
     const tbody = document.getElementById('tabla-directorio'); tbody.innerHTML = '';
-    datos.slice(-50).reverse().forEach(emp => {
-        if(!emp["NO. EMPLEADO"]) return;
+    
+    // Muestra los últimos 100 registros reales
+    datos.slice(-100).reverse().forEach(emp => {
         const color = emp["ESTATUS"] === "Activo" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
         const link = emp["URL EXPEDIENTE"] ? `<a href="${emp["URL EXPEDIENTE"]}" target="_blank" class="text-blue-500 hover:text-blue-700"><i class="fas fa-folder-open"></i></a>` : '-';
         tbody.innerHTML += `<tr class="hover:bg-slate-50 border-b"><td class="px-6 py-4 font-semibold">#${emp["NO. EMPLEADO"]}</td><td class="px-6 py-4">${emp["NOMBRE DEL TRABAJADOR"]}</td><td class="px-6 py-4 text-xs">${emp["EMPRESA"]}</td><td class="px-6 py-4"><span class="px-2 py-1 text-xs rounded-full ${color}">${emp["ESTATUS"]}</span></td><td class="px-6 py-4 text-center">${link}</td></tr>`;
@@ -97,21 +123,20 @@ async function cargarDatosTabla() {
 
 let chartEmp = null; let chartGen = null;
 async function cargarDashboard() {
-    if(cacheGlobal.length === 0) await obtenerDatos();
+    const datosCompletos = await obtenerDatos();
     const filtro = document.getElementById('filtroEmpresaGlobal').value;
     
-    // Aplicar Filtro de Empresa
-    const datosFiltrados = filtro === "ALL" ? cacheGlobal : cacheGlobal.filter(r => r["EMPRESA"] === filtro);
+    const datosFiltrados = filtro === "ALL" ? datosCompletos : datosCompletos.filter(r => r["EMPRESA"] === filtro);
 
     let activos = 0, bajas = 0; let cEmp = {}; let cGen = { "Hombre": 0, "Mujer": 0 };
     datosFiltrados.forEach(row => {
-        if(!row["NO. EMPLEADO"]) return;
         if(row["ESTATUS"] === "Activo") { activos++; if(cGen[row["GÉNERO"]] !== undefined) cGen[row["GÉNERO"]]++; }
         if(row["ESTATUS"] === "Baja") bajas++;
         
-        if(!cEmp[row["EMPRESA"]]) cEmp[row["EMPRESA"]] = { act: 0, baj: 0 };
-        if(row["ESTATUS"] === "Activo") cEmp[row["EMPRESA"]].act++;
-        if(row["ESTATUS"] === "Baja") cEmp[row["EMPRESA"]].baj++;
+        let nomEmp = row["EMPRESA"] || "Sin Empresa";
+        if(!cEmp[nomEmp]) cEmp[nomEmp] = { act: 0, baj: 0 };
+        if(row["ESTATUS"] === "Activo") cEmp[nomEmp].act++;
+        if(row["ESTATUS"] === "Baja") cEmp[nomEmp].baj++;
     });
 
     const tot = activos + bajas;
@@ -126,8 +151,9 @@ async function cargarDashboard() {
 }
 
 async function exportarExcel() {
-    if(cacheGlobal.length === 0) await obtenerDatos();
-    const ws = XLSX.utils.json_to_sheet(cacheGlobal); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "BD");
+    const datos = await obtenerDatos();
+    if(datos.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(datos); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "BD");
     XLSX.writeFile(wb, `GM_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
@@ -136,10 +162,20 @@ function importarExcel(event) {
     mostrarLoader("Leyendo Excel...");
     const reader = new FileReader();
     reader.onload = async (e) => {
-        const json = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(e.target.result), {type: 'array'}).Sheets[XLSX.read(new Uint8Array(e.target.result), {type: 'array'}).SheetNames], {defval: ""});
+        const jsonRaw = XLSX.utils.sheet_to_json(XLSX.read(new Uint8Array(e.target.result), {type: 'array'}).Sheets[XLSX.read(new Uint8Array(e.target.result), {type: 'array'}).SheetNames], {defval: ""});
+        // Filtrar vacíos antes de subir
+        const jsonFiltrado = jsonRaw.filter(r => r["NO. EMPLEADO"] && r["NO. EMPLEADO"].toString().trim() !== "");
         ocultarLoader();
-        Swal.fire({ title: 'Actualizar DB', text: `¿Inyectar ${json.length} filas?`, showCancelButton: true, confirmButtonText: 'Sí' }).then(async r => {
-            if(r.isConfirmed) { mostrarLoader("Inyectando..."); try { const res = await enviarPeticion("importar_masivo", {registros: json}); ocultarLoader(); Swal.fire('Éxito', res.message, 'success'); cargarDatosTabla(); } catch(err){ ocultarLoader(); Swal.fire('Error', err.message, 'error'); } }
+        Swal.fire({ title: 'Actualizar DB', text: `¿Inyectar ${jsonFiltrado.length} filas válidas?`, showCancelButton: true, confirmButtonText: 'Sí' }).then(async r => {
+            if(r.isConfirmed) { 
+                mostrarLoader("Inyectando..."); 
+                try { 
+                    const res = await enviarPeticion("importar_masivo", {registros: jsonFiltrado}); 
+                    ocultarLoader(); 
+                    Swal.fire('Éxito', res.message, 'success'); 
+                    forzarActualizacion(); 
+                } catch(err){ ocultarLoader(); Swal.fire('Error', err.message, 'error'); } 
+            }
         });
         event.target.value = '';
     }; reader.readAsArrayBuffer(file);
