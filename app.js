@@ -524,57 +524,231 @@ function calcularRangoEdadAuto(){
 }
 
 // ─── OCR CON CLAUDE VISION ────────────────────────────────────
-const OCR_PROMPT=`Eres un asistente de RH mexicano especialista en documentos de identidad. Analiza el documento adjunto (puede ser INE, CURP impresa, constancia IMSS, pasaporte, acta de nacimiento u otro documento oficial mexicano). Extrae ÚNICAMENTE los datos que puedas leer con total certeza en el documento.
+const OCR_PROMPT = `Eres un asistente de recursos humanos mexicano especializado en leer documentos oficiales. Analiza esta imagen del documento y extrae todos los datos que puedas leer con certeza.
 
-Responde SOLO con un objeto JSON válido, sin texto adicional, sin comillas triples, sin markdown:
+Documentos que puedes recibir: Credencial INE/IFE, CURP impresa, Constancia de situación fiscal (SAT), Hoja de datos del IMSS / Constancia del NSS, Pasaporte mexicano, Acta de nacimiento, Comprobante de domicilio, Contrato laboral.
+
+Para la CONSTANCIA DEL IMSS o HOJA DEL NSS: el Número de Seguro Social (NSS) son 11 dígitos que aparecen en grande en el documento. Extráelo en el campo "nss".
+
+Para la CURP: son exactamente 18 caracteres alfanuméricos en mayúsculas.
+
+Para el RFC: entre 12 y 13 caracteres alfanuméricos en mayúsculas.
+
+Responde ÚNICAMENTE con este objeto JSON válido, sin texto adicional ni markdown:
 {"nombreTrabajador":"","curp":"","rfc":"","nss":"","fechaNacimiento":"YYYY-MM-DD","genero":"Hombre o Mujer","nacionalidad":"","lugarNacimiento":"","domicilioCompleto":"","correoElectronico":"","telefonoPersonal":""}
 
-Reglas estrictas: omite claves si el valor es ilegible o no está en el documento. CURP en MAYÚSCULAS 18 caracteres. RFC en MAYÚSCULAS. Fecha en formato YYYY-MM-DD obligatorio. Género solo "Hombre" o "Mujer". Nombre en formato "Apellido1 Apellido2 Nombre(s)".`;
+Reglas: omite las claves que no encuentres o sean ilegibles. NSS solo dígitos, 11 caracteres. CURP en MAYÚSCULAS exactamente 18 caracteres. RFC en MAYÚSCULAS. fechaNacimiento en formato YYYY-MM-DD. genero solo "Hombre" o "Mujer".`;
 
-async function ejecutarOCR(){
-    const input=document.getElementById('alta_archivos');
-    if(!input||!input.files.length){mostrarToast('warning','Sin archivos','Selecciona o arrastra al menos un documento para analizar.');return;}
-    const stEl=document.getElementById('ocr-status'),stTxt=document.getElementById('ocr-status-txt'),btn=document.getElementById('btn-ocr');
-    stEl.classList.remove('hidden');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analizando con IA...';
-    let acum={};
-    for(const file of Array.from(input.files)){
-        if(!file.type.startsWith('image/')&&file.type!=='application/pdf')continue;
-        stTxt.innerText=`Analizando: ${file.name}...`;
-        try{
-            const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
-            const content=file.type.startsWith('image/')
-                ?[{type:'image',source:{type:'base64',media_type:file.type,data:b64}},{type:'text',text:OCR_PROMPT}]
-                :[{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:OCR_PROMPT}];
-            const resp=await fetch(CLAUDE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:CLAUDE_MOD,max_tokens:1000,messages:[{role:'user',content}]})});
-            const json=await resp.json();
-            const texto=((json.content||[]).find(b=>b.type==='text')||{}).text||'';
-            try{Object.assign(acum,JSON.parse(texto.replace(/```json|```/g,'').trim()));}catch(pe){console.warn('OCR parse:',pe);}
-        }catch(e){console.warn('OCR error:',e);}
+// Convierte un PDF a imagen PNG usando Canvas para poder enviarlo a Claude Vision
+async function pdfAImagenBase64(pdfBase64) {
+    // Carga pdfjsLib desde CDN si no está disponible
+    if (typeof pdfjsLib === 'undefined') {
+        await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            s.onload = res; s.onerror = rej;
+            document.head.appendChild(s);
+        });
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
-    // Aplicar resultados
-    const mapaL={nombreTrabajador:'Nombre',curp:'CURP',rfc:'RFC',nss:'NSS',fechaNacimiento:'Fecha Nac.',genero:'Género',nacionalidad:'Nacionalidad',lugarNacimiento:'Lugar Nac.',domicilioCompleto:'Domicilio',correoElectronico:'Correo',telefonoPersonal:'Teléfono'};
-    const detectados=[];
-    Object.entries(acum).forEach(([k,v])=>{
-        if(!v)return;
-        altaData[k]=v.toString().trim();
-        detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100"><i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i><span class="text-xs font-semibold text-slate-600">${mapaL[k]||k}:</span><span class="text-xs text-slate-700 truncate">${v}</span></div>`);
+
+    const pdfData   = atob(pdfBase64);
+    const pdfBytes  = new Uint8Array(pdfData.length);
+    for (let i = 0; i < pdfData.length; i++) pdfBytes[i] = pdfData.charCodeAt(i);
+
+    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
+    const pdf         = await loadingTask.promise;
+
+    // Renderizar la primera página (donde suele estar el NSS/CURP)
+    const page     = await pdf.getPage(1);
+    const scale    = 2.5; // mayor escala = mejor legibilidad para el OCR
+    const viewport = page.getViewport({ scale });
+
+    const canvas  = document.createElement('canvas');
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    // Devolver como PNG base64 (sin el prefijo data:...)
+    return canvas.toDataURL('image/png').split(',')[1];
+}
+
+async function ejecutarOCR() {
+    const input = document.getElementById('alta_archivos');
+    if (!input || !input.files.length) {
+        mostrarToast('warning', 'Sin archivos', 'Selecciona o arrastra al menos un documento para analizar.');
+        return;
+    }
+
+    const stEl   = document.getElementById('ocr-status');
+    const stTxt  = document.getElementById('ocr-status-txt');
+    const btn    = document.getElementById('btn-ocr');
+    stEl.classList.remove('hidden');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando con IA...';
+
+    let acum = {};
+    let errores = [];
+
+    for (const file of Array.from(input.files)) {
+        const esPDF   = file.type === 'application/pdf';
+        const esImagen = file.type.startsWith('image/');
+        if (!esPDF && !esImagen) continue;
+
+        stTxt.innerText = `Procesando: ${file.name}...`;
+
+        try {
+            // Leer el archivo como base64
+            const b64raw = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload  = () => res(r.result.split(',')[1]);
+                r.onerror = () => rej(new Error('Error leyendo ' + file.name));
+                r.readAsDataURL(file);
+            });
+
+            let imagenB64;
+            let mimeType = 'image/png';
+
+            if (esPDF) {
+                // BUG FIX: Convertir PDF a imagen antes de enviar a Claude
+                // La API de Anthropic desde el browser no soporta el tipo 'document'
+                stTxt.innerText = `Convirtiendo PDF a imagen: ${file.name}...`;
+                try {
+                    imagenB64 = await pdfAImagenBase64(b64raw);
+                } catch (pdfErr) {
+                    console.warn('Error convirtiendo PDF:', pdfErr);
+                    errores.push(file.name + ': No se pudo renderizar el PDF. Intenta exportarlo como imagen JPG/PNG.');
+                    continue;
+                }
+            } else {
+                imagenB64 = b64raw;
+                mimeType  = file.type;
+            }
+
+            stTxt.innerText = `Analizando con IA: ${file.name}...`;
+
+            // BUG FIX: Incluir anthropic-version header — sin él la API devuelve 400
+            const resp = await fetch(CLAUDE_URL, {
+                method:  'POST',
+                headers: {
+                    'Content-Type':      'application/json',
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-ipc': 'true'
+                },
+                body: JSON.stringify({
+                    model:      CLAUDE_MOD,
+                    max_tokens: 1024,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            {
+                                type:   'image',
+                                source: { type: 'base64', media_type: mimeType, data: imagenB64 }
+                            },
+                            {
+                                type: 'text',
+                                text: OCR_PROMPT
+                            }
+                        ]
+                    }]
+                })
+            });
+
+            const apiJson = await resp.json();
+
+            // Mostrar error de la API si hubo uno
+            if (apiJson.error) {
+                console.error('API error:', apiJson.error);
+                errores.push(`${file.name}: ${apiJson.error.message || apiJson.error.type}`);
+                continue;
+            }
+
+            const texto = ((apiJson.content || []).find(b => b.type === 'text') || {}).text || '';
+
+            if (!texto) {
+                errores.push(file.name + ': La IA no devolvió respuesta.');
+                continue;
+            }
+
+            // Parsear el JSON que devuelve Claude
+            try {
+                const parsed = JSON.parse(texto.replace(/```json|```/g, '').trim());
+                // Solo acumular campos con valor real
+                Object.entries(parsed).forEach(([k, v]) => {
+                    if (v && v.toString().trim() !== '' && v !== 'YYYY-MM-DD') {
+                        acum[k] = v.toString().trim();
+                    }
+                });
+            } catch (pe) {
+                console.warn('Parse JSON error:', pe, '| Texto recibido:', texto);
+                errores.push(file.name + ': Error al interpretar la respuesta de la IA.');
+            }
+
+        } catch (e) {
+            console.error('OCR error en', file.name, ':', e);
+            errores.push(file.name + ': ' + e.message);
+        }
+    }
+
+    // ── Aplicar resultados al formulario ─────────────────────
+    const mapaL = {
+        nombreTrabajador: 'Nombre',      curp: 'CURP',
+        rfc: 'RFC',                       nss: 'NSS',
+        fechaNacimiento: 'Fecha Nac.',    genero: 'Género',
+        nacionalidad: 'Nacionalidad',     lugarNacimiento: 'Lugar Nac.',
+        domicilioCompleto: 'Domicilio',   correoElectronico: 'Correo',
+        telefonoPersonal: 'Teléfono'
+    };
+    const detectados = [];
+
+    Object.entries(acum).forEach(([k, v]) => {
+        if (!v) return;
+        altaData[k] = v;
+        detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
+            <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
+            <span class="text-xs font-semibold text-slate-600">${mapaL[k] || k}:</span>
+            <span class="text-xs text-slate-700 truncate font-mono">${v}</span>
+        </div>`);
     });
-    // Si detectó CURP, decodificar y aplicar
-    if(acum.curp&&acum.curp.length===18){const d=decodificarCURP(acum.curp);if(d)aplicarDatosCURP(d);}
-    else if(acum.fechaNacimiento){const fn=document.getElementById('alta_fechaNacimiento');if(fn){fn.value=acum.fechaNacimiento;calcularRangoEdadAuto();}}
 
-    stEl.classList.add('hidden');btn.disabled=false;btn.innerHTML='<i class="fas fa-magnifying-glass"></i> Analizar documentos con IA y pre-rellenar formulario';
+    // Si detectó CURP, decodificar automáticamente
+    if (acum.curp && acum.curp.length === 18) {
+        const d = decodificarCURP(acum.curp);
+        if (d) aplicarDatosCURP(d);
+    } else if (acum.fechaNacimiento) {
+        const fn = document.getElementById('alta_fechaNacimiento');
+        if (fn) { fn.value = acum.fechaNacimiento; calcularRangoEdadAuto(); }
+    }
 
-    const resEl=document.getElementById('ocr-resultado');
-    const camposEl=document.getElementById('ocr-campos-detectados');
-    if(detectados.length){
+    // ── Restaurar UI ──────────────────────────────────────────
+    stEl.classList.add('hidden');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Analizar documentos con IA y pre-rellenar formulario';
+
+    const resEl    = document.getElementById('ocr-resultado');
+    const camposEl = document.getElementById('ocr-campos-detectados');
+
+    if (detectados.length) {
         resEl.classList.remove('hidden');
-        camposEl.innerHTML=detectados.join('');
-        mostrarToast('success',`${detectados.length} campos detectados`,'Datos aplicados. Continúa al siguiente paso para verificarlos.');
-    }else{
-        mostrarToast('warning','Sin datos detectados','No se pudo extraer información. Intenta con una imagen más clara o captura manualmente.');
+        camposEl.innerHTML = detectados.join('');
+        const msg = errores.length ? ` (${errores.length} archivo(s) con error)` : '';
+        mostrarToast('success', `${detectados.length} campo(s) detectados`, 'Datos aplicados al formulario.' + msg, 6000);
+    } else if (errores.length) {
+        // Mostrar errores específicos para que Rafael sepa exactamente qué pasó
+        mostrarToast('error', 'No se pudo analizar el documento', errores[0], 8000);
+        resEl.classList.remove('hidden');
+        camposEl.innerHTML = `<div class="col-span-2 bg-red-50 border border-red-200 rounded-xl p-4">
+            <p class="text-sm font-bold text-red-700 mb-2"><i class="fas fa-circle-xmark mr-2"></i>Errores encontrados:</p>
+            ${errores.map(e => `<p class="text-xs text-red-600 mb-1">• ${e}</p>`).join('')}
+            <p class="text-xs text-slate-500 mt-3">Sugerencia: si el PDF no funciona, ábrelo, toma una captura de pantalla y cárgala como imagen JPG o PNG.</p>
+        </div>`;
+    } else {
+        mostrarToast('warning', 'Sin datos detectados', 'La IA no encontró información reconocible. Intenta con una imagen más nítida o captura manualmente.');
     }
 }
+
 
 // ─── STEPPER NAVEGACIÓN ───────────────────────────────────────
 function guardarPasoActual(){
