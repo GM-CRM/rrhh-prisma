@@ -1,11 +1,11 @@
 {
-  "name": "Grupo Multimedia — Sistema RH",
-  "short_name": "GM Recursos Humanos",
-  "description": "Sistema de Gestión de Recursos Humanos — Grupo Multimedia",
+  "name": "RRHH Prisma",
+  "short_name": "RRHH Prisma",
+  "description": "Sistema de Gestión de Recursos Humanos — RRHH Prisma",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#1e1b4b",
+  "theme_color": "#7c3aed",
   "orientation": "any",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }

@@ -5,7 +5,7 @@
 //  Solo usa caché como fallback si no hay red disponible.
 // ============================================================
 
-const CACHE_NAME = 'gm-rh-v14';
+const CACHE_NAME = 'prisma-rh-v16';
 const ASSETS_ESTATICOS = [
     '/manifest.json',
     '/icon.svg'
@@ -51,7 +51,7 @@ self.addEventListener('fetch', event => {
     // Para HTML y JS: Network First (siempre la versión más reciente)
     const esAppShell = url.pathname === '/' ||
                        url.pathname === '/index.html' ||
-                       url.pathname.startsWith('/app.js');
+                       url.pathname.startsWith('/main.js');
 
     if (esAppShell) {
         event.respondWith(

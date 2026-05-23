@@ -1497,7 +1497,7 @@ window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
     const banner = document.getElementById('pwa-banner');
     if (banner) banner.classList.add('hidden');
-    mostrarToast('success', '¡App instalada!', 'GM Recursos Humanos se ha instalado en tu dispositivo.', 5000);
+    mostrarToast('success', '¡App instalada!', 'RRHH Prisma se ha instalado en tu dispositivo.', 5000);
 });
 async function instalarPWA() {
     if (!deferredPrompt) return;
