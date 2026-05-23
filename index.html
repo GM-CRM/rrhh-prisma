@@ -446,22 +446,65 @@ if('serviceWorker' in navigator){
   <!-- ══ DIRECTORIO ═══════════════════════════════════════════ -->
   <section id="module-basedatos" class="module-section">
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
-      <div class="p-5 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50 rounded-t-2xl gap-4">
-        <div>
-          <h3 class="text-base font-bold text-slate-800">Directorio Maestro</h3>
-          <p class="text-xs text-slate-400 mt-0.5" id="subtitulo-directorio">Cargando...</p>
+
+      <!-- Cabecera con acciones -->
+      <div class="p-5 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Expedientes</h3>
+            <p class="text-xs text-slate-400 mt-0.5" id="subtitulo-directorio">Cargando...</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportarExcel()"
+              class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-50 flex items-center gap-2 text-xs font-semibold transition shadow-sm">
+              <i class="fas fa-file-excel text-green-600"></i> Exportar
+            </button>
+            <label class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-xs font-semibold cursor-pointer transition shadow-sm">
+              <i class="fas fa-cloud-upload-alt"></i> Carga Masiva
+              <input type="file" id="fileImport" accept=".xlsx,.csv" class="hidden" onchange="importarExcel(event)">
+            </label>
+          </div>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="exportarExcel()"
-            class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-50 flex items-center gap-2 text-xs font-semibold transition shadow-sm">
-            <i class="fas fa-file-excel text-green-600"></i> Exportar Excel
+
+        <!-- Filtros -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <!-- Buscador -->
+          <div class="md:col-span-2 relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+            <input type="text" id="filtro-busqueda" placeholder="Buscar por nombre, puesto, No. empleado..."
+              oninput="aplicarFiltros()"
+              class="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+          </div>
+          <!-- Filtro empresa -->
+          <select id="filtro-empresa" onchange="aplicarFiltros()"
+            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+            <option value="">Todas las empresas</option>
+            <option>Newspot Mexico</option>
+            <option>Centro De Telecomunicaciones Y Publicidad De Mexico</option>
+            <option>Global Media</option><option>Editora Mexicana</option>
+            <option>Cable Master</option><option>Fember Press</option>
+            <option>Infomonitor</option><option>Rtv Comunicacion</option>
+            <option>Radio Expresion Cultural</option>
+          </select>
+          <!-- Filtro estatus -->
+          <select id="filtro-estatus" onchange="aplicarFiltros()"
+            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
+            <option value="">Todos los estatus</option>
+            <option value="Activo">Solo Activos</option>
+            <option value="Baja">Solo Bajas</option>
+          </select>
+        </div>
+        <!-- Contador de resultados filtrados -->
+        <div class="flex items-center justify-between mt-3">
+          <p class="text-xs text-slate-400" id="contador-filtros"></p>
+          <button onclick="limpiarFiltros()" id="btn-limpiar-filtros"
+            class="hidden text-xs text-blue-600 hover:text-blue-800 font-medium transition flex items-center gap-1">
+            <i class="fas fa-times-circle text-xs"></i> Limpiar filtros
           </button>
-          <label class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-xs font-semibold cursor-pointer transition shadow-sm">
-            <i class="fas fa-cloud-upload-alt"></i> Carga Masiva
-            <input type="file" id="fileImport" accept=".xlsx,.csv" class="hidden" onchange="importarExcel(event)">
-          </label>
         </div>
       </div>
+
+      <!-- Tabla -->
       <div class="overflow-x-auto">
         <table class="w-full text-sm text-left whitespace-nowrap">
           <thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
@@ -471,11 +514,17 @@ if('serviceWorker' in navigator){
               <th class="px-5 py-3 font-semibold">Empresa</th>
               <th class="px-5 py-3 font-semibold">Puesto</th>
               <th class="px-5 py-3 font-semibold">Estatus</th>
-              <th class="px-5 py-3 font-semibold text-center">Carpeta</th>
+              <th class="px-5 py-3 font-semibold text-center">Acciones</th>
             </tr>
           </thead>
           <tbody id="tabla-directorio" class="divide-y divide-slate-100 text-slate-600"></tbody>
         </table>
+        <!-- Sin resultados -->
+        <div id="sin-resultados" class="hidden py-16 text-center">
+          <i class="fas fa-search text-slate-300 text-4xl mb-3"></i>
+          <p class="text-sm font-semibold text-slate-500">Sin resultados</p>
+          <p class="text-xs text-slate-400 mt-1">Intenta con otros términos de búsqueda</p>
+        </div>
       </div>
       <div id="paginacion-directorio"></div>
     </div>
@@ -500,6 +549,58 @@ if('serviceWorker' in navigator){
 
 <!-- Toast container -->
 <div id="toast-container"></div>
+
+<!-- Modal: subir documentos al expediente -->
+<div id="modal-docs" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="cerrarModalDocs()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div>
+        <p class="text-sm font-bold text-slate-800">Subir Documentos al Expediente</p>
+        <p class="text-xs text-slate-400 mt-0.5" id="modal-docs-empleado"></p>
+      </div>
+      <button onclick="cerrarModalDocs()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition">
+        <i class="fas fa-times text-sm"></i>
+      </button>
+    </div>
+    <!-- Cuerpo -->
+    <div class="p-6">
+      <!-- Drop zone -->
+      <div id="modal-drop-zone"
+        ondragover="event.preventDefault();this.classList.add('border-blue-400','bg-blue-50')"
+        ondragleave="this.classList.remove('border-blue-400','bg-blue-50')"
+        ondrop="manejarDropModal(event)"
+        onclick="document.getElementById('modal-archivos').click()"
+        class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all mb-4">
+        <i class="fas fa-cloud-upload-alt text-slate-300 text-3xl mb-2"></i>
+        <p class="text-sm font-semibold text-slate-600">Arrastra archivos o haz clic</p>
+        <p class="text-xs text-slate-400 mt-1">PDF, JPG, PNG — máx. 10 MB c/u</p>
+        <input type="file" id="modal-archivos" multiple accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="actualizarListaModal()">
+      </div>
+      <!-- Lista de archivos seleccionados -->
+      <div id="modal-lista-archivos" class="space-y-2 mb-4 max-h-40 overflow-y-auto"></div>
+      <!-- Barra de progreso -->
+      <div id="modal-progreso" class="hidden mb-4">
+        <div class="flex justify-between text-xs text-slate-500 mb-1">
+          <span id="modal-progreso-txt">Subiendo...</span>
+          <span id="modal-progreso-pct">0%</span>
+        </div>
+        <div class="bg-slate-100 rounded-full h-2">
+          <div id="modal-progreso-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Footer -->
+    <div class="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+      <button onclick="cerrarModalDocs()" class="flex-1 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl transition">Cancelar</button>
+      <button onclick="subirDocumentosExpediente()" id="btn-subir-docs"
+        class="flex-1 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 py-2.5 rounded-xl transition shadow-sm flex items-center justify-center gap-2">
+        <i class="fas fa-upload"></i> Subir al expediente
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- Drawer overlay -->
 <div id="drawer-overlay" onclick="cerrarEditor()" class="hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"></div>
@@ -533,6 +634,6 @@ if('serviceWorker' in navigator){
   <div id="notif-lista"></div>
 </div>
 
-<script src="app.js?v=13.0"></script>
+<script src="app.js?v=14.0"></script>
 </body>
 </html>

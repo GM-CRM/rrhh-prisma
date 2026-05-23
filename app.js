@@ -1025,56 +1025,232 @@ async function obtenerDatos(forzar){
 }
 async function forzarActualizacion(){
     cacheGlobal=[];
+    datosFiltrados=[];
     const datos=await obtenerDatos(true);
     evaluarAlertas(datos);
     cargarDashboard();
-    if(document.getElementById('module-basedatos')?.classList.contains('active'))renderizarPagina(1);
+    if(document.getElementById('module-basedatos')?.classList.contains('active')){
+        datosFiltrados=[...cacheGlobal];
+        renderizarPagina(1);
+    }
     initAutocomplete();
 }
 
-// ─── DIRECTORIO CON BOTÓN EDITAR ─────────────────────────────
-let paginaActual=1;const FILAS_PAG=50;
-async function cargarDatosTabla(){await obtenerDatos();paginaActual=1;renderizarPagina(1);}
-function renderizarPagina(pag){
-    const datos=cacheGlobal,totalPags=Math.max(1,Math.ceil(datos.length/FILAS_PAG));
-    paginaActual=Math.max(1,Math.min(pag,totalPags));
-    const ini=(paginaActual-1)*FILAS_PAG,slice=datos.slice(ini,ini+FILAS_PAG);
-    const tbody=document.getElementById('tabla-directorio');tbody.innerHTML='';
-    slice.forEach(emp=>{
-        const est=(emp["ESTATUS"]||"").trim();
-        const color=est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700";
-        const url=emp["URL EXPEDIENTE"]||"";
-        const link=url?`<a href="${url}" target="_blank" class="text-blue-400 hover:text-blue-600 transition"><i class="fas fa-folder-open"></i></a>`:'<span class="text-slate-200">—</span>';
-        const id=(emp["NO. EMPLEADO"]||"").toString();
+// ─── DIRECTORIO CON FILTROS ───────────────────────────────────
+let paginaActual   = 1;
+const FILAS_PAG    = 50;
+let datosFiltrados = [];
 
-        // Badge de alerta de contrato en la fila
-        const ven1=emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]||"";
-        const ven2=emp["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]||"";
-        const ven3=emp["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]||"";
-        let alertaFila='';
-        [ven1,ven2,ven3].forEach(v=>{
-            if(!v)return;
-            const d=diasRestantes(v);
-            if(d!==null&&d<=30&&est==="Activo") alertaFila='<i class="fas fa-triangle-exclamation text-amber-400 ml-1 text-xs" title="Contrato por vencer"></i>';
-        });
+async function cargarDatosTabla() {
+    await obtenerDatos();
+    datosFiltrados = [...cacheGlobal];
+    paginaActual = 1;
+    renderizarPagina(1);
+}
 
-        tbody.innerHTML+=`<tr class="hover:bg-slate-50 border-b border-slate-100 transition">
-            <td class="px-5 py-3.5 font-semibold text-slate-700 text-sm">#${id}</td>
-            <td class="px-5 py-3.5 text-sm">${emp["NOMBRE DEL TRABAJADOR"]||"—"}${alertaFila}</td>
-            <td class="px-5 py-3.5 text-xs text-slate-500">${emp["EMPRESA"]||"—"}</td>
-            <td class="px-5 py-3.5 text-xs text-slate-500">${emp["PUESTO"]||"—"}</td>
-            <td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ${color}">${est||"—"}</span></td>
-            <td class="px-5 py-3.5 text-center">
-              <div class="flex items-center justify-center gap-3">
-                <button onclick="abrirEditor('${id}')" class="text-slate-400 hover:text-blue-600 transition" title="Editar / Renovar contrato"><i class="fas fa-pen-to-square text-sm"></i></button>
-                ${link}
-              </div>
-            </td></tr>`;
+function aplicarFiltros() {
+    const busqueda = (document.getElementById('filtro-busqueda')?.value || '').toLowerCase().trim();
+    const empresa  = (document.getElementById('filtro-empresa')?.value  || '').trim();
+    const estatus  = (document.getElementById('filtro-estatus')?.value  || '').trim();
+
+    datosFiltrados = cacheGlobal.filter(emp => {
+        const nombre = (emp["NOMBRE DEL TRABAJADOR"] || "").toLowerCase();
+        const noEmp  = (emp["NO. EMPLEADO"] || "").toString().toLowerCase();
+        const puesto = (emp["PUESTO"] || "").toLowerCase();
+        const pasaBusqueda = !busqueda || nombre.includes(busqueda) || noEmp.includes(busqueda) || puesto.includes(busqueda);
+        const pasaEmpresa  = !empresa  || (emp["EMPRESA"] || "").trim() === empresa;
+        const pasaEstatus  = !estatus  || (emp["ESTATUS"]  || "").trim() === estatus;
+        return pasaBusqueda && pasaEmpresa && pasaEstatus;
     });
-    const pg=document.getElementById('paginacion-directorio');if(!pg)return;
-    const ini2=ini+1,fin2=Math.min(ini+FILAS_PAG,datos.length);
-    pg.innerHTML=`<div class="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl"><span class="text-sm text-slate-500">Mostrando <strong>${ini2}–${fin2}</strong> de <strong>${datos.length}</strong></span><div class="flex gap-2"><button onclick="renderizarPagina(${paginaActual-1})" ${paginaActual<=1?'disabled':''} class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">← Anterior</button><span class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg">${paginaActual} / ${totalPags}</span><button onclick="renderizarPagina(${paginaActual+1})" ${paginaActual>=totalPags?'disabled':''} class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">Siguiente →</button></div></div>`;
-    const sub=document.getElementById('subtitulo-directorio');if(sub)sub.innerText=datos.length+' colaboradores en la base maestra';
+
+    paginaActual = 1;
+    renderizarPagina(1);
+
+    const hayFiltros  = busqueda || empresa || estatus;
+    const btnLimpiar  = document.getElementById('btn-limpiar-filtros');
+    const contador    = document.getElementById('contador-filtros');
+    if (btnLimpiar) btnLimpiar.classList.toggle('hidden', !hayFiltros);
+    if (contador)   contador.textContent = hayFiltros ? datosFiltrados.length + ' de ' + cacheGlobal.length + ' resultados' : '';
+}
+
+function limpiarFiltros() {
+    ['filtro-busqueda','filtro-empresa','filtro-estatus'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    aplicarFiltros();
+}
+
+function renderizarPagina(pag) {
+    const datos     = datosFiltrados;
+    const totalPags = Math.max(1, Math.ceil(datos.length / FILAS_PAG));
+    paginaActual    = Math.max(1, Math.min(pag, totalPags));
+    const ini       = (paginaActual - 1) * FILAS_PAG;
+    const slice     = datos.slice(ini, ini + FILAS_PAG);
+    const tbody     = document.getElementById('tabla-directorio');
+    const sinRes    = document.getElementById('sin-resultados');
+
+    tbody.innerHTML = '';
+
+    if (!datos.length) {
+        if (sinRes) sinRes.classList.remove('hidden');
+    } else {
+        if (sinRes) sinRes.classList.add('hidden');
+        slice.forEach(emp => {
+            const est   = (emp["ESTATUS"] || "").trim();
+            const color = est === "Activo" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
+            const url   = emp["URL EXPEDIENTE"] || "";
+            const link  = url
+                ? '<a href="' + url + '" target="_blank" class="text-slate-400 hover:text-blue-600 transition" title="Abrir en Drive"><i class="fas fa-folder-open text-sm"></i></a>'
+                : '<span class="text-slate-200"><i class="fas fa-folder text-sm"></i></span>';
+            const id    = (emp["NO. EMPLEADO"] || "").toString();
+            const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").replace(/'/g, "\'");
+
+            let alerta = '';
+            [emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"],
+             emp["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"],
+             emp["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]].forEach(v => {
+                if (!v) return;
+                const d = diasRestantes(v);
+                if (d !== null && d <= 30 && est === "Activo") {
+                    alerta = '<i class="fas fa-triangle-exclamation text-amber-400 ml-1 text-xs" title="Contrato por vencer"></i>';
+                }
+            });
+
+            tbody.innerHTML += '<tr class="hover:bg-slate-50 border-b border-slate-100 transition">'
+                + '<td class="px-5 py-3.5 font-semibold text-slate-700 text-sm">#' + id + '</td>'
+                + '<td class="px-5 py-3.5 text-sm font-medium">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + '</td>'
+                + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["EMPRESA"] || "—") + '</td>'
+                + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["PUESTO"]  || "—") + '</td>'
+                + '<td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
+                + '<td class="px-5 py-3.5"><div class="flex items-center justify-center gap-3">'
+                + '<button onclick="abrirEditor('' + id + '')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
+                + '<button onclick="abrirModalDocs('' + id + '','' + nom + '')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
+                + link
+                + '</div></td></tr>';
+        });
+    }
+
+    const pg = document.getElementById('paginacion-directorio');
+    if (!pg) return;
+    const ini2 = ini + 1, fin2 = Math.min(ini + FILAS_PAG, datos.length);
+    pg.innerHTML = '<div class="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">'
+        + '<span class="text-sm text-slate-500">Mostrando <strong>' + ini2 + '–' + fin2 + '</strong> de <strong>' + datos.length + '</strong></span>'
+        + '<div class="flex gap-2">'
+        + '<button onclick="renderizarPagina(' + (paginaActual-1) + ')" ' + (paginaActual<=1?'disabled':'') + ' class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">← Anterior</button>'
+        + '<span class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg">' + paginaActual + ' / ' + totalPags + '</span>'
+        + '<button onclick="renderizarPagina(' + (paginaActual+1) + ')" ' + (paginaActual>=totalPags?'disabled':'') + ' class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">Siguiente →</button>'
+        + '</div></div>';
+
+    const sub = document.getElementById('subtitulo-directorio');
+    if (sub) sub.innerText = cacheGlobal.length + ' colaboradores en la base maestra';
+}
+
+// ─── SUBIDA DE DOCUMENTOS AL EXPEDIENTE ───────────────────────
+let modalDocsId  = null;
+let modalDocsNom = null;
+
+function abrirModalDocs(id, nombre) {
+    modalDocsId  = id;
+    modalDocsNom = nombre;
+    const label = document.getElementById('modal-docs-empleado');
+    if (label) label.textContent = '#' + id + ' — ' + nombre;
+    const input = document.getElementById('modal-archivos');
+    if (input) input.value = '';
+    const lista = document.getElementById('modal-lista-archivos');
+    if (lista) lista.innerHTML = '';
+    const prog = document.getElementById('modal-progreso');
+    if (prog) prog.classList.add('hidden');
+    document.getElementById('modal-docs').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalDocs() {
+    document.getElementById('modal-docs').classList.add('hidden');
+    document.body.style.overflow = '';
+    modalDocsId = null; modalDocsNom = null;
+}
+
+function manejarDropModal(event) {
+    event.preventDefault();
+    document.getElementById('modal-drop-zone').classList.remove('border-blue-400','bg-blue-50');
+    const trans = new DataTransfer();
+    Array.from(event.dataTransfer.files).forEach(f => trans.items.add(f));
+    document.getElementById('modal-archivos').files = trans.files;
+    actualizarListaModal();
+}
+
+function actualizarListaModal() {
+    const input = document.getElementById('modal-archivos');
+    const lista = document.getElementById('modal-lista-archivos');
+    if (!lista || !input) return;
+    lista.innerHTML = Array.from(input.files).map(f => {
+        const mb = (f.size/1024/1024).toFixed(1), ok = f.size <= 10*1024*1024;
+        const ic = f.type === 'application/pdf' ? 'fa-file-pdf text-red-400' : 'fa-file-image text-blue-400';
+        return '<div class="flex items-center gap-3 bg-slate-50 border ' + (ok?'border-slate-200':'border-red-200') + ' rounded-xl px-3 py-2">'
+            + '<i class="fas ' + ic + ' text-base flex-shrink-0"></i>'
+            + '<div class="flex-1 min-w-0"><p class="text-xs font-medium text-slate-700 truncate">' + f.name + '</p>'
+            + '<p class="text-xs ' + (ok?'text-slate-400':'text-red-400') + '">' + mb + ' MB' + (ok?'':' — supera 10 MB') + '</p></div>'
+            + '<i class="fas ' + (ok?'fa-check-circle text-emerald-400':'fa-times-circle text-red-400') + ' flex-shrink-0"></i></div>';
+    }).join('');
+}
+
+async function subirDocumentosExpediente() {
+    if (!modalDocsId) return;
+    const input = document.getElementById('modal-archivos');
+    if (!input || !input.files.length) {
+        mostrarToast('warning','Sin archivos','Selecciona al menos un archivo.');
+        return;
+    }
+    const archivos = Array.from(input.files);
+    const btn = document.getElementById('btn-subir-docs');
+    const prog = document.getElementById('modal-progreso');
+    const bar  = document.getElementById('modal-progreso-bar');
+    const txt  = document.getElementById('modal-progreso-txt');
+    const pct  = document.getElementById('modal-progreso-pct');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo...';
+    prog.classList.remove('hidden');
+
+    let subidos = 0, errores = 0;
+    for (let i = 0; i < archivos.length; i++) {
+        const file = archivos[i];
+        txt.textContent = 'Subiendo: ' + file.name;
+        const p = Math.round(i / archivos.length * 100);
+        bar.style.width = p + '%'; pct.textContent = p + '%';
+
+        if (file.size > 10*1024*1024) { errores++; continue; }
+
+        try {
+            const b64 = await new Promise((res,rej) => {
+                const r = new FileReader();
+                r.onload = () => res(r.result.split(',')[1]);
+                r.onerror = rej;
+                r.readAsDataURL(file);
+            });
+            const resp = await enviarPeticion('subir_documento', {
+                numeroEmpleado: modalDocsId,
+                nombreArchivo:  file.name,
+                mimeType:       file.type || 'application/octet-stream',
+                data:           b64
+            });
+            if (resp.status === 'success') subidos++;
+            else { errores++; console.warn(file.name, resp.message); }
+        } catch(e) { errores++; }
+    }
+
+    bar.style.width = '100%'; pct.textContent = '100%'; txt.textContent = 'Completado';
+    setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-upload"></i> Subir al expediente';
+        cerrarModalDocs();
+        if (errores === 0) {
+            mostrarToast('success', subidos + ' archivo(s) subidos', 'Guardados en el expediente de ' + modalDocsNom + '.', 6000);
+        } else {
+            mostrarToast('warning', subidos + ' subidos, ' + errores + ' con error', 'Algunos archivos fallaron. Verifica el tamaño.', 6000);
+        }
+    }, 600);
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────
