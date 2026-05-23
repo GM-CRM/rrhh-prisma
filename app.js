@@ -539,41 +539,12 @@ Responde ÚNICAMENTE con este objeto JSON válido, sin texto adicional ni markdo
 
 Reglas: omite las claves que no encuentres o sean ilegibles. NSS solo dígitos, 11 caracteres. CURP en MAYÚSCULAS exactamente 18 caracteres. RFC en MAYÚSCULAS. fechaNacimiento en formato YYYY-MM-DD. genero solo "Hombre" o "Mujer".`;
 
-// Convierte un PDF a imagen PNG usando Canvas para poder enviarlo a Claude Vision
-async function pdfAImagenBase64(pdfBase64) {
-    // Carga pdfjsLib desde CDN si no está disponible
-    if (typeof pdfjsLib === 'undefined') {
-        await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            s.onload = res; s.onerror = rej;
-            document.head.appendChild(s);
-        });
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    const pdfData   = atob(pdfBase64);
-    const pdfBytes  = new Uint8Array(pdfData.length);
-    for (let i = 0; i < pdfData.length; i++) pdfBytes[i] = pdfData.charCodeAt(i);
-
-    const loadingTask = pdfjsLib.getDocument({ data: pdfBytes });
-    const pdf         = await loadingTask.promise;
-
-    // Renderizar la primera página (donde suele estar el NSS/CURP)
-    const page     = await pdf.getPage(1);
-    const scale    = 2.5; // mayor escala = mejor legibilidad para el OCR
-    const viewport = page.getViewport({ scale });
-
-    const canvas  = document.createElement('canvas');
-    canvas.width  = viewport.width;
-    canvas.height = viewport.height;
-
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-
-    // Devolver como PNG base64 (sin el prefijo data:...)
-    return canvas.toDataURL('image/png').split(',')[1];
-}
+// ─── OCR — PROXY VÍA GAS (resuelve CORS) ────────────────────
+// El browser NO puede llamar a api.anthropic.com directamente (bloqueo CORS).
+// Solución: el frontend envía el archivo en Base64 al GAS,
+// que actúa como proxy server-side sin restricciones CORS.
+// Funciona con PDFs nativos, PDFs escaneados e imágenes.
+const OCR_PROMPT = null; // El prompt vive en el GAS (ver analizarDocumentoOCR)
 
 async function ejecutarOCR() {
     const input = document.getElementById('alta_archivos');
@@ -582,124 +553,71 @@ async function ejecutarOCR() {
         return;
     }
 
-    const stEl   = document.getElementById('ocr-status');
-    const stTxt  = document.getElementById('ocr-status-txt');
-    const btn    = document.getElementById('btn-ocr');
+    const stEl  = document.getElementById('ocr-status');
+    const stTxt = document.getElementById('ocr-status-txt');
+    const btn   = document.getElementById('btn-ocr');
+
     stEl.classList.remove('hidden');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando con IA...';
 
-    let acum = {};
+    let acum    = {};
     let errores = [];
 
     for (const file of Array.from(input.files)) {
-        const esPDF   = file.type === 'application/pdf';
+        const esPDF    = file.type === 'application/pdf';
         const esImagen = file.type.startsWith('image/');
         if (!esPDF && !esImagen) continue;
 
-        stTxt.innerText = `Procesando: ${file.name}...`;
+        stTxt.innerText = `Enviando al servidor: ${file.name}...`;
+
+        // Validar tamaño — GAS tiene límite de payload ~30 MB
+        if (file.size > 8 * 1024 * 1024) {
+            errores.push(`${file.name}: el archivo supera 8 MB. Comprime el PDF o reduce la resolución de la imagen.`);
+            continue;
+        }
 
         try {
-            // Leer el archivo como base64
-            const b64raw = await new Promise((res, rej) => {
+            // Convertir a Base64 en el browser
+            const b64 = await new Promise((res, rej) => {
                 const r = new FileReader();
                 r.onload  = () => res(r.result.split(',')[1]);
                 r.onerror = () => rej(new Error('Error leyendo ' + file.name));
                 r.readAsDataURL(file);
             });
 
-            let imagenB64;
-            let mimeType = 'image/png';
+            stTxt.innerText = `Procesando con IA: ${file.name}...`;
 
-            if (esPDF) {
-                // BUG FIX: Convertir PDF a imagen antes de enviar a Claude
-                // La API de Anthropic desde el browser no soporta el tipo 'document'
-                stTxt.innerText = `Convirtiendo PDF a imagen: ${file.name}...`;
-                try {
-                    imagenB64 = await pdfAImagenBase64(b64raw);
-                } catch (pdfErr) {
-                    console.warn('Error convirtiendo PDF:', pdfErr);
-                    errores.push(file.name + ': No se pudo renderizar el PDF. Intenta exportarlo como imagen JPG/PNG.');
-                    continue;
-                }
-            } else {
-                imagenB64 = b64raw;
-                mimeType  = file.type;
-            }
-
-            stTxt.innerText = `Analizando con IA: ${file.name}...`;
-
-            // BUG FIX: Incluir anthropic-version header — sin él la API devuelve 400
-            const resp = await fetch(CLAUDE_URL, {
-                method:  'POST',
-                headers: {
-                    'Content-Type':      'application/json',
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-direct-browser-ipc': 'true'
-                },
-                body: JSON.stringify({
-                    model:      CLAUDE_MOD,
-                    max_tokens: 1024,
-                    messages: [{
-                        role: 'user',
-                        content: [
-                            {
-                                type:   'image',
-                                source: { type: 'base64', media_type: mimeType, data: imagenB64 }
-                            },
-                            {
-                                type: 'text',
-                                text: OCR_PROMPT
-                            }
-                        ]
-                    }]
-                })
+            // Enviar al GAS como proxy — él llama a Anthropic sin CORS
+            const r = await enviarPeticion('ocr_documento', {
+                data:     b64,
+                mimeType: file.type,
+                nombre:   file.name
             });
 
-            const apiJson = await resp.json();
-
-            // Mostrar error de la API si hubo uno
-            if (apiJson.error) {
-                console.error('API error:', apiJson.error);
-                errores.push(`${file.name}: ${apiJson.error.message || apiJson.error.type}`);
+            if (r.status !== 'success') {
+                errores.push(`${file.name}: ${r.message}`);
                 continue;
             }
 
-            const texto = ((apiJson.content || []).find(b => b.type === 'text') || {}).text || '';
-
-            if (!texto) {
-                errores.push(file.name + ': La IA no devolvió respuesta.');
-                continue;
-            }
-
-            // Parsear el JSON que devuelve Claude
-            try {
-                const parsed = JSON.parse(texto.replace(/```json|```/g, '').trim());
-                // Solo acumular campos con valor real
-                Object.entries(parsed).forEach(([k, v]) => {
-                    if (v && v.toString().trim() !== '' && v !== 'YYYY-MM-DD') {
-                        acum[k] = v.toString().trim();
-                    }
-                });
-            } catch (pe) {
-                console.warn('Parse JSON error:', pe, '| Texto recibido:', texto);
-                errores.push(file.name + ': Error al interpretar la respuesta de la IA.');
-            }
+            // Acumular los datos detectados de todos los archivos
+            Object.entries(r.datos || {}).forEach(([k, v]) => {
+                if (v && v.toString().trim()) acum[k] = v.toString().trim();
+            });
 
         } catch (e) {
-            console.error('OCR error en', file.name, ':', e);
-            errores.push(file.name + ': ' + e.message);
+            errores.push(`${file.name}: ${e.message}`);
         }
     }
 
-    // ── Aplicar resultados al formulario ─────────────────────
+    // ── Aplicar resultados al altaData ────────────────────────
     const mapaL = {
-        nombreTrabajador: 'Nombre',      curp: 'CURP',
-        rfc: 'RFC',                       nss: 'NSS',
-        fechaNacimiento: 'Fecha Nac.',    genero: 'Género',
-        nacionalidad: 'Nacionalidad',     lugarNacimiento: 'Lugar Nac.',
-        domicilioCompleto: 'Domicilio',   correoElectronico: 'Correo',
-        telefonoPersonal: 'Teléfono'
+        nombreTrabajador:'Nombre',    curp:'CURP',
+        rfc:'RFC',                    nss:'NSS',
+        fechaNacimiento:'Fecha Nac.', genero:'Género',
+        nacionalidad:'Nacionalidad',  lugarNacimiento:'Lugar Nac.',
+        domicilioCompleto:'Domicilio',correoElectronico:'Correo',
+        telefonoPersonal:'Teléfono'
     };
     const detectados = [];
 
@@ -708,18 +626,24 @@ async function ejecutarOCR() {
         altaData[k] = v;
         detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
             <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
-            <span class="text-xs font-semibold text-slate-600">${mapaL[k] || k}:</span>
-            <span class="text-xs text-slate-700 truncate font-mono">${v}</span>
+            <span class="text-xs font-semibold text-slate-500 w-24 flex-shrink-0">${mapaL[k] || k}:</span>
+            <span class="text-xs text-slate-700 font-mono truncate">${v}</span>
         </div>`);
     });
 
-    // Si detectó CURP, decodificar automáticamente
+    // Si detectó CURP, decodificar para obtener fecha, género, estado
     if (acum.curp && acum.curp.length === 18) {
         const d = decodificarCURP(acum.curp);
-        if (d) aplicarDatosCURP(d);
-    } else if (acum.fechaNacimiento) {
+        if (d) {
+            // Solo aplicar los que la IA no detectó directamente
+            Object.entries(d).forEach(([k, v]) => {
+                if (!acum[k] && v) { altaData[k] = v; }
+            });
+        }
+    }
+    if (altaData.fechaNacimiento) {
         const fn = document.getElementById('alta_fechaNacimiento');
-        if (fn) { fn.value = acum.fechaNacimiento; calcularRangoEdadAuto(); }
+        if (fn) { fn.value = altaData.fechaNacimiento; calcularRangoEdadAuto(); }
     }
 
     // ── Restaurar UI ──────────────────────────────────────────
@@ -733,19 +657,23 @@ async function ejecutarOCR() {
     if (detectados.length) {
         resEl.classList.remove('hidden');
         camposEl.innerHTML = detectados.join('');
-        const msg = errores.length ? ` (${errores.length} archivo(s) con error)` : '';
-        mostrarToast('success', `${detectados.length} campo(s) detectados`, 'Datos aplicados al formulario.' + msg, 6000);
+        const notaErr = errores.length ? ` (${errores.length} archivo(s) con advertencia)` : '';
+        mostrarToast('success', `${detectados.length} campo(s) detectados`, 'Datos aplicados al formulario.' + notaErr, 6000);
     } else if (errores.length) {
-        // Mostrar errores específicos para que Rafael sepa exactamente qué pasó
-        mostrarToast('error', 'No se pudo analizar el documento', errores[0], 8000);
         resEl.classList.remove('hidden');
         camposEl.innerHTML = `<div class="col-span-2 bg-red-50 border border-red-200 rounded-xl p-4">
-            <p class="text-sm font-bold text-red-700 mb-2"><i class="fas fa-circle-xmark mr-2"></i>Errores encontrados:</p>
+            <p class="text-sm font-bold text-red-700 mb-2"><i class="fas fa-circle-xmark mr-2"></i>No se pudieron extraer datos</p>
             ${errores.map(e => `<p class="text-xs text-red-600 mb-1">• ${e}</p>`).join('')}
-            <p class="text-xs text-slate-500 mt-3">Sugerencia: si el PDF no funciona, ábrelo, toma una captura de pantalla y cárgala como imagen JPG o PNG.</p>
+            <div class="mt-3 pt-3 border-t border-red-200 space-y-1">
+              <p class="text-xs font-semibold text-slate-600">¿Qué hacer?</p>
+              <p class="text-xs text-slate-500">• Verifica que la API Key de Anthropic esté configurada en las propiedades del script de GAS</p>
+              <p class="text-xs text-slate-500">• Si el PDF tiene contraseña o está protegido, primero quítale la protección</p>
+              <p class="text-xs text-slate-500">• Puedes capturar manualmente los datos en los pasos siguientes</p>
+            </div>
         </div>`;
+        mostrarToast('warning', 'Sin datos detectados', errores[0], 8000);
     } else {
-        mostrarToast('warning', 'Sin datos detectados', 'La IA no encontró información reconocible. Intenta con una imagen más nítida o captura manualmente.');
+        mostrarToast('warning', 'Sin datos detectados', 'La IA no encontró información reconocible en los documentos.', 6000);
     }
 }
 
