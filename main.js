@@ -247,6 +247,134 @@ function normalizarRegistro(emp){
     return o;
 }
 
+
+// ─── GOOGLE PLACES AUTOCOMPLETE (domicilio) ───────────────────
+// Usa Places API (New) con la misma API key de Vision.
+// Restricción: solo México. Tipos: addresses.
+// La key debe tener Places API habilitada en Google Cloud Console.
+const PLACES_API_KEY = (function(){
+    // Usa la misma key configurada en el GAS — aquí solo para autocomplete del browser
+    // Se configura como variable en index.html o se puede hardcodear si es pública
+    return window.GOOGLE_PLACES_KEY || '';
+})();
+
+function initPlacesInput(inputId, suggestionsId){
+    const input = document.getElementById(inputId);
+    const lista  = document.getElementById(suggestionsId);
+    if(!input || !lista) return;
+
+    let timer = null;
+
+    input.addEventListener('input', function(){
+        const q = input.value.trim();
+        clearTimeout(timer);
+
+        if(q.length < 4){
+            lista.classList.add('hidden');
+            lista.innerHTML = '';
+            return;
+        }
+
+        // Debounce 350ms para no disparar con cada tecla
+        timer = setTimeout(()=> buscarLugaresGoogle(q, lista, input), 350);
+    });
+
+    // Cerrar al hacer click fuera
+    document.addEventListener('click', function(e){
+        if(!lista.contains(e.target) && e.target !== input){
+            lista.classList.add('hidden');
+        }
+    });
+}
+
+async function buscarLugaresGoogle(query, lista, input){
+    const key = PLACES_API_KEY;
+    if(!key){
+        // Sin key: mostrar sugerencias estáticas basadas en lo escrito
+        mostrarSugerenciasEstaticas(query, lista, input);
+        return;
+    }
+
+    try {
+        // Places API (New) — Autocomplete
+        const resp = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': key
+            },
+            body: JSON.stringify({
+                input: query,
+                includedRegionCodes: ['mx'],
+                languageCode: 'es'
+            })
+        });
+
+        const data = await resp.json();
+        const sugerencias = (data.suggestions || []).slice(0, 6);
+
+        if(!sugerencias.length){
+            lista.classList.add('hidden');
+            return;
+        }
+
+        lista.classList.remove('hidden');
+        lista.classList.remove('hidden');
+        lista.innerHTML = sugerencias.map(function(s){
+            var texto = (s.placePrediction&&s.placePrediction.text&&s.placePrediction.text.text)
+                     || (s.placePrediction&&s.placePrediction.structuredFormat&&s.placePrediction.structuredFormat.mainText&&s.placePrediction.structuredFormat.mainText.text)
+                     || '';
+            var secun = (s.placePrediction&&s.placePrediction.structuredFormat&&s.placePrediction.structuredFormat.secondaryText&&s.placePrediction.structuredFormat.secondaryText.text)
+                     || '';
+            var full  = texto + (secun ? ', ' + secun : '');
+            var safe  = full.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+            return '<button type="button" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition" onclick="seleccionarLugar(this)" data-texto="' + safe + '" data-input="alta_domicilioCompleto">'
+                 + '<p class="text-sm font-medium text-slate-800">' + texto + '</p>'
+                 + (secun ? '<p class="text-xs text-slate-400">' + secun + '</p>' : '')
+                 + '</button>';
+        }).join('');
+
+    } catch(e){
+        console.warn('Places API error:', e);
+        mostrarSugerenciasEstaticas(query, lista, input);
+    }
+}
+
+function seleccionarLugar(btn, inputId){
+    var texto    = btn.getAttribute('data-texto') || '';
+    var targetId = inputId || btn.getAttribute('data-input') || 'alta_domicilioCompleto';
+    var input    = document.getElementById(targetId);
+    if(input && texto){
+        input.value = texto;
+        altaData.domicilioCompleto = texto;
+    }
+    var lista = btn.closest('[id^="places-suggestions"]');
+    if(lista) lista.classList.add('hidden');
+}
+
+// Fallback sin API key — sugerencias básicas basadas en texto
+function mostrarSugerenciasEstaticas(query, lista, input){
+    // Extraer colonias/ciudades del cache de empleados actuales
+    const domiciliosPrevios = [...new Set(
+        (cacheGlobal||[])
+            .map(e => (e["DOMICILIO COMPLETO"]||"").trim())
+            .filter(d => d.toLowerCase().includes(query.toLowerCase()) && d.length > 5)
+    )].slice(0,5);
+
+    if(!domiciliosPrevios.length){
+        lista.classList.add('hidden');
+        return;
+    }
+
+    lista.classList.remove('hidden');
+    lista.innerHTML = '<div class="px-4 py-2 text-xs text-slate-400 border-b border-slate-100">Domicilios previos en la BD</div>'
+        + domiciliosPrevios.map(d =>
+            '<button type="button" class="w-full text-left px-4 py-2.5 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition text-sm text-slate-700" '
+            + 'onclick="seleccionarLugar(this)" data-texto="' + d.replace(/"/g,'&quot;').replace(/\'/g,'&#39;') + '" data-input="alta_domicilioCompleto">'
+            + d + '</button>'
+        ).join('');
+}
+
 // ─── STEPPER ONBOARDING — paso 0 ahora es DOCUMENTOS ─────────
 const PASOS=[
     // PASO 0 — Documentos y OCR (PRIMERO)
@@ -282,14 +410,9 @@ const PASOS=[
         {id:"curp",             label:"CURP",                type:"text",    req:true, col:2,placeholder:"18 caracteres",maxlen:18},
         {id:"rfc",              label:"RFC",                 type:"text",    req:true, col:2,placeholder:"13 caracteres",maxlen:13},
         {id:"nss",              label:"NSS",                 type:"text",    req:true, col:2,placeholder:"11 dígitos",   maxlen:11},
-        {id:"fechaNacimiento",  label:"Fecha de Nacimiento", type:"date",    req:false,col:2},
-        {id:"rangoEdad",        label:"Rango de Edad",       type:"select",  req:false,col:2,options:["<31","31-50","51-65",">65"],readonly:true},
-        {id:"genero",           label:"Género",              type:"select",  req:false,col:2,options:["Hombre","Mujer"]},
         {id:"estadoCivil",      label:"Estado Civil",        type:"select",  req:false,col:2,options:["Soltero","Casado","Divorciado","Viudo","Unión Libre"]},
         {id:"escolaridad",      label:"Escolaridad",         type:"text",    req:false,col:2},
-        {id:"lugarNacimiento",  label:"Lugar de Nacimiento", type:"text",    req:false,col:2},
-        {id:"nacionalidad",     label:"Nacionalidad",        type:"text",    req:false,col:2,placeholder:"Ej. Mexicana"},
-        {id:"domicilioCompleto",label:"Domicilio Completo",  type:"textarea",req:false,col:1,placeholder:"Calle, Número, Colonia, CP, Ciudad, Estado"},
+        {id:"domicilioCompleto",label:"Domicilio Completo",  type:"places",  req:false,col:1,placeholder:"Escribe la calle o colonia..."},
     ]},
     // PASO 4 — Contacto
     {id:'paso-contacto',titulo:'Contacto',icono:'fa-phone',color:'cyan',descripcion:'Datos de contacto y emergencias',campos:[
@@ -455,7 +578,15 @@ function renderizarCampo(c){
     const req=c.req?'<span class="text-red-400">*</span>':'';
     const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
     let inp;
-    if(c.type==='datalist'){
+    if(c.type==='places'){
+        // Input con autocompletado de Google Places (Mexico)
+        inp = '<div class="relative md:col-span-2 w-full">'
+            + '<input type="text" id="alta_'+c.id+'" '+(c.req?'required':'')+' placeholder="'+( c.placeholder||'')+'" autocomplete="off" class="'+cls+' pr-10">'
+            + '<div id="places-suggestions-'+c.id+'" class="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto hidden"></div>'
+            + '</div>';
+        // Inicializar Places después de renderizar
+        setTimeout(()=>initPlacesInput('alta_'+c.id,'places-suggestions-'+c.id), 100);
+    } else if(c.type==='datalist'){
         // Input de texto libre con sugerencias de la BD
         // Permite escribir un valor nuevo o seleccionar uno existente
         const listId = c.listId || ('list-'+c.id);
@@ -532,22 +663,27 @@ function decodificarCURP(curp){
 function aplicarDatosCURP(datos){
     Object.entries(datos).forEach(([k,v])=>{
         if(!v)return;
-        altaData[k]=v;
+        altaData[k]=v; // Siempre guardar en altaData aunque no haya campo DOM
         const el=document.getElementById('alta_'+k);
-        if(el)el.value=v;
+        if(el) el.value=v;
     });
-    if(datos.fechaNacimiento){const fn=document.getElementById('alta_fechaNacimiento');if(fn){fn.value=datos.fechaNacimiento;calcularRangoEdadAuto();}}
+    // Calcular rango de edad aunque no haya campos DOM visibles
+    if(datos.fechaNacimiento) calcularRangoEdadAuto();
 }
 
 function calcularRangoEdadAuto(){
-    const fn=document.getElementById('alta_fechaNacimiento');
-    const rn=document.getElementById('alta_rangoEdad');
-    if(!fn||!rn||!fn.value)return;
-    const h=new Date(),nac=new Date(fn.value);if(isNaN(nac))return;
+    // Funciona con o sin campo visible en el DOM
+    const fechaVal = altaData.fechaNacimiento ||
+                     document.getElementById('alta_fechaNacimiento')?.value || '';
+    if(!fechaVal) return;
+    const h=new Date(), nac=new Date(fechaVal);
+    if(isNaN(nac)) return;
     let ed=h.getFullYear()-nac.getFullYear();
     if(h.getMonth()<nac.getMonth()||(h.getMonth()===nac.getMonth()&&h.getDate()<nac.getDate()))ed--;
     const r=ed<31?'<31':ed<=50?'31-50':ed<=65?'51-65':'>65';
-    altaData.rangoEdad=r;rn.value=r;
+    altaData.rangoEdad=r;
+    const rn=document.getElementById('alta_rangoEdad');
+    if(rn) rn.value=r;
 }
 
 // ─── OCR — PROXY VÍA GAS (resuelve CORS) ────────────────────
@@ -629,18 +765,19 @@ async function ejecutarOCR() {
 
     // ── Aplicar resultados al altaData ────────────────────────
     const mapaL = {
-        nombreTrabajador:'Nombre',    curp:'CURP',
-        rfc:'RFC',                    nss:'NSS',
-        fechaNacimiento:'Fecha Nac.', genero:'Género',
-        nacionalidad:'Nacionalidad',  lugarNacimiento:'Lugar Nac.',
-        domicilioCompleto:'Domicilio',correoElectronico:'Correo',
-        telefonoPersonal:'Teléfono'
+        nombreTrabajador:'Nombre',       curp:'CURP',
+        rfc:'RFC',                       nss:'NSS',
+        domicilioCompleto:'Domicilio',   estadoCivil:'Estado Civil',
+        escolaridad:'Escolaridad'
+        // Nota: fechaNacimiento, genero, lugarNacimiento y nacionalidad
+        // los calcula el Sheet con fórmulas desde la CURP — no se capturan del OCR.
+        // Teléfono y correo se capturan manualmente en el formulario.
     };
     const detectados = [];
 
     Object.entries(acum).forEach(([k, v]) => {
         if (!v) return;
-        altaData[k] = v;
+        altaData[k] = v; // Guardar SIEMPRE en altaData, aunque el campo no esté en el DOM
         detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
             <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
             <span class="text-xs font-semibold text-slate-500 w-24 flex-shrink-0">${mapaL[k] || k}:</span>
@@ -702,9 +839,17 @@ function guardarPasoActual(){
     let valido=true;
     paso.campos.forEach(c=>{
         const el=document.getElementById('alta_'+c.id);if(!el)return;
-        const val=el.value.trim();altaData[c.id]=val;
-        if(c.req&&!val){el.classList.add('border-red-400','ring-1','ring-red-300');valido=false;}
-        else el.classList.remove('border-red-400','ring-1','ring-red-300');
+        const val=el.value.trim();
+        // Solo actualizar altaData si el campo tiene valor O si no venía del OCR
+        // Esto evita sobreescribir datos detectados por el OCR con valores vacíos
+        if(val!==''||!altaData[c.id]){
+            altaData[c.id]=val;
+        }
+        if(c.req&&!altaData[c.id]){
+            el.classList.add('border-red-400','ring-1','ring-red-300');valido=false;
+        } else {
+            el.classList.remove('border-red-400','ring-1','ring-red-300');
+        }
     });
     if(!valido)mostrarToast('warning','Campos requeridos','Completa los campos marcados con * para continuar.');
     return valido;
@@ -733,7 +878,7 @@ function renderizarResumen(){
     const secciones=[
         {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
         {titulo:'Contrato',icono:'fa-file-contract',color:'text-indigo-500',filas:[['Tipo de Contrato',altaData.tipoContrato],['Inicio 1er Contrato',altaData.fechaInicioContrato],['Vencimiento 1er Contrato',altaData.vencimientoPrimerContrato]]},
-        {titulo:'Datos Personales',icono:'fa-id-card',color:'text-teal-500',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Fecha Nacimiento',altaData.fechaNacimiento],['Género',altaData.genero],['Rango Edad',altaData.rangoEdad],['Nacionalidad',altaData.nacionalidad],['Lugar Nacimiento',altaData.lugarNacimiento]]},
+        {titulo:'Datos Personales',icono:'fa-id-card',color:'text-teal-500',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Estado Civil',altaData.estadoCivil],['Escolaridad',altaData.escolaridad],['Fecha Nac. (detectada)',altaData.fechaNacimiento],['Género (detectado)',altaData.genero],['Nac. (detectada)',altaData.nacionalidad],['Lugar Nac. (detectado)',altaData.lugarNacimiento]]},
     ];
     el.innerHTML=secciones.map(s=>{
         const filas=s.filas.filter(([,v])=>v);
