@@ -257,8 +257,8 @@ const PASOS=[
         {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
         {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
         {id:"empresa",            label:"Empresa",                type:"select",req:true, col:2,options:empresas},
-        {id:"departamento",       label:"Departamento",           type:"text",  req:true, col:2},
-        {id:"puesto",             label:"Puesto",                 type:"text",  req:true, col:2},
+        {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
+        {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
         {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
         {id:"sueldoMensual",      label:"Sueldo Mensual (MXN)",   type:"number",req:true, col:2,placeholder:"0.00"},
         {id:"frecuenciaPago",     label:"Frecuencia de Pago",     type:"select",req:true, col:2,options:["Quincenal","Semanal","Mensual"]},
@@ -296,14 +296,14 @@ const PASOS=[
         {id:"correoElectronico",  label:"Correo Electrónico",           type:"email",req:false,col:2},
         {id:"telefonoPersonal",   label:"Teléfono Personal",            type:"text", req:false,col:2,placeholder:"10 dígitos"},
         {id:"contactoEmergencia", label:"Nombre — Contacto Emergencia", type:"text", req:false,col:2},
-        {id:"parentesco",         label:"Parentesco",                   type:"text", req:false,col:2},
+        {id:"parentesco",         label:"Parentesco",                   type:"select",req:false,col:2, options:["Esposo(a)","Padre","Madre","Hijo(a)","Hermano(a)","Abuelo(a)","Tío(a)","Primo(a)","Otro"]},
         {id:"telefonoEmergencia", label:"Teléfono Emergencia",          type:"text", req:false,col:2},
     ]},
     // PASO 5 — Beneficiario
     {id:'paso-beneficiario',titulo:'Beneficiario',icono:'fa-heart',color:'rose',descripcion:'Datos del beneficiario IMSS',campos:[
         {id:"nombreBeneficiario",    label:"Nombre del Beneficiario",type:"text",  req:false,col:2},
         {id:"rfcBeneficiario",       label:"RFC del Beneficiario",   type:"text",  req:false,col:2},
-        {id:"parentescoBeneficiario",label:"Parentesco",             type:"text",  req:false,col:2},
+        {id:"parentescoBeneficiario",label:"Parentesco",             type:"select",req:false,col:2, options:["Esposo(a)","Padre","Madre","Hijo(a)","Hermano(a)","Abuelo(a)","Tío(a)","Primo(a)","Otro"]},
         {id:"porcentajeAsignacion",  label:"% de Asignación",        type:"number",req:false,col:2,placeholder:"100"},
     ]},
     // PASO 6 — Resumen y confirmar
@@ -428,6 +428,25 @@ function renderizarPasoActual(){
     if(curpEl)curpEl.addEventListener('input',function(){if(this.value.length===18){const d=decodificarCURP(this.value.toUpperCase());if(d)aplicarDatosCURP(d);}});
 }
 
+// Catálogos dinámicos para datalist — se poblan con datos de la BD
+let catalogoDeptos  = [];
+let catalogoPuestos = [];
+
+function poblarCatalogos(){
+    const deptos  = new Set();
+    const puestos = new Set();
+    (cacheGlobal||[]).filter(e=>(e["ESTATUS"]||"").trim()==="Activo").forEach(e=>{
+        if(e["DEPARTAMENTO"]) deptos.add(e["DEPARTAMENTO"].trim());
+        if(e["PUESTO"])       puestos.add(e["PUESTO"].trim());
+    });
+    catalogoDeptos  = Array.from(deptos).sort();
+    catalogoPuestos = Array.from(puestos).sort();
+    const listD = document.getElementById('list-departamentos');
+    if(listD) listD.innerHTML = catalogoDeptos.map(d=>'<option value="'+d+'">').join('');
+    const listP = document.getElementById('list-puestos');
+    if(listP) listP.innerHTML = catalogoPuestos.map(p=>'<option value="'+p+'">').join('');
+}
+
 function renderizarCampo(c){
     const cls="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-300";
     const span=c.col===1?'md:col-span-2':'';
@@ -436,7 +455,15 @@ function renderizarCampo(c){
     const req=c.req?'<span class="text-red-400">*</span>':'';
     const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
     let inp;
-    if(c.type==='select'){
+    if(c.type==='datalist'){
+        // Input de texto libre con sugerencias de la BD
+        // Permite escribir un valor nuevo o seleccionar uno existente
+        const listId = c.listId || ('list-'+c.id);
+        inp = '<input type="text" id="alta_'+c.id+'" '+(c.req?'required':'')+' '+(c.placeholder?'placeholder="'+c.placeholder+'"':'')+' list="'+listId+'" autocomplete="off" class="'+cls+'">'
+            + '<datalist id="'+listId+'">'
+            + (c.listId==='list-departamentos' ? catalogoDeptos : catalogoPuestos).map(function(o){return '<option value="'+o+'">';}).join('')
+            + '</datalist>';
+    } else if(c.type==='select'){
         inp=`<select id="alta_${c.id}" ${c.req?'required':''} ${c.readonly?'title="Calculado automáticamente"':''} class="${cls} ${c.readonly?'bg-slate-50 cursor-default':'cursor-pointer'}"><option value="">Seleccione...</option>${(c.options||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
     }else if(c.type==='textarea'){
         inp=`<textarea id="alta_${c.id}" rows="2" ${ph} class="${cls} resize-none"></textarea>`;
@@ -463,6 +490,8 @@ function actualizarListaArchivos(){
     const lista=document.getElementById('lista-archivos');
     if(!lista||!input)return;
     const archivos=Array.from(input.files);
+    // Guardar referencia a los archivos en altaData para cuando se confirme el alta
+    altaData._archivos = input.files;
     if(!archivos.length){lista.innerHTML='';return;}
     lista.innerHTML=archivos.map(f=>{
         const mb=(f.size/1024/1024).toFixed(1),ok=f.size<=10*1024*1024;
@@ -719,13 +748,25 @@ async function enviarAlta(){
     const falt=reqs.filter(id=>!altaData[id]);
     if(falt.length){mostrarToast('error','Faltan datos requeridos','Revisa los pasos anteriores: '+falt.join(', '));return;}
     mostrarLoader("Creando expediente...");
-    const inp=document.getElementById('alta_archivos');const docs=[];
-    if(inp&&inp.files.length){
-        for(const file of inp.files){
-            if(file.size>10*1024*1024){ocultarLoader();mostrarToast('error','Archivo demasiado grande',`"${file.name}" supera 10 MB.`);return;}
-            const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
-            docs.push({nombreArchivo:file.name,mimeType:file.type||'application/octet-stream',data:b64});
+    const docs=[];
+    // Los archivos se guardaron en altaData._archivos cuando se seleccionaron en el paso 0
+    // El elemento alta_archivos ya no existe en el DOM al llegar al paso final
+    const archivosGuardados = altaData._archivos || 
+                              document.getElementById('alta_archivos')?.files || 
+                              [];
+    for(const file of Array.from(archivosGuardados)){
+        if(file.size>10*1024*1024){
+            ocultarLoader();
+            mostrarToast('error','Archivo demasiado grande',`"${file.name}" supera 10 MB.`);
+            return;
         }
+        const b64=await new Promise((res,rej)=>{
+            const r=new FileReader();
+            r.onload=()=>res(r.result.split(',')[1]);
+            r.onerror=rej;
+            r.readAsDataURL(file);
+        });
+        docs.push({nombreArchivo:file.name,mimeType:file.type||'application/octet-stream',data:b64});
     }
     try{
         const r=await enviarPeticion("alta",{...altaData,documentos:docs});
@@ -1027,6 +1068,7 @@ async function forzarActualizacion(){
     cacheGlobal=[];
     datosFiltrados=[];
     const datos=await obtenerDatos(true);
+    poblarCatalogos(); // actualizar catálogos de departamentos y puestos
     evaluarAlertas(datos);
     cargarDashboard();
     if(document.getElementById('module-basedatos')?.classList.contains('active')){
@@ -1473,6 +1515,7 @@ async function initApp(){
     actualizarBadgeNotifs();
     renderizarStepper();
     const datos=await cargarDashboard();
+    poblarCatalogos();
     if(cacheGlobal.length)evaluarAlertas(cacheGlobal);
     initAutocomplete();
     // Cerrar panel de notificaciones al hacer click fuera
