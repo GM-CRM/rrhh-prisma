@@ -1,0 +1,15 @@
+{
+  "name": "Grupo Multimedia — Sistema RH",
+  "short_name": "GM Recursos Humanos",
+  "description": "Sistema de Gestión de Recursos Humanos — Grupo Multimedia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "any",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "es-MX"
+}

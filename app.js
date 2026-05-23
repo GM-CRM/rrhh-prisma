@@ -16,7 +16,7 @@ function showModule(id){
     const t=document.getElementById('module-'+id);if(!t)return;
     t.style.display='block';
     requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('active')));
-    document.getElementById('header-title').innerText={dashboard:'Dashboard Directivo',alta:'Onboarding — Alta',baja:'Offboarding',basedatos:'Directorio Maestro'}[id]||id;
+    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes'}[id]||id;
     if(window.innerWidth<768)toggleMenu();
 }
 function mostrarLoader(t){document.getElementById('loader-text').innerText=t||'Procesando...';document.getElementById('global-loader').style.display='flex';}
@@ -567,12 +567,22 @@ async function ejecutarOCR() {
 
             stTxt.innerText = `Procesando con IA: ${file.name}...`;
 
-            // Enviar al GAS como proxy — él llama a Google Vision API sin CORS
-            const r = await enviarPeticion('ocr_documento', {
+            // Intentar primero con Gemini (IA gratuita, más inteligente)
+            // Fallback automático a Vision API + regex si Gemini falla
+            let r = await enviarPeticion('gemini_ocr', {
                 data:     b64,
                 mimeType: file.type,
                 nombre:   file.name
             });
+            // Si Gemini falla, usar Vision API clásica
+            if (r.status !== 'success') {
+                console.warn('Gemini falló, usando Vision API:', r.message);
+                r = await enviarPeticion('ocr_documento', {
+                    data:     b64,
+                    mimeType: file.type,
+                    nombre:   file.name
+                });
+            }
 
             if (r.status !== 'success') {
                 errores.push(`${file.name}: ${r.message}`);
@@ -637,6 +647,7 @@ async function ejecutarOCR() {
         resEl.classList.remove('hidden');
         camposEl.innerHTML = detectados.join('');
         const notaErr = errores.length ? ` (${errores.length} archivo(s) con advertencia)` : '';
+        const motorUsado = Object.values(acum).length && acum._motor ? ` (via ${acum._motor})` : '';
         mostrarToast('success', `${detectados.length} campo(s) detectados`, 'Datos aplicados al formulario.' + notaErr, 6000);
     } else if (errores.length) {
         resEl.classList.remove('hidden');
@@ -1297,5 +1308,30 @@ async function initApp(){
         if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target))panel.classList.add('hidden');
     });
 }
+// ─── PWA INSTALL ─────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // Mostrar banner de instalación después de 3 segundos
+    setTimeout(() => {
+        const banner = document.getElementById('pwa-banner');
+        if (banner && deferredPrompt) banner.classList.remove('hidden');
+    }, 3000);
+});
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    const banner = document.getElementById('pwa-banner');
+    if (banner) banner.classList.add('hidden');
+    mostrarToast('success', '¡App instalada!', 'GM Recursos Humanos se ha instalado en tu dispositivo.', 5000);
+});
+async function instalarPWA() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('pwa-banner').classList.add('hidden');
+}
+
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initApp);
 else initApp();
