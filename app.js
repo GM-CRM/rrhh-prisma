@@ -7,8 +7,6 @@
 //    - Alertas automáticas: vencimientos y entrevistas pendientes
 // ============================================================
 const API_URL    = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
-const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MOD = "claude-sonnet-4-20250514";
 
 // ─── UI BÁSICA ───────────────────────────────────────────────
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}
@@ -523,28 +521,9 @@ function calcularRangoEdadAuto(){
     altaData.rangoEdad=r;rn.value=r;
 }
 
-// ─── OCR CON CLAUDE VISION ────────────────────────────────────
-const OCR_PROMPT = `Eres un asistente de recursos humanos mexicano especializado en leer documentos oficiales. Analiza esta imagen del documento y extrae todos los datos que puedas leer con certeza.
-
-Documentos que puedes recibir: Credencial INE/IFE, CURP impresa, Constancia de situación fiscal (SAT), Hoja de datos del IMSS / Constancia del NSS, Pasaporte mexicano, Acta de nacimiento, Comprobante de domicilio, Contrato laboral.
-
-Para la CONSTANCIA DEL IMSS o HOJA DEL NSS: el Número de Seguro Social (NSS) son 11 dígitos que aparecen en grande en el documento. Extráelo en el campo "nss".
-
-Para la CURP: son exactamente 18 caracteres alfanuméricos en mayúsculas.
-
-Para el RFC: entre 12 y 13 caracteres alfanuméricos en mayúsculas.
-
-Responde ÚNICAMENTE con este objeto JSON válido, sin texto adicional ni markdown:
-{"nombreTrabajador":"","curp":"","rfc":"","nss":"","fechaNacimiento":"YYYY-MM-DD","genero":"Hombre o Mujer","nacionalidad":"","lugarNacimiento":"","domicilioCompleto":"","correoElectronico":"","telefonoPersonal":""}
-
-Reglas: omite las claves que no encuentres o sean ilegibles. NSS solo dígitos, 11 caracteres. CURP en MAYÚSCULAS exactamente 18 caracteres. RFC en MAYÚSCULAS. fechaNacimiento en formato YYYY-MM-DD. genero solo "Hombre" o "Mujer".`;
-
 // ─── OCR — PROXY VÍA GAS (resuelve CORS) ────────────────────
-// El browser NO puede llamar a api.anthropic.com directamente (bloqueo CORS).
-// Solución: el frontend envía el archivo en Base64 al GAS,
-// que actúa como proxy server-side sin restricciones CORS.
-// Funciona con PDFs nativos, PDFs escaneados e imágenes.
-const OCR_PROMPT = null; // El prompt vive en el GAS (ver analizarDocumentoOCR)
+// El frontend envía el archivo en Base64 al GAS.
+// El GAS llama a Google Vision / Drive sin restricciones CORS.
 
 async function ejecutarOCR() {
     const input = document.getElementById('alta_archivos');
