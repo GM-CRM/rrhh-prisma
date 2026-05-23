@@ -660,6 +660,21 @@ function decodificarCURP(curp){
     }catch(e){return null;}
 }
 
+
+// ─── NORMALIZAR NOMBRE A TITLE CASE ──────────────────────────
+// Convierte "ERRAZÚ HERNÁNDEZ HÉCTOR RAFAEL" → "Errazú Hernández Héctor Rafael"
+// Maneja acentos, ñ y partículas como "de", "del", "la", "los"
+function toTitleCase(nombre) {
+    if (!nombre) return '';
+    var particulas = new Set(['de','del','la','las','los','y','e','i']);
+    return nombre.toLowerCase().split(' ').map(function(palabra, idx) {
+        if (!palabra) return '';
+        // Las partículas van en minúsculas excepto si son la primera palabra
+        if (idx > 0 && particulas.has(palabra)) return palabra;
+        // Primera letra mayúscula, resto minúsculas
+        return palabra.charAt(0).toUpperCase() + palabra.slice(1);
+    }).join(' ');
+}
 function aplicarDatosCURP(datos){
     Object.entries(datos).forEach(([k,v])=>{
         if(!v)return;
@@ -785,6 +800,8 @@ async function ejecutarOCR() {
 
     Object.entries(acum).forEach(([k, v]) => {
         if (!v || CAMPOS_EXCLUIDOS.has(k)) return; // Filtrar campos no permitidos
+        // Normalizar nombre a Title Case
+        if (k === 'nombreTrabajador') v = toTitleCase(v.toString());
         altaData[k] = v;
         detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
             <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
