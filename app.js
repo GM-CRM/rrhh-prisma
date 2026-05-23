@@ -1,11 +1,16 @@
 // ============================================================
-//  GRUPO MULTIMEDIA — Sistema RH | Frontend v5.0
+//  GRUPO MULTIMEDIA — Sistema RH | Frontend v6.0
+//  Novedades:
+//    - Paso 1 del stepper ahora es DOCUMENTOS (OCR primero)
+//    - Sistema de notificaciones internas (toast + centro)
+//    - Módulo de edición/renovación de contratos (drawer)
+//    - Alertas automáticas: vencimientos y entrevistas pendientes
 // ============================================================
 const API_URL    = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
 const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
 const CLAUDE_MOD = "claude-sonnet-4-20250514";
 
-// ─── UI ──────────────────────────────────────────────────────
+// ─── UI BÁSICA ───────────────────────────────────────────────
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}
 function activarNav(btn){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('is-active'));btn.classList.add('is-active');}
 function showModule(id){
@@ -19,73 +24,249 @@ function showModule(id){
 function mostrarLoader(t){document.getElementById('loader-text').innerText=t||'Procesando...';document.getElementById('global-loader').style.display='flex';}
 function ocultarLoader(){document.getElementById('global-loader').style.display='none';}
 
+// ─── SISTEMA DE NOTIFICACIONES INTERNAS ──────────────────────
+// Toast flotante (aparece abajo derecha, desaparece solo)
+// Centro de notificaciones (campana en header, lista persistente)
+let notificaciones = JSON.parse(localStorage.getItem('gm_notifs') || '[]');
+
+function guardarNotifs(){localStorage.setItem('gm_notifs', JSON.stringify(notificaciones.slice(0,50)));}
+
+function mostrarToast(tipo, titulo, mensaje, duracion=5000){
+    const contenedor = document.getElementById('toast-container');
+    if(!contenedor) return;
+    const id = 'toast-' + Date.now();
+    const colores = {
+        success: 'border-l-emerald-500 bg-white',
+        warning: 'border-l-amber-400  bg-white',
+        error:   'border-l-red-500    bg-white',
+        info:    'border-l-blue-500   bg-white',
+        contrato:'border-l-orange-400 bg-white'
+    };
+    const iconos = {
+        success:'fa-check-circle text-emerald-500',
+        warning:'fa-triangle-exclamation text-amber-400',
+        error:  'fa-circle-xmark text-red-500',
+        info:   'fa-circle-info text-blue-500',
+        contrato:'fa-file-contract text-orange-400'
+    };
+    const html = `
+    <div id="${id}" class="flex items-start gap-3 w-80 bg-white border border-slate-200 border-l-4 ${colores[tipo]||colores.info} rounded-xl shadow-xl p-4 transform translate-x-full transition-all duration-300 ease-out">
+      <i class="fas ${iconos[tipo]||iconos.info} text-lg flex-shrink-0 mt-0.5"></i>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-bold text-slate-800">${titulo}</p>
+        <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">${mensaje}</p>
+      </div>
+      <button onclick="cerrarToast('${id}')" class="text-slate-300 hover:text-slate-500 transition flex-shrink-0 ml-1">
+        <i class="fas fa-times text-xs"></i>
+      </button>
+    </div>`;
+    contenedor.insertAdjacentHTML('beforeend', html);
+    const el = document.getElementById(id);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('translate-x-full')));
+    if(duracion > 0) setTimeout(()=>cerrarToast(id), duracion);
+}
+
+function cerrarToast(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.add('translate-x-full','opacity-0');
+    setTimeout(()=>el.remove(), 350);
+}
+
+function agregarNotificacion(tipo, titulo, mensaje, empleadoId=''){
+    const notif = {id: Date.now(), tipo, titulo, mensaje, empleadoId, leida: false, fecha: new Date().toISOString()};
+    notificaciones.unshift(notif);
+    guardarNotifs();
+    actualizarBadgeNotifs();
+    mostrarToast(tipo, titulo, mensaje);
+}
+
+function actualizarBadgeNotifs(){
+    const noLeidas = notificaciones.filter(n=>!n.leida).length;
+    const badge = document.getElementById('notif-badge');
+    if(!badge) return;
+    if(noLeidas > 0){
+        badge.textContent = noLeidas > 9 ? '9+' : noLeidas;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function toggleCentroNotifs(){
+    const panel = document.getElementById('notif-panel');
+    if(!panel) return;
+    panel.classList.toggle('hidden');
+    if(!panel.classList.contains('hidden')) renderizarNotificaciones();
+}
+
+function renderizarNotificaciones(){
+    const lista = document.getElementById('notif-lista');
+    if(!lista) return;
+    // Marcar todas como leídas al abrir
+    notificaciones.forEach(n=>n.leida=true);
+    guardarNotifs();
+    actualizarBadgeNotifs();
+
+    if(!notificaciones.length){
+        lista.innerHTML='<div class="text-center py-10"><i class="fas fa-bell-slash text-slate-300 text-3xl mb-3"></i><p class="text-sm text-slate-400">Sin notificaciones</p></div>';
+        return;
+    }
+    const iconos={success:'fa-check-circle text-emerald-500',warning:'fa-triangle-exclamation text-amber-400',error:'fa-circle-xmark text-red-500',info:'fa-circle-info text-blue-500',contrato:'fa-file-contract text-orange-400'};
+    lista.innerHTML = notificaciones.map(n=>{
+        const hace = tiempoRelativo(n.fecha);
+        const ic   = iconos[n.tipo]||iconos.info;
+        const emp  = n.empleadoId ? `<button onclick="abrirEditor('${n.empleadoId}');toggleCentroNotifs()" class="text-xs text-blue-600 hover:underline mt-1">Ver empleado →</button>` : '';
+        return `<div class="flex items-start gap-3 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition">
+          <i class="fas ${ic} text-base flex-shrink-0 mt-0.5"></i>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-800">${n.titulo}</p>
+            <p class="text-xs text-slate-500 mt-0.5">${n.mensaje}</p>
+            ${emp}
+            <p class="text-xs text-slate-300 mt-1">${hace}</p>
+          </div>
+        </div>`;
+    }).join('');
+}
+
+function tiempoRelativo(iso){
+    const diff = (Date.now() - new Date(iso)) / 1000;
+    if(diff < 60) return 'Hace un momento';
+    if(diff < 3600) return `Hace ${Math.floor(diff/60)} min`;
+    if(diff < 86400) return `Hace ${Math.floor(diff/3600)} h`;
+    return new Date(iso).toLocaleDateString('es-MX');
+}
+
+function limpiarNotificaciones(){
+    notificaciones=[];guardarNotifs();actualizarBadgeNotifs();
+    renderizarNotificaciones();
+}
+
+// ─── ALERTAS AUTOMÁTICAS POR VENCIMIENTOS ────────────────────
+// Se ejecuta cada vez que se carga la BD. Evalúa:
+//   1. Contratos que vencen en los próximos 30 días
+//   2. Contratos vencidos (sin renovar)
+//   3. Entrevistas de 15/45 días pendientes o no realizadas a tiempo
+const DIAS_ALERTA_CONTRATO    = 30;
+const DIAS_ALERTA_ENTREVISTA  = 3;  // avisar X días antes de que se cumpla el plazo
+const CLAVE_ALERTAS           = 'gm_alertas_vistas';
+
+function evaluarAlertas(datos){
+    const hoy        = new Date();
+    hoy.setHours(0,0,0,0);
+    const alertasVistas = JSON.parse(localStorage.getItem(CLAVE_ALERTAS)||'{}');
+    let nuevas = 0;
+
+    datos.filter(e=>(e["ESTATUS"]||"").trim()==="Activo").forEach(emp=>{
+        const id  = (emp["NO. EMPLEADO"]||"").toString();
+        const nom = emp["NOMBRE DEL TRABAJADOR"] || ("Empleado #"+id);
+
+        // ── Vencimientos de contrato ──────────────────────────
+        [
+            {label:'1er',ini:'FECHA DE INICIO DEL PRIMER CONTRATO',  ven:'FECHA DE VENCIMIENTO DEL PRIMER CONTRATO'},
+            {label:'2do',ini:'FECHA DE INICIO DEL SEGUNDO CONTRATO', ven:'FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO'},
+            {label:'3er',ini:'FECHA DE INICIO DEL TERCER CONTRATO',  ven:'FECHA DE VENCIMIENTO DEL TERCER CONTRATO'},
+        ].forEach(({label, ven})=>{
+            const fv = parseFechaFlexible(emp[ven]);
+            if(!fv) return;
+            const dias = Math.round((fv - hoy) / 86400000);
+            const clave = `cont_${id}_${label}`;
+            if(alertasVistas[clave] === fv.toISOString().slice(0,10)) return;
+
+            if(dias < 0){
+                agregarNotificacion('error', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id);
+                alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
+            } else if(dias <= DIAS_ALERTA_CONTRATO){
+                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fv.toLocaleDateString('es-MX')}). Gestiona la renovación.`, id);
+                alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
+            }
+        });
+
+        // ── Entrevistas de 15 días ────────────────────────────
+        const ent15 = (emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"").trim();
+        const fIng  = parseFechaFlexible(emp["FECHA DE INGRESO"]);
+        if(fIng && (ent15 === "" || ent15 === "Pendiente")){
+            const diasIngreso = Math.round((hoy - fIng) / 86400000);
+            const clave15 = `ent15_${id}`;
+            if(diasIngreso >= 13 && diasIngreso <= 20 && !alertasVistas[clave15]){
+                agregarNotificacion('warning', `Entrevista 15 días — ${nom}`, `Lleva ${diasIngreso} días en la empresa. Debe realizarse la entrevista de ajuste de 15 días.`, id);
+                alertasVistas[clave15] = '1'; nuevas++;
+            }
+        }
+
+        // ── Entrevistas de 45 días ────────────────────────────
+        const ent45 = (emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"").trim();
+        if(fIng && (ent45 === "" || ent45 === "Pendiente")){
+            const diasIngreso = Math.round((hoy - fIng) / 86400000);
+            const clave45 = `ent45_${id}`;
+            if(diasIngreso >= 43 && diasIngreso <= 55 && !alertasVistas[clave45]){
+                agregarNotificacion('warning', `Entrevista 45 días — ${nom}`, `Lleva ${diasIngreso} días. Debe aplicarse la evaluación de desempeño de 45 días.`, id);
+                alertasVistas[clave45] = '1'; nuevas++;
+            }
+        }
+    });
+
+    localStorage.setItem(CLAVE_ALERTAS, JSON.stringify(alertasVistas));
+    if(nuevas > 0) mostrarToast('info','Alertas generadas',`Se encontraron ${nuevas} alertas pendientes de atención.`,6000);
+}
+
 // ─── CATÁLOGOS ───────────────────────────────────────────────
 const empresas=["Newspot Mexico","Centro De Telecomunicaciones Y Publicidad De Mexico","Global Media","Editora Mexicana","Cable Master","Fember Press","Infomonitor","Rtv Comunicacion","Radio Expresion Cultural"];
 
-// ─── PARSERS ROBUSTOS PARA IMPORTACIÓN ───────────────────────
-// Convierte cualquier formato de fecha a YYYY-MM-DD para el Sheet.
-function parsearFecha(val) {
-    if (!val) return "";
-    var s = val.toString().trim();
-    // Ya en formato correcto
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // DD/MM/YYYY o DD-MM-YYYY
-    var m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if (m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
-    // MM/DD/YYYY (formato US)
-    var m2 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
-    if (m2) {
-        var yr = m2[3].length===2 ? '20'+m2[3] : m2[3];
-        return yr+'-'+m2[1].padStart(2,'0')+'-'+m2[2].padStart(2,'0');
-    }
-    // Número serial de Excel (días desde 1900-01-01)
-    var n = parseFloat(s);
-    if (!isNaN(n) && n > 10000 && n < 100000) {
-        var d = new Date((n - 25569) * 86400 * 1000);
-        if (!isNaN(d)) return d.toISOString().slice(0,10);
-    }
-    // Intentar parse nativo
-    var d2 = new Date(s);
-    if (!isNaN(d2)) return d2.toISOString().slice(0,10);
-    return s; // devolver tal cual si no se pudo parsear
+// ─── PARSERS ─────────────────────────────────────────────────
+function parsearFecha(val){
+    if(!val)return"";var s=val.toString().trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+    var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    var n=parseFloat(s);
+    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d.toISOString().slice(0,10);}
+    var d2=new Date(s);return isNaN(d2)?"":d2.toISOString().slice(0,10);
+}
+function parsearMonto(val){
+    if(!val&&val!==0)return"";
+    var s=val.toString().replace(/[$\s,]/g,"");var n=parseFloat(s);return isNaN(n)?"":n;
+}
+function parseFechaFlexible(val){
+    if(!val)return null;var s=val.toString().trim();if(!s||s==="0")return null;
+    var n=parseFloat(s);
+    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d;}
+    var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+    var m2=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(m2)return new Date(parseInt(m2[1]),parseInt(m2[2])-1,parseInt(m2[3]));
+    var d=new Date(s);return isNaN(d)?null:d;
+}
+function parsearMontoSheet(val){
+    if(!val&&val!==0)return 0;var s=val.toString().replace(/[$\s,]/g,"");var n=parseFloat(s);return isNaN(n)?0:n;
+}
+const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA EVALUACIÓN 360"];
+const CAMPOS_MONTO=["SUELDO MENSUAL","MONTO DE FINIQUITO"];
+function normalizarRegistro(emp){
+    var o=Object.assign({},emp);
+    CAMPOS_FECHA.forEach(k=>{if(o[k]!==undefined)o[k]=parsearFecha(o[k]);});
+    CAMPOS_MONTO.forEach(k=>{if(o[k]!==undefined)o[k]=parsearMonto(o[k]);});
+    return o;
 }
 
-// Convierte cualquier formato de monto a número limpio.
-function parsearMonto(val) {
-    if (!val && val !== 0) return "";
-    var s = val.toString().replace(/[$\s,]/g,"").replace(/\.(?=.*\.)/g,""); // quitar $ y separadores de miles
-    var n = parseFloat(s);
-    return isNaN(n) ? "" : n;
-}
-
-// Normaliza un registro completo antes de enviarlo al GAS.
-// Aplica parsearFecha en campos de fecha, parsearMonto en campos de dinero.
-const CAMPOS_FECHA = ["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO",
-    "FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO",
-    "INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA EVALUACIÓN 360"];
-const CAMPOS_MONTO = ["SUELDO MENSUAL","MONTO DE FINIQUITO"];
-
-function normalizarRegistro(emp) {
-    var out = Object.assign({}, emp);
-    CAMPOS_FECHA.forEach(function(k){ if(out[k]!==undefined) out[k]=parsearFecha(out[k]); });
-    CAMPOS_MONTO.forEach(function(k){ if(out[k]!==undefined) out[k]=parsearMonto(out[k]); });
-    return out;
-}
-
-// ─── STEPPER ONBOARDING ──────────────────────────────────────
+// ─── STEPPER ONBOARDING — paso 0 ahora es DOCUMENTOS ─────────
 const PASOS=[
+    // PASO 0 — Documentos y OCR (PRIMERO)
+    {id:'paso-documentos',titulo:'Documentos',icono:'fa-wand-magic-sparkles',color:'amber',descripcion:'Carga documentos para pre-rellenar el formulario automáticamente',campos:[]},
+    // PASO 1 — Datos laborales
     {id:'paso-empleo',titulo:'Datos Laborales',icono:'fa-briefcase',color:'blue',descripcion:'Información del puesto y contratación',campos:[
-        {id:"numeroEmpleado",     label:"No. de Empleado",       type:"number", req:true,  col:2, autonum:true},
-        {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",   req:true,  col:2},
-        {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",   req:true,  col:2, placeholder:"Apellido Paterno Materno Nombre(s)"},
-        {id:"empresa",            label:"Empresa",                type:"select", req:true,  col:2, options:empresas},
-        {id:"departamento",       label:"Departamento",           type:"text",   req:true,  col:2},
-        {id:"puesto",             label:"Puesto",                 type:"text",   req:true,  col:2},
-        {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select", req:true,  col:2, options:["Administrativo","Operativo"]},
-        {id:"sueldoMensual",      label:"Sueldo Mensual (MXN)",   type:"number", req:true,  col:2, placeholder:"0.00"},
-        {id:"frecuenciaPago",     label:"Frecuencia de Pago",     type:"select", req:true,  col:2, options:["Quincenal","Semanal","Mensual"]},
-        {id:"fuenteContratacion", label:"Fuente de Contratación", type:"text",   req:false, col:2, placeholder:"Ej. Referido, OCC, LinkedIn..."},
+        {id:"numeroEmpleado",     label:"No. de Empleado",       type:"number",req:true, col:2,autonum:true},
+        {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
+        {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
+        {id:"empresa",            label:"Empresa",                type:"select",req:true, col:2,options:empresas},
+        {id:"departamento",       label:"Departamento",           type:"text",  req:true, col:2},
+        {id:"puesto",             label:"Puesto",                 type:"text",  req:true, col:2},
+        {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
+        {id:"sueldoMensual",      label:"Sueldo Mensual (MXN)",   type:"number",req:true, col:2,placeholder:"0.00"},
+        {id:"frecuenciaPago",     label:"Frecuencia de Pago",     type:"select",req:true, col:2,options:["Quincenal","Semanal","Mensual"]},
+        {id:"fuenteContratacion", label:"Fuente de Contratación", type:"text",  req:false,col:2,placeholder:"Ej. Referido, OCC, LinkedIn..."},
     ]},
+    // PASO 2 — Contrato
     {id:'paso-contrato',titulo:'Contrato',icono:'fa-file-contract',color:'indigo',descripcion:'Tipo, vigencias y seguimiento de contratos',campos:[
         {id:"tipoContrato",              label:"Tipo de Contrato",            type:"select",req:true, col:2,options:["Tiempo Indeterminado","Prueba","Temporal"]},
         {id:"fechaInicioContrato",       label:"Inicio 1er Contrato",         type:"date",  req:false,col:2},
@@ -98,6 +279,7 @@ const PASOS=[
         {id:"vencTercerContrato",        label:"Vencimiento 3er Contrato",    type:"date",  req:false,col:2},
         {id:"fechaEval360",              label:"Fecha Evaluación 360°",       type:"date",  req:false,col:2},
     ]},
+    // PASO 3 — Datos personales
     {id:'paso-personal',titulo:'Datos Personales',icono:'fa-id-card',color:'teal',descripcion:'Información personal y documentos legales',campos:[
         {id:"curp",             label:"CURP",                type:"text",    req:true, col:2,placeholder:"18 caracteres",maxlen:18},
         {id:"rfc",              label:"RFC",                 type:"text",    req:true, col:2,placeholder:"13 caracteres",maxlen:13},
@@ -111,308 +293,307 @@ const PASOS=[
         {id:"nacionalidad",     label:"Nacionalidad",        type:"text",    req:false,col:2,placeholder:"Ej. Mexicana"},
         {id:"domicilioCompleto",label:"Domicilio Completo",  type:"textarea",req:false,col:1,placeholder:"Calle, Número, Colonia, CP, Ciudad, Estado"},
     ]},
+    // PASO 4 — Contacto
     {id:'paso-contacto',titulo:'Contacto',icono:'fa-phone',color:'cyan',descripcion:'Datos de contacto y emergencias',campos:[
-        {id:"correoElectronico",  label:"Correo Electrónico",            type:"email",req:false,col:2},
-        {id:"telefonoPersonal",   label:"Teléfono Personal",             type:"text", req:false,col:2,placeholder:"10 dígitos"},
-        {id:"contactoEmergencia", label:"Nombre — Contacto Emergencia",  type:"text", req:false,col:2},
-        {id:"parentesco",         label:"Parentesco",                    type:"text", req:false,col:2},
-        {id:"telefonoEmergencia", label:"Teléfono Emergencia",           type:"text", req:false,col:2},
+        {id:"correoElectronico",  label:"Correo Electrónico",           type:"email",req:false,col:2},
+        {id:"telefonoPersonal",   label:"Teléfono Personal",            type:"text", req:false,col:2,placeholder:"10 dígitos"},
+        {id:"contactoEmergencia", label:"Nombre — Contacto Emergencia", type:"text", req:false,col:2},
+        {id:"parentesco",         label:"Parentesco",                   type:"text", req:false,col:2},
+        {id:"telefonoEmergencia", label:"Teléfono Emergencia",          type:"text", req:false,col:2},
     ]},
+    // PASO 5 — Beneficiario
     {id:'paso-beneficiario',titulo:'Beneficiario',icono:'fa-heart',color:'rose',descripcion:'Datos del beneficiario IMSS',campos:[
         {id:"nombreBeneficiario",    label:"Nombre del Beneficiario",type:"text",  req:false,col:2},
         {id:"rfcBeneficiario",       label:"RFC del Beneficiario",   type:"text",  req:false,col:2},
         {id:"parentescoBeneficiario",label:"Parentesco",             type:"text",  req:false,col:2},
         {id:"porcentajeAsignacion",  label:"% de Asignación",        type:"number",req:false,col:2,placeholder:"100"},
     ]},
-    {id:'paso-documentos',titulo:'Documentos',icono:'fa-folder-open',color:'amber',descripcion:'Expediente digital y análisis IA',campos:[]}
+    // PASO 6 — Resumen y confirmar
+    {id:'paso-resumen',titulo:'Confirmar',icono:'fa-clipboard-check',color:'green',descripcion:'Revisa y confirma el alta',campos:[]}
 ];
 
 let pasoActual=0, altaData={};
 
 // ─── STEPPER RENDER ───────────────────────────────────────────
 function renderizarStepper(){
-    var barra=document.getElementById('stepper-barra');
-    barra.innerHTML=PASOS.map(function(p,i){
-        var hecho=i<pasoActual,activo=i===pasoActual;
-        var dot=hecho?'bg-emerald-500 text-white':activo?'bg-blue-600 text-white ring-2 ring-blue-500 ring-offset-2':'bg-slate-100 text-slate-400';
-        var ic=hecho?'fa-check':p.icono;
-        var tc=hecho?'text-emerald-600':activo?'text-blue-600':'text-slate-400';
-        var linea=i<PASOS.length-1?'<div class="flex-1 h-0.5 mx-2 rounded '+(hecho?'bg-emerald-400':'bg-slate-200')+'"></div>':'';
-        return '<div class="flex items-center flex-1 min-w-0"><button onclick="irAPaso('+i+')" class="flex flex-col items-center gap-1 flex-shrink-0" title="'+p.titulo+'"><div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all '+dot+'"><i class="fas '+ic+' text-xs"></i></div><span class="text-xs font-medium hidden md:block whitespace-nowrap '+tc+'">'+p.titulo+'</span></button>'+linea+'</div>';
+    const barra=document.getElementById('stepper-barra');
+    barra.innerHTML=PASOS.map((p,i)=>{
+        const hecho=i<pasoActual,activo=i===pasoActual;
+        const dot=hecho?'bg-emerald-500 text-white':activo?'bg-blue-600 text-white ring-2 ring-blue-500 ring-offset-2':'bg-slate-100 text-slate-400';
+        const ic=hecho?'fa-check':p.icono;
+        const tc=hecho?'text-emerald-600':activo?'text-blue-600':'text-slate-400';
+        const linea=i<PASOS.length-1?`<div class="flex-1 h-0.5 mx-1.5 rounded ${hecho?'bg-emerald-400':'bg-slate-200'}"></div>`:'';
+        return `<div class="flex items-center flex-1 min-w-0"><button onclick="irAPaso(${i})" class="flex flex-col items-center gap-1 flex-shrink-0" title="${p.titulo}"><div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${dot}"><i class="fas ${ic} text-xs"></i></div><span class="text-xs font-medium hidden lg:block whitespace-nowrap ${tc}">${p.titulo}</span></button>${linea}</div>`;
     }).join('');
     renderizarPasoActual();
     actualizarBotones();
-    var ind=document.getElementById('paso-indicador');
-    if(ind) ind.innerText='Paso '+(pasoActual+1)+' de '+PASOS.length;
+    const ind=document.getElementById('paso-indicador');
+    if(ind)ind.innerText=`Paso ${pasoActual+1} de ${PASOS.length}`;
 }
 
 function renderizarPasoActual(){
-    var paso=PASOS[pasoActual];
-    var el=document.getElementById('stepper-contenido');
+    const paso=PASOS[pasoActual];
+    const el=document.getElementById('stepper-contenido');
 
+    // ── Paso 0: Documentos y OCR ──────────────────────────────
     if(paso.id==='paso-documentos'){
         el.innerHTML=`
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="space-y-4">
-            <!-- OCR -->
-            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <i class="fas fa-wand-magic-sparkles text-amber-600 text-sm"></i>
-                </div>
-                <div>
-                  <p class="text-sm font-bold text-slate-800">Análisis Inteligente con IA</p>
-                  <p class="text-xs text-slate-500">Extrae datos automáticamente de documentos escaneados</p>
-                </div>
-              </div>
-              <input type="file" id="alta_archivos" multiple accept=".pdf,.jpg,.jpeg,.png"
-                class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer transition mb-3">
-              <div id="lista-archivos" class="space-y-1.5 mb-3"></div>
-              <button onclick="ejecutarOCR()" id="btn-ocr"
-                class="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold py-2.5 rounded-xl transition">
-                <i class="fas fa-magnifying-glass"></i> Analizar documentos con IA
-              </button>
-              <div id="ocr-status" class="mt-3 hidden">
-                <div class="flex items-center gap-2 text-xs text-slate-500">
-                  <div class="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
-                  <span id="ocr-status-txt">Analizando...</span>
-                </div>
-              </div>
+        <div class="max-w-2xl mx-auto">
+          <div class="text-center mb-6">
+            <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-wand-magic-sparkles text-amber-500 text-2xl"></i>
             </div>
-            <!-- CURP lookup -->
-            <div class="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <i class="fas fa-id-badge text-blue-600 text-sm"></i>
-                </div>
-                <div>
-                  <p class="text-sm font-bold text-slate-800">Búsqueda por CURP</p>
-                  <p class="text-xs text-slate-500">Extrae datos del CURP capturado en el paso anterior</p>
-                </div>
-              </div>
-              <button onclick="buscarCURP()" id="btn-curp"
-                class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-xl transition">
-                <i class="fas fa-search"></i> Extraer datos del CURP
-              </button>
-              <div id="curp-resultado" class="mt-3 hidden space-y-1.5"></div>
+            <h3 class="text-lg font-bold text-slate-800">Carga tus documentos primero</h3>
+            <p class="text-sm text-slate-500 mt-1">La IA leerá los documentos escaneados y pre-rellenará el formulario automáticamente. Ahorra tiempo y reduce errores.</p>
+          </div>
+
+          <!-- Zona de carga -->
+          <div id="drop-zone" ondragover="event.preventDefault();this.classList.add('border-amber-400','bg-amber-50')" ondragleave="this.classList.remove('border-amber-400','bg-amber-50')" ondrop="manejarDrop(event)"
+            class="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center cursor-pointer hover:border-amber-400 hover:bg-amber-50 transition-all mb-4"
+            onclick="document.getElementById('alta_archivos').click()">
+            <i class="fas fa-cloud-upload-alt text-slate-300 text-4xl mb-3"></i>
+            <p class="text-sm font-semibold text-slate-600">Arrastra aquí tus documentos o haz clic para seleccionar</p>
+            <p class="text-xs text-slate-400 mt-1">INE, CURP, Constancia IMSS, Acta de Nacimiento, Pasaporte — PDF, JPG, PNG — máx. 10 MB c/u</p>
+            <input type="file" id="alta_archivos" multiple accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="actualizarListaArchivos()">
+          </div>
+
+          <!-- Lista de archivos -->
+          <div id="lista-archivos" class="space-y-2 mb-5"></div>
+
+          <!-- Botón analizar -->
+          <button onclick="ejecutarOCR()" id="btn-ocr"
+            class="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-sm font-bold py-3.5 rounded-xl transition-all shadow-md">
+            <i class="fas fa-magnifying-glass"></i> Analizar documentos con IA y pre-rellenar formulario
+          </button>
+          <div id="ocr-status" class="mt-4 hidden">
+            <div class="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+              <div class="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+              <span class="text-sm text-amber-700 font-medium" id="ocr-status-txt">Analizando documentos...</span>
             </div>
           </div>
-          <!-- Resumen -->
-          <div class="bg-white border border-slate-200 rounded-2xl p-5">
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-              <i class="fas fa-clipboard-list"></i> Resumen del Alta
-            </p>
-            <div id="resumen-alta" class="space-y-1.5 text-sm"></div>
+
+          <!-- Resultados OCR -->
+          <div id="ocr-resultado" class="mt-4 hidden">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+              <p class="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                <i class="fas fa-check-circle text-emerald-500"></i> Datos detectados — verifica y corrige si es necesario
+              </p>
+              <div id="ocr-campos-detectados" class="grid grid-cols-2 gap-2"></div>
+            </div>
           </div>
+
+          <p class="text-xs text-center text-slate-400 mt-5">
+            <i class="fas fa-info-circle mr-1"></i>
+            Puedes omitir este paso y continuar capturando manualmente. Los archivos se guardarán en Drive al confirmar el alta.
+          </p>
         </div>`;
-        renderizarResumen();
-        document.getElementById('alta_archivos')?.addEventListener('change', actualizarListaArchivos);
         return;
     }
 
-    var cols={blue:'bg-blue-50 text-blue-600',indigo:'bg-indigo-50 text-indigo-600',teal:'bg-teal-50 text-teal-600',cyan:'bg-cyan-50 text-cyan-600',rose:'bg-rose-50 text-rose-600'};
+    // ── Paso final: Resumen ───────────────────────────────────
+    if(paso.id==='paso-resumen'){
+        el.innerHTML=`
+        <div class="max-w-2xl mx-auto">
+          <div class="text-center mb-6">
+            <div class="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-clipboard-check text-emerald-500 text-2xl"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">Revisa el alta antes de confirmar</h3>
+            <p class="text-sm text-slate-500 mt-1">Verifica que todos los datos sean correctos</p>
+          </div>
+          <div id="resumen-alta" class="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden mb-4"></div>
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
+            <i class="fas fa-folder-open mr-2"></i>
+            Al confirmar se creará automáticamente la carpeta del expediente en Google Drive bajo <span class="font-mono bg-blue-100 px-1 py-0.5 rounded">/${altaData.empresa||'Empresa'}/${altaData.numeroEmpleado||'No.Emp'} — ${altaData.nombreTrabajador||'Nombre'}/</span>
+          </div>
+        </div>`;
+        renderizarResumen();
+        return;
+    }
+
+    // ── Pasos normales ────────────────────────────────────────
+    const cols={blue:'bg-blue-50 text-blue-600',indigo:'bg-indigo-50 text-indigo-600',teal:'bg-teal-50 text-teal-600',cyan:'bg-cyan-50 text-cyan-600',rose:'bg-rose-50 text-rose-600',green:'bg-emerald-50 text-emerald-600'};
     el.innerHTML=`
       <div class="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
-        <div class="w-12 h-12 rounded-xl ${cols[paso.color]||'bg-slate-100 text-slate-500'} flex items-center justify-center flex-shrink-0">
-          <i class="fas ${paso.icono} text-xl"></i>
-        </div>
+        <div class="w-12 h-12 rounded-xl ${cols[paso.color]||'bg-slate-100 text-slate-500'} flex items-center justify-center flex-shrink-0"><i class="fas ${paso.icono} text-xl"></i></div>
         <div><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        ${paso.campos.map(function(c){return renderizarCampo(c);}).join('')}
-      </div>`;
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>`;
 
-    // Autonum: cargar siguiente número
-    var campoCon=paso.campos.find(function(c){return c.autonum;});
-    if(campoCon && !altaData[campoCon.id]) cargarSiguienteNumero();
+    // Autonum
+    if(paso.campos.some(c=>c.autonum)&&!altaData.numeroEmpleado) cargarSiguienteNumero();
+    // Listener fecha nac
+    const fn=document.getElementById('alta_fechaNacimiento');
+    if(fn){fn.addEventListener('change',calcularRangoEdadAuto);fn.addEventListener('blur',calcularRangoEdadAuto);}
+    // Listener CURP
+    const curpEl=document.getElementById('alta_curp');
+    if(curpEl)curpEl.addEventListener('input',function(){if(this.value.length===18){const d=decodificarCURP(this.value.toUpperCase());if(d)aplicarDatosCURP(d);}});
+}
 
-    // Listener fecha nac → rango automático
-    var fnEl=document.getElementById('alta_fechaNacimiento');
-    if(fnEl){fnEl.addEventListener('change',calcularRangoEdadAuto);fnEl.addEventListener('blur',calcularRangoEdadAuto);}
-    // Listener CURP → decodificar al escribir
-    var curpEl=document.getElementById('alta_curp');
-    if(curpEl) curpEl.addEventListener('input',function(){if(this.value.length===18)decodificarCURP(this.value);});
+function renderizarCampo(c){
+    const cls="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-300";
+    const span=c.col===1?'md:col-span-2':'';
+    const ph=c.placeholder?`placeholder="${c.placeholder}"`:'';
+    const ml=c.maxlen?`maxlength="${c.maxlen}"`:'';
+    const req=c.req?'<span class="text-red-400">*</span>':'';
+    const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
+    let inp;
+    if(c.type==='select'){
+        inp=`<select id="alta_${c.id}" ${c.req?'required':''} ${c.readonly?'title="Calculado automáticamente"':''} class="${cls} ${c.readonly?'bg-slate-50 cursor-default':'cursor-pointer'}"><option value="">Seleccione...</option>${(c.options||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
+    }else if(c.type==='textarea'){
+        inp=`<textarea id="alta_${c.id}" rows="2" ${ph} class="${cls} resize-none"></textarea>`;
+    }else{
+        inp=`<input type="${c.type}" id="alta_${c.id}" ${c.req?'required':''} ${ml} ${ph} class="${cls}">`;
+    }
+    return`<div class="${span}"><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">${c.label} ${req}${nota}</label>${inp}</div>`;
+}
+
+function manejarDrop(event){
+    event.preventDefault();
+    document.getElementById('drop-zone').classList.remove('border-amber-400','bg-amber-50');
+    const input=document.getElementById('alta_archivos');
+    const dt=event.dataTransfer;
+    // Crear un DataTransfer nuevo con los archivos soltados
+    const transfer=new DataTransfer();
+    Array.from(dt.files).forEach(f=>transfer.items.add(f));
+    input.files=transfer.files;
+    actualizarListaArchivos();
+}
+
+function actualizarListaArchivos(){
+    const input=document.getElementById('alta_archivos');
+    const lista=document.getElementById('lista-archivos');
+    if(!lista||!input)return;
+    const archivos=Array.from(input.files);
+    if(!archivos.length){lista.innerHTML='';return;}
+    lista.innerHTML=archivos.map(f=>{
+        const mb=(f.size/1024/1024).toFixed(1),ok=f.size<=10*1024*1024;
+        const icon=f.type.startsWith('image/')?'fa-file-image text-blue-400':'fa-file-pdf text-red-400';
+        return`<div class="flex items-center gap-3 bg-white border ${ok?'border-slate-200':'border-red-200'} rounded-xl px-4 py-2.5">
+          <i class="fas ${icon} text-lg flex-shrink-0"></i>
+          <div class="flex-1 min-w-0"><p class="text-sm font-medium text-slate-700 truncate">${f.name}</p><p class="text-xs ${ok?'text-slate-400':'text-red-400'}">${mb} MB ${ok?'':'— supera el límite de 10 MB'}</p></div>
+          <i class="fas fa-check-circle ${ok?'text-emerald-400':'text-red-400'} flex-shrink-0"></i>
+        </div>`;
+    }).join('');
 }
 
 async function cargarSiguienteNumero(){
     try{
         const r=await enviarPeticion("siguiente_numero",{});
         if(r.status==="success"){
-            var el=document.getElementById('alta_numeroEmpleado');
-            if(el&&!el.value&&!altaData.numeroEmpleado){
-                el.value=r.siguiente;
-                altaData.numeroEmpleado=r.siguiente.toString();
-            }
+            const el=document.getElementById('alta_numeroEmpleado');
+            if(el&&!el.value&&!altaData.numeroEmpleado){el.value=r.siguiente;altaData.numeroEmpleado=r.siguiente.toString();}
         }
     }catch(e){}
 }
 
-function renderizarCampo(c){
-    var cls="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-300";
-    var span=c.col===1?'md:col-span-2':'';
-    var ph=c.placeholder?'placeholder="'+c.placeholder+'"':'';
-    var ml=c.maxlen?'maxlength="'+c.maxlen+'"':'';
-    var req=c.req?'<span class="text-red-400">*</span>':'';
-    var inp;
-    if(c.type==='select'){
-        var ro=c.readonly?'title="Se calcula automáticamente"':'';
-        inp='<select id="alta_'+c.id+'" '+(c.req?'required':'')+' '+ro+' class="'+cls+' '+(c.readonly?'bg-slate-50 cursor-default':'cursor-pointer')+'"><option value="">Seleccione...</option>'+(c.options||[]).map(function(o){return'<option value="'+o+'">'+o+'</option>';}).join('')+'</select>';
-    }else if(c.type==='textarea'){
-        inp='<textarea id="alta_'+c.id+'" rows="2" '+ph+' class="'+cls+' resize-none"></textarea>';
-    }else{
-        inp='<input type="'+c.type+'" id="alta_'+c.id+'" '+(c.req?'required':'')+' '+ml+' '+ph+' class="'+cls+'">';
-    }
-    var nota=c.readonly?'<span class="text-xs text-blue-400 ml-1">⟵ automático</span>':'';
-    return'<div class="'+span+'"><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">'+c.label+' '+req+nota+'</label>'+inp+'</div>';
+// ─── DECODIFICADOR CURP ───────────────────────────────────────
+const ESTADOS_CURP={AS:'Aguascalientes',BC:'Baja California',BS:'Baja California Sur',CC:'Campeche',CL:'Coahuila',CM:'Colima',CS:'Chiapas',CH:'Chihuahua',DF:'Ciudad de México',DG:'Durango',GT:'Guanajuato',GR:'Guerrero',HG:'Hidalgo',JC:'Jalisco',MC:'Estado de México',MN:'Michoacán',MS:'Morelos',NT:'Nayarit',NL:'Nuevo León',OC:'Oaxaca',PL:'Puebla',QT:'Querétaro',QR:'Quintana Roo',SP:'San Luis Potosí',SL:'Sinaloa',SR:'Sonora',TC:'Tabasco',TS:'Tamaulipas',TL:'Tlaxcala',VZ:'Veracruz',YN:'Yucatán',ZS:'Zacatecas',NE:'Nacido en el Extranjero'};
+
+function decodificarCURP(curp){
+    curp=curp.toUpperCase().trim();if(curp.length!==18)return null;
+    try{
+        const anio2=curp.substring(4,6),mes=curp.substring(6,8),dia=curp.substring(8,10);
+        const sexo=curp.charAt(10),estado=curp.substring(11,13);
+        let anio4=parseInt(anio2,10);
+        anio4=anio4+(anio4<=parseInt(new Date().getFullYear().toString().slice(2),10)?2000:1900);
+        if(anio4>new Date().getFullYear())anio4-=100;
+        return{fechaNacimiento:anio4+'-'+mes+'-'+dia,genero:sexo==='H'?'Hombre':sexo==='M'?'Mujer':'',lugarNacimiento:ESTADOS_CURP[estado]||estado,nacionalidad:estado==='NE'?'Extranjera':'Mexicana'};
+    }catch(e){return null;}
+}
+
+function aplicarDatosCURP(datos){
+    Object.entries(datos).forEach(([k,v])=>{
+        if(!v)return;
+        altaData[k]=v;
+        const el=document.getElementById('alta_'+k);
+        if(el)el.value=v;
+    });
+    if(datos.fechaNacimiento){const fn=document.getElementById('alta_fechaNacimiento');if(fn){fn.value=datos.fechaNacimiento;calcularRangoEdadAuto();}}
 }
 
 function calcularRangoEdadAuto(){
-    var fn=document.getElementById('alta_fechaNacimiento');
-    var rn=document.getElementById('alta_rangoEdad');
+    const fn=document.getElementById('alta_fechaNacimiento');
+    const rn=document.getElementById('alta_rangoEdad');
     if(!fn||!rn||!fn.value)return;
-    var h=new Date(),nac=new Date(fn.value);if(isNaN(nac))return;
-    var ed=h.getFullYear()-nac.getFullYear();
+    const h=new Date(),nac=new Date(fn.value);if(isNaN(nac))return;
+    let ed=h.getFullYear()-nac.getFullYear();
     if(h.getMonth()<nac.getMonth()||(h.getMonth()===nac.getMonth()&&h.getDate()<nac.getDate()))ed--;
-    var rango=ed<31?'<31':ed<=50?'31-50':ed<=65?'51-65':'>65';
-    altaData.rangoEdad=rango; rn.value=rango;
-}
-
-// ─── DECODIFICADOR DE CURP ────────────────────────────────────
-// El CURP de 18 caracteres codifica: estado nacimiento, fecha (AAMMDD),
-// sexo (H/M) y letras del nombre. No hay API gubernamental con CORS libre,
-// así que decodificamos localmente y mostramos lo que podemos extraer.
-const ESTADOS_CURP = {
-    AS:'Aguascalientes',BC:'Baja California',BS:'Baja California Sur',CC:'Campeche',
-    CL:'Coahuila',CM:'Colima',CS:'Chiapas',CH:'Chihuahua',DF:'Ciudad de México',
-    DG:'Durango',GT:'Guanajuato',GR:'Guerrero',HG:'Hidalgo',JC:'Jalisco',
-    MC:'Estado de México',MN:'Michoacán',MS:'Morelos',NT:'Nayarit',NL:'Nuevo León',
-    OC:'Oaxaca',PL:'Puebla',QT:'Querétaro',QR:'Quintana Roo',SP:'San Luis Potosí',
-    SL:'Sinaloa',SR:'Sonora',TC:'Tabasco',TS:'Tamaulipas',TL:'Tlaxcala',
-    VZ:'Veracruz',YN:'Yucatán',ZS:'Zacatecas',NE:'Nacido en el Extranjero'
-};
-
-function decodificarCURP(curp) {
-    curp = curp.toUpperCase().trim();
-    if (curp.length !== 18) return null;
-    try {
-        var anio2 = curp.substring(4,6);
-        var mes   = curp.substring(6,8);
-        var dia   = curp.substring(8,10);
-        var sexo  = curp.charAt(10);
-        var estado= curp.substring(11,13);
-        var anio4 = parseInt(anio2,10);
-        // Determinar siglo: CURP emitidas antes del 2000 tienen letras mayúsculas en pos 16
-        var digVerif = curp.charAt(17);
-        anio4 = anio4 + (anio4<=parseInt(new Date().getFullYear().toString().slice(2),10) && digVerif>='0' && digVerif<='9' ? 2000 : 1900);
-        // Corrección simple: si anio calculado es futuro, es 1900
-        if (anio4 > new Date().getFullYear()) anio4 -= 100;
-        var fechaNac = anio4+'-'+mes+'-'+dia;
-        var genero   = sexo==='H'?'Hombre':sexo==='M'?'Mujer':'';
-        var edoNac   = ESTADOS_CURP[estado] || estado;
-        var nacion   = estado==='NE'?'Extranjera':'Mexicana';
-        return { fechaNacimiento:fechaNac, genero:genero, lugarNacimiento:edoNac, nacionalidad:nacion };
-    } catch(e) { return null; }
-}
-
-function buscarCURP() {
-    var curp = (altaData.curp || document.getElementById('alta_curp')?.value || '').toUpperCase().trim();
-    if (curp.length !== 18) {
-        Swal.fire('CURP inválida','Captura la CURP completa de 18 caracteres en el paso de Datos Personales primero.','warning');
-        return;
-    }
-    var datos = decodificarCURP(curp);
-    if (!datos) { Swal.fire('No se pudo decodificar','Verifica que la CURP sea válida.','error'); return; }
-
-    var detectados = [];
-    var mapaLabel = {fechaNacimiento:'Fecha Nac.',genero:'Género',lugarNacimiento:'Lugar Nac.',nacionalidad:'Nacionalidad'};
-    Object.entries(datos).forEach(function([campo,valor]){
-        if(!valor)return;
-        altaData[campo]=valor;
-        // Intentar rellenar si el campo está en el DOM
-        var el=document.getElementById('alta_'+campo);
-        if(el) el.value=valor;
-        detectados.push('<div class="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 rounded-lg px-2.5 py-1.5"><i class="fas fa-check text-blue-500 flex-shrink-0"></i><span class="font-semibold">'+mapaLabel[campo]+':</span><span>'+valor+'</span></div>');
-    });
-
-    // Calcular rango de edad automáticamente
-    if(datos.fechaNacimiento){
-        var fn=document.getElementById('alta_fechaNacimiento');
-        if(fn){fn.value=datos.fechaNacimiento;calcularRangoEdadAuto();}
-        else{var nac=new Date(datos.fechaNacimiento),hoy=new Date();var ed=hoy.getFullYear()-nac.getFullYear();if(hoy.getMonth()<nac.getMonth()||(hoy.getMonth()===nac.getMonth()&&hoy.getDate()<nac.getDate()))ed--;altaData.rangoEdad=ed<31?'<31':ed<=50?'31-50':ed<=65?'51-65':'>65';}
-    }
-
-    var res=document.getElementById('curp-resultado');
-    res.classList.remove('hidden');
-    res.innerHTML=detectados.join('')+'<p class="text-xs text-slate-500 mt-2"><i class="fas fa-info-circle mr-1"></i>Nombre completo y datos adicionales requieren consulta al RENAPO (disponible solo en red gubernamental).</p>';
-    renderizarResumen();
-    Swal.fire({icon:'success',title:'Datos del CURP aplicados',text:'Se detectaron '+detectados.length+' campo(s). Verifica y completa el nombre completo manualmente.',timer:3000,showConfirmButton:false});
+    const r=ed<31?'<31':ed<=50?'31-50':ed<=65?'51-65':'>65';
+    altaData.rangoEdad=r;rn.value=r;
 }
 
 // ─── OCR CON CLAUDE VISION ────────────────────────────────────
-const OCR_PROMPT = `Eres un asistente de recursos humanos mexicano. Analiza este documento (puede ser: credencial de elector INE, CURP impresa, constancia IMSS, pasaporte, acta de nacimiento, contrato laboral o cualquier documento de identidad). Extrae ÚNICAMENTE los datos que puedas leer con certeza en el documento.
+const OCR_PROMPT=`Eres un asistente de RH mexicano especialista en documentos de identidad. Analiza el documento adjunto (puede ser INE, CURP impresa, constancia IMSS, pasaporte, acta de nacimiento u otro documento oficial mexicano). Extrae ÚNICAMENTE los datos que puedas leer con total certeza en el documento.
 
-Responde SOLO con un objeto JSON válido, sin texto adicional, sin markdown:
+Responde SOLO con un objeto JSON válido, sin texto adicional, sin comillas triples, sin markdown:
 {"nombreTrabajador":"","curp":"","rfc":"","nss":"","fechaNacimiento":"YYYY-MM-DD","genero":"Hombre o Mujer","nacionalidad":"","lugarNacimiento":"","domicilioCompleto":"","correoElectronico":"","telefonoPersonal":""}
 
-Reglas: omite claves vacías o ilegibles. CURP siempre en mayúsculas 18 chars. RFC en mayúsculas. fechaNacimiento en formato YYYY-MM-DD. genero solo "Hombre" o "Mujer".`;
+Reglas estrictas: omite claves si el valor es ilegible o no está en el documento. CURP en MAYÚSCULAS 18 caracteres. RFC en MAYÚSCULAS. Fecha en formato YYYY-MM-DD obligatorio. Género solo "Hombre" o "Mujer". Nombre en formato "Apellido1 Apellido2 Nombre(s)".`;
 
 async function ejecutarOCR(){
-    var input=document.getElementById('alta_archivos');
-    if(!input||!input.files.length){Swal.fire('Sin archivos','Adjunta al menos un documento primero.','info');return;}
-    var stEl=document.getElementById('ocr-status'),stTxt=document.getElementById('ocr-status-txt'),btn=document.getElementById('btn-ocr');
-    stEl.classList.remove('hidden');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analizando...';
-    var acum={};
-    for(var i=0;i<input.files.length;i++){
-        var file=input.files[i];
+    const input=document.getElementById('alta_archivos');
+    if(!input||!input.files.length){mostrarToast('warning','Sin archivos','Selecciona o arrastra al menos un documento para analizar.');return;}
+    const stEl=document.getElementById('ocr-status'),stTxt=document.getElementById('ocr-status-txt'),btn=document.getElementById('btn-ocr');
+    stEl.classList.remove('hidden');btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analizando con IA...';
+    let acum={};
+    for(const file of Array.from(input.files)){
         if(!file.type.startsWith('image/')&&file.type!=='application/pdf')continue;
-        stTxt.innerText='Analizando: '+file.name+'...';
+        stTxt.innerText=`Analizando: ${file.name}...`;
         try{
-            var b64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);});
-            var content=file.type.startsWith('image/')
+            const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+            const content=file.type.startsWith('image/')
                 ?[{type:'image',source:{type:'base64',media_type:file.type,data:b64}},{type:'text',text:OCR_PROMPT}]
                 :[{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},{type:'text',text:OCR_PROMPT}];
-            var resp=await fetch(CLAUDE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:CLAUDE_MOD,max_tokens:1000,messages:[{role:'user',content:content}]})});
-            var json=await resp.json();
-            var texto=((json.content||[]).find(function(b){return b.type==='text';})||{}).text||'';
+            const resp=await fetch(CLAUDE_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:CLAUDE_MOD,max_tokens:1000,messages:[{role:'user',content}]})});
+            const json=await resp.json();
+            const texto=((json.content||[]).find(b=>b.type==='text')||{}).text||'';
             try{Object.assign(acum,JSON.parse(texto.replace(/```json|```/g,'').trim()));}catch(pe){console.warn('OCR parse:',pe);}
-        }catch(e){console.warn('OCR file error:',e);}
+        }catch(e){console.warn('OCR error:',e);}
     }
     // Aplicar resultados
-    var detectados=[],mapaL={nombreTrabajador:'Nombre',curp:'CURP',rfc:'RFC',nss:'NSS',fechaNacimiento:'Fecha Nac.',genero:'Género',nacionalidad:'Nacionalidad',lugarNacimiento:'Lugar Nac.',domicilioCompleto:'Domicilio',correoElectronico:'Correo',telefonoPersonal:'Teléfono'};
-    Object.entries(acum).forEach(function([campo,valor]){
-        if(!valor)return;
-        altaData[campo]=valor.toString().trim();
-        var el=document.getElementById('alta_'+campo);
-        if(el)el.value=altaData[campo];
-        detectados.push(mapaL[campo]||campo);
+    const mapaL={nombreTrabajador:'Nombre',curp:'CURP',rfc:'RFC',nss:'NSS',fechaNacimiento:'Fecha Nac.',genero:'Género',nacionalidad:'Nacionalidad',lugarNacimiento:'Lugar Nac.',domicilioCompleto:'Domicilio',correoElectronico:'Correo',telefonoPersonal:'Teléfono'};
+    const detectados=[];
+    Object.entries(acum).forEach(([k,v])=>{
+        if(!v)return;
+        altaData[k]=v.toString().trim();
+        detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100"><i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i><span class="text-xs font-semibold text-slate-600">${mapaL[k]||k}:</span><span class="text-xs text-slate-700 truncate">${v}</span></div>`);
     });
-    // Si detectó CURP, decodificar automáticamente
-    if(acum.curp&&acum.curp.length===18){var d=decodificarCURP(acum.curp);if(d)Object.entries(d).forEach(function([k,v]){if(v&&!acum[k]){altaData[k]=v;var e=document.getElementById('alta_'+k);if(e)e.value=v;}});}
-    // Calcular rango
-    if(altaData.fechaNacimiento){var fn=document.getElementById('alta_fechaNacimiento');if(fn){fn.value=altaData.fechaNacimiento;calcularRangoEdadAuto();}}
-    stEl.classList.add('hidden');btn.disabled=false;btn.innerHTML='<i class="fas fa-magnifying-glass"></i> Analizar documentos con IA';
-    renderizarResumen();
-    if(detectados.length) Swal.fire({icon:'success',title:'¡'+detectados.length+' campos detectados!',text:'Datos aplicados al formulario: '+detectados.join(', ')+'. Verifica y corrige antes de confirmar.',timer:4000,showConfirmButton:false});
-    else Swal.fire({icon:'warning',title:'Sin datos detectados',text:'No se pudo extraer información. Intenta con una imagen de mayor resolución.',confirmButtonText:'Ok'});
+    // Si detectó CURP, decodificar y aplicar
+    if(acum.curp&&acum.curp.length===18){const d=decodificarCURP(acum.curp);if(d)aplicarDatosCURP(d);}
+    else if(acum.fechaNacimiento){const fn=document.getElementById('alta_fechaNacimiento');if(fn){fn.value=acum.fechaNacimiento;calcularRangoEdadAuto();}}
+
+    stEl.classList.add('hidden');btn.disabled=false;btn.innerHTML='<i class="fas fa-magnifying-glass"></i> Analizar documentos con IA y pre-rellenar formulario';
+
+    const resEl=document.getElementById('ocr-resultado');
+    const camposEl=document.getElementById('ocr-campos-detectados');
+    if(detectados.length){
+        resEl.classList.remove('hidden');
+        camposEl.innerHTML=detectados.join('');
+        mostrarToast('success',`${detectados.length} campos detectados`,'Datos aplicados. Continúa al siguiente paso para verificarlos.');
+    }else{
+        mostrarToast('warning','Sin datos detectados','No se pudo extraer información. Intenta con una imagen más clara o captura manualmente.');
+    }
 }
 
+// ─── STEPPER NAVEGACIÓN ───────────────────────────────────────
 function guardarPasoActual(){
-    var paso=PASOS[pasoActual];
-    if(paso.id==='paso-documentos')return true;
-    var valido=true;
-    paso.campos.forEach(function(c){
-        var el=document.getElementById('alta_'+c.id);if(!el)return;
-        var val=el.value.trim();altaData[c.id]=val;
+    const paso=PASOS[pasoActual];
+    if(paso.id==='paso-documentos'||paso.id==='paso-resumen')return true;
+    let valido=true;
+    paso.campos.forEach(c=>{
+        const el=document.getElementById('alta_'+c.id);if(!el)return;
+        const val=el.value.trim();altaData[c.id]=val;
         if(c.req&&!val){el.classList.add('border-red-400','ring-1','ring-red-300');valido=false;}
         else el.classList.remove('border-red-400','ring-1','ring-red-300');
     });
-    if(!valido) Swal.fire({icon:'warning',title:'Campos requeridos',text:'Completa los campos marcados con * para continuar.',timer:2500,showConfirmButton:false});
+    if(!valido)mostrarToast('warning','Campos requeridos','Completa los campos marcados con * para continuar.');
     return valido;
 }
 function restaurarValoresPaso(){
-    var paso=PASOS[pasoActual];
-    paso.campos.forEach(function(c){var el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
-    if(pasoActual===2)calcularRangoEdadAuto();
+    const paso=PASOS[pasoActual];
+    paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
+    if(paso.id==='paso-personal')calcularRangoEdadAuto();
 }
 function irAPaso(idx){
     if(idx>pasoActual){if(!guardarPasoActual())return;}else guardarPasoActual();
@@ -422,84 +603,295 @@ function irAPaso(idx){
 function siguientePaso(){if(!guardarPasoActual())return;if(pasoActual<PASOS.length-1){pasoActual++;renderizarStepper();restaurarValoresPaso();}}
 function anteriorPaso(){guardarPasoActual();if(pasoActual>0){pasoActual--;renderizarStepper();restaurarValoresPaso();}}
 function actualizarBotones(){
-    var ul=pasoActual===PASOS.length-1;
+    const ul=pasoActual===PASOS.length-1;
     document.getElementById('btn-anterior')?.classList.toggle('hidden',pasoActual===0);
     document.getElementById('btn-siguiente')?.classList.toggle('hidden',ul);
     document.getElementById('btn-enviar')?.classList.toggle('hidden',!ul);
 }
-function actualizarListaArchivos(){
-    var inp=document.getElementById('alta_archivos'),lst=document.getElementById('lista-archivos');if(!lst||!inp)return;
-    lst.innerHTML=Array.from(inp.files).map(function(f){var mb=(f.size/1024/1024).toFixed(1),ok=f.size<=10*1024*1024;return'<div class="flex items-center gap-2 text-xs '+(ok?'text-slate-600':'text-red-500')+'"><i class="fas '+(ok?'fa-file-check text-emerald-500':'fa-exclamation-triangle text-red-400')+'"></i><span class="flex-1 truncate">'+f.name+'</span><span class="'+(ok?'text-slate-400':'text-red-400')+' font-medium">'+mb+' MB</span></div>';}).join('');
-}
+
 function renderizarResumen(){
-    var el=document.getElementById('resumen-alta');if(!el)return;
-    var filas=[['No. Empleado',altaData.numeroEmpleado],['Nombre',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Puesto',altaData.puesto],['Departamento',altaData.departamento],['Tipo Contrato',altaData.tipoContrato],['Sueldo',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Género',altaData.genero],['Rango Edad',altaData.rangoEdad],['Nacionalidad',altaData.nacionalidad]].filter(function(r){return r[1];});
-    el.innerHTML=filas.map(function(r){return'<div class="flex justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0"><span class="text-xs text-slate-400 font-semibold uppercase">'+r[0]+'</span><span class="text-sm font-semibold text-right text-slate-700">'+r[1]+'</span></div>';}).join('');
+    const el=document.getElementById('resumen-alta');if(!el)return;
+    const secciones=[
+        {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
+        {titulo:'Contrato',icono:'fa-file-contract',color:'text-indigo-500',filas:[['Tipo de Contrato',altaData.tipoContrato],['Inicio 1er Contrato',altaData.fechaInicioContrato],['Vencimiento 1er Contrato',altaData.vencimientoPrimerContrato]]},
+        {titulo:'Datos Personales',icono:'fa-id-card',color:'text-teal-500',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Fecha Nacimiento',altaData.fechaNacimiento],['Género',altaData.genero],['Rango Edad',altaData.rangoEdad],['Nacionalidad',altaData.nacionalidad],['Lugar Nacimiento',altaData.lugarNacimiento]]},
+    ];
+    el.innerHTML=secciones.map(s=>{
+        const filas=s.filas.filter(([,v])=>v);
+        if(!filas.length)return'';
+        return`<div class="px-5 py-4"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas ${s.icono} ${s.color}"></i>${s.titulo}</p><div class="space-y-2">${filas.map(([k,v])=>`<div class="flex justify-between gap-4"><span class="text-xs text-slate-400 font-medium">${k}</span><span class="text-sm font-semibold text-slate-700 text-right">${v}</span></div>`).join('')}</div></div>`;
+    }).join('');
 }
 
 async function enviarAlta(){
     guardarPasoActual();
-    var camposReq=PASOS.flatMap(function(p){return p.campos.filter(function(c){return c.req;}).map(function(c){return c.id;});});
-    var faltantes=camposReq.filter(function(id){return!altaData[id];});
-    if(faltantes.length){Swal.fire({icon:'error',title:'Faltan datos',html:'Campos obligatorios sin completar:<br><br><strong>'+faltantes.join(', ')+'</strong>'});return;}
+    const reqs=PASOS.flatMap(p=>p.campos.filter(c=>c.req).map(c=>c.id));
+    const falt=reqs.filter(id=>!altaData[id]);
+    if(falt.length){mostrarToast('error','Faltan datos requeridos','Revisa los pasos anteriores: '+falt.join(', '));return;}
     mostrarLoader("Creando expediente...");
-    var inp=document.getElementById('alta_archivos'),docs=[];
+    const inp=document.getElementById('alta_archivos');const docs=[];
     if(inp&&inp.files.length){
-        for(var i=0;i<inp.files.length;i++){
-            var file=inp.files[i];
-            if(file.size>10*1024*1024){ocultarLoader();Swal.fire('Archivo grande','"'+file.name+'" supera 10 MB.','warning');return;}
-            var b64=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(){res(r.result.split(',')[1]);};r.onerror=rej;r.readAsDataURL(file);});
+        for(const file of inp.files){
+            if(file.size>10*1024*1024){ocultarLoader();mostrarToast('error','Archivo demasiado grande',`"${file.name}" supera 10 MB.`);return;}
+            const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
             docs.push({nombreArchivo:file.name,mimeType:file.type||'application/octet-stream',data:b64});
         }
     }
     try{
-        var r=await enviarPeticion("alta",Object.assign({},altaData,{documentos:docs}));
+        const r=await enviarPeticion("alta",{...altaData,documentos:docs});
         ocultarLoader();
         if(r.status==="success"){
-            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente',showCancelButton:true,cancelButtonText:'Cerrar'}).then(function(res){if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');});
+            mostrarToast('success','¡Alta registrada!',`Expediente creado para ${altaData.nombreTrabajador}.`,8000);
+            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');});
             altaData={};pasoActual=0;renderizarStepper();forzarActualizacion();
-        }else Swal.fire('Error',r.message,'error');
-    }catch(e){ocultarLoader();Swal.fire('Error de conexión',e.message,'error');}
+        }else mostrarToast('error','Error en el alta',r.message);
+    }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
 }
 
 // ─── API GAS ──────────────────────────────────────────────────
 async function enviarPeticion(action,payload){
-    var res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload})});
+    const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload})});
     return await res.json();
 }
 
-// ─── OFFBOARDING — AUTOCOMPLETE ──────────────────────────────
-function initAutocomplete(){
-    var input=document.getElementById('baja_busqueda');
-    var lista=document.getElementById('baja_sugerencias');
-    if(!input||!lista)return;
-    // Remover listener anterior
-    var nuevoInput=input.cloneNode(true);
-    input.parentNode.replaceChild(nuevoInput,input);
-    input=nuevoInput;
+// ─── DRAWER EDICIÓN DE EMPLEADO ───────────────────────────────
+let empleadoEdicion=null;
 
-    input.addEventListener('input',function(){
-        var q=input.value.trim().toLowerCase();
+function abrirEditor(noEmpleado){
+    const emp=cacheGlobal.find(e=>(e["NO. EMPLEADO"]||"").toString()===noEmpleado.toString());
+    if(!emp){mostrarToast('error','No encontrado','No se encontró el registro.');return;}
+    empleadoEdicion=emp;
+    const drawer=document.getElementById('drawer-editor');
+    renderizarDrawer(emp);
+    drawer.classList.remove('translate-x-full');
+    document.getElementById('drawer-overlay').classList.remove('hidden');
+}
+
+function cerrarEditor(){
+    document.getElementById('drawer-editor').classList.add('translate-x-full');
+    document.getElementById('drawer-overlay').classList.add('hidden');
+    empleadoEdicion=null;
+}
+
+function fmtFechaDisplay(val){
+    const d=parseFechaFlexible(val);if(!d)return'—';
+    return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function diasRestantes(val){
+    const d=parseFechaFlexible(val);if(!d)return null;
+    return Math.round((d-new Date())/86400000);
+}
+
+function badgeContrato(val){
+    const dias=diasRestantes(val);if(dias===null)return'';
+    if(dias<0)return`<span class="ml-2 text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Vencido hace ${Math.abs(dias)}d</span>`;
+    if(dias<=30)return`<span class="ml-2 text-xs font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full">Vence en ${dias}d</span>`;
+    return`<span class="ml-2 text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Vigente ${dias}d</span>`;
+}
+
+function renderizarDrawer(emp){
+    const nom=emp["NOMBRE DEL TRABAJADOR"]||"—";
+    const id=emp["NO. EMPLEADO"]||"";
+    const est=(emp["ESTATUS"]||"").trim();
+    const estColor=est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600";
+
+    // Datos de contratos
+    const contratos=[
+        {n:'1er',ini:emp["FECHA DE INICIO DEL PRIMER CONTRATO"],ven:emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"],col:'blue'},
+        {n:'2do',ini:emp["FECHA DE INICIO DEL SEGUNDO CONTRATO"],ven:emp["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"],col:'indigo'},
+        {n:'3er',ini:emp["FECHA DE INICIO DEL TERCER CONTRATO"], ven:emp["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"],col:'violet'},
+    ].filter(c=>c.ini||c.ven);
+
+    const ent15=(emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"Pendiente").trim();
+    const ent45=(emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"Pendiente").trim();
+    const eval360=emp["FECHA EVALUACIÓN 360"]||"";
+    const badgeEnt=v=>v==="Sí"?'<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Realizada</span>':v==="No"?'<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600">No realizada</span>':'<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-600">Pendiente</span>';
+
+    document.getElementById('drawer-titulo').innerHTML=`
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+          <i class="fas fa-user text-blue-600"></i>
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm font-bold text-slate-800 truncate">${nom}</p>
+          <p class="text-xs text-slate-400">#${id} · ${emp["EMPRESA"]||"—"}</p>
+        </div>
+      </div>
+      <span class="px-2.5 py-1 rounded-full text-xs font-bold ${estColor} flex-shrink-0">${est}</span>`;
+
+    document.getElementById('drawer-cuerpo').innerHTML=`
+
+    <!-- SECCIÓN: Historial de contratos -->
+    <div class="mb-6">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+        <i class="fas fa-file-contract text-indigo-500"></i> Historial de Contratos
+      </p>
+
+      <!-- Línea de tiempo -->
+      <div class="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+        ${contratos.length ? contratos.map((c,i)=>{
+            const activo=i===contratos.length-1;
+            const dot=activo?'bg-blue-500 ring-2 ring-blue-200':'bg-slate-300';
+            return`<div class="relative">
+              <div class="absolute -left-4 top-1 w-3 h-3 rounded-full ${dot}"></div>
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-xs font-bold text-slate-700">${c.n} Contrato ${activo?'<span class="text-blue-500">(actual)</span>':''}</p>
+                  ${c.ven?badgeContrato(c.ven):''}
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+                  <div><span class="font-medium">Inicio:</span> ${fmtFechaDisplay(c.ini)}</div>
+                  <div><span class="font-medium">Vence:</span> ${fmtFechaDisplay(c.ven)}</div>
+                </div>
+              </div>
+            </div>`;
+        }).join('') : '<div class="text-xs text-slate-400 bg-slate-50 rounded-xl p-4 text-center"><i class="fas fa-info-circle mb-1"></i><br>Sin contratos registrados</div>'}
+      </div>
+
+      <!-- Formulario de renovación -->
+      <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <p class="text-xs font-bold text-blue-800 mb-3 flex items-center gap-2">
+          <i class="fas fa-plus-circle text-blue-500"></i> Registrar renovación / actualizar contrato
+        </p>
+        <div class="grid grid-cols-1 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Tipo de Contrato</label>
+            <select id="ed_tipoContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">
+              <option value="">Sin cambio</option>
+              <option ${emp["TIPO DE CONTRATO"]==="Tiempo Indeterminado"?'selected':''}>Tiempo Indeterminado</option>
+              <option ${emp["TIPO DE CONTRATO"]==="Prueba"?'selected':''}>Prueba</option>
+              <option ${emp["TIPO DE CONTRATO"]==="Temporal"?'selected':''}>Temporal</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Inicio nuevo contrato</label>
+              <input type="date" id="ed_iniContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Vencimiento</label>
+              <input type="date" id="ed_venContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN: Seguimiento -->
+    <div class="mb-6">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+        <i class="fas fa-clipboard-list text-teal-500"></i> Seguimiento
+      </p>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
+          <div><p class="text-sm font-semibold text-slate-700">Entrevista 15 días</p><p class="text-xs text-slate-400">Ajuste de integración</p></div>
+          <div class="flex items-center gap-2">${badgeEnt(ent15)}<select id="ed_ent15" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:ring-1 focus:ring-blue-400"><option value="">—</option><option ${ent15==="Sí"?'selected':''} value="Sí">Realizada</option><option ${ent15==="No"?'selected':''} value="No">No realizada</option><option ${ent15==="Pendiente"?'selected':''} value="Pendiente">Pendiente</option></select></div>
+        </div>
+        <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
+          <div><p class="text-sm font-semibold text-slate-700">Entrevista 45 días</p><p class="text-xs text-slate-400">Evaluación de desempeño</p></div>
+          <div class="flex items-center gap-2">${badgeEnt(ent45)}<select id="ed_ent45" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:ring-1 focus:ring-blue-400"><option value="">—</option><option ${ent45==="Sí"?'selected':''} value="Sí">Realizada</option><option ${ent45==="No"?'selected':''} value="No">No realizada</option><option ${ent45==="Pendiente"?'selected':''} value="Pendiente">Pendiente</option></select></div>
+        </div>
+        <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
+          <div><p class="text-sm font-semibold text-slate-700">Evaluación 360°</p><p class="text-xs text-slate-400">Fecha de aplicación</p></div>
+          <input type="date" id="ed_eval360" value="${eval360?parsearFecha(eval360):''}" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-blue-400">
+        </div>
+      </div>
+    </div>
+
+    <!-- SECCIÓN: Datos laborales editables -->
+    <div class="mb-6">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+        <i class="fas fa-briefcase text-blue-500"></i> Datos Laborales
+      </p>
+      <div class="grid grid-cols-1 gap-3">
+        ${[
+            {id:'ed_puesto',label:'Puesto',val:emp["PUESTO"]||""},
+            {id:'ed_depto',label:'Departamento',val:emp["DEPARTAMENTO"]||""},
+            {id:'ed_sueldo',label:'Sueldo Mensual',val:emp["SUELDO MENSUAL"]||"",type:'number'},
+            {id:'ed_correo',label:'Correo Electrónico',val:emp["CORREO ELECTRÓNICO"]||"",type:'email'},
+            {id:'ed_telefono',label:'Teléfono Personal',val:emp["TELÉFONO PERSONAL"]||""},
+        ].map(f=>`<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">${f.label}</label><input type="${f.type||'text'}" id="${f.id}" value="${f.val}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>`).join('')}
+      </div>
+    </div>`;
+}
+
+async function guardarCambiosEditor(){
+    if(!empleadoEdicion){cerrarEditor();return;}
+    const id=(empleadoEdicion["NO. EMPLEADO"]||"").toString();
+
+    // Determinar siguiente contrato disponible
+    const contratos=[
+        {ini:'FECHA DE INICIO DEL PRIMER CONTRATO', ven:'FECHA DE VENCIMIENTO DEL PRIMER CONTRATO'},
+        {ini:'FECHA DE INICIO DEL SEGUNDO CONTRATO',ven:'FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO'},
+        {ini:'FECHA DE INICIO DEL TERCER CONTRATO', ven:'FECHA DE VENCIMIENTO DEL TERCER CONTRATO'},
+    ];
+    const iniNuevo=document.getElementById('ed_iniContrato').value;
+    const venNuevo=document.getElementById('ed_venContrato').value;
+    let campoIni='',campoVen='';
+    if(iniNuevo||venNuevo){
+        for(const c of contratos){
+            if(!empleadoEdicion[c.ini]){campoIni=c.ini;campoVen=c.ven;break;}
+        }
+        if(!campoIni){campoIni=contratos[2].ini;campoVen=contratos[2].ven;} // usar 3er si todos llenos
+    }
+
+    const payload={
+        numeroEmpleado: id,
+        campos:{
+            "TIPO DE CONTRATO":        document.getElementById('ed_tipoContrato').value||undefined,
+            "PUESTO":                  document.getElementById('ed_puesto').value||undefined,
+            "DEPARTAMENTO":            document.getElementById('ed_depto').value||undefined,
+            "SUELDO MENSUAL":          document.getElementById('ed_sueldo').value||undefined,
+            "CORREO ELECTRÓNICO":      document.getElementById('ed_correo').value||undefined,
+            "TELÉFONO PERSONAL":       document.getElementById('ed_telefono').value||undefined,
+            "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15').value||undefined,
+            "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45').value||undefined,
+            "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360').value||undefined,
+            ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
+            ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
+        }
+    };
+    // Limpiar undefined
+    Object.keys(payload.campos).forEach(k=>{if(payload.campos[k]===undefined)delete payload.campos[k];});
+
+    mostrarLoader("Guardando cambios...");
+    try{
+        const r=await enviarPeticion("actualizar_empleado",payload);
+        ocultarLoader();
+        if(r.status==="success"){
+            mostrarToast('success','Cambios guardados',`Registro de ${empleadoEdicion["NOMBRE DEL TRABAJADOR"]||id} actualizado.`);
+            cerrarEditor();forzarActualizacion();
+        }else mostrarToast('error','Error al guardar',r.message);
+    }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
+}
+
+// ─── OFFBOARDING AUTOCOMPLETE ─────────────────────────────────
+function initAutocomplete(){
+    const input=document.getElementById('baja_busqueda');
+    const lista=document.getElementById('baja_sugerencias');
+    if(!input||!lista)return;
+    const nuevo=input.cloneNode(true);input.parentNode.replaceChild(nuevo,input);
+    nuevo.addEventListener('input',function(){
+        const q=nuevo.value.trim().toLowerCase();
         lista.innerHTML='';
         document.getElementById('baja_idEmpleado').value='';
         document.getElementById('baja_nombreEmpleado').value='';
         document.getElementById('baja_empleado_badge').classList.add('hidden');
         if(q.length<2){lista.classList.add('hidden');return;}
-        var hits=cacheGlobal.filter(function(e){
-            return(e["NOMBRE DEL TRABAJADOR"]||"").toLowerCase().includes(q)||(e["NO. EMPLEADO"]||"").toString().includes(q);
-        }).slice(0,8);
+        const hits=cacheGlobal.filter(e=>(e["NOMBRE DEL TRABAJADOR"]||"").toLowerCase().includes(q)||(e["NO. EMPLEADO"]||"").toString().includes(q)).slice(0,8);
         if(!hits.length){lista.classList.add('hidden');return;}
         lista.classList.remove('hidden');
-        lista.innerHTML=hits.map(function(emp){
-            var est=(emp["ESTATUS"]||"").trim();
-            var col=est==="Activo"?"text-emerald-600":"text-red-500";
-            var nom=(emp["NOMBRE DEL TRABAJADOR"]||"—").replace(/'/g,"\\'");
-            var emp2=(emp["EMPRESA"]||"").replace(/'/g,"\\'");
-            var pu=(emp["PUESTO"]||"").replace(/'/g,"\\'");
-            return'<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition" onclick="seleccionarEmpleado(\''+emp["NO. EMPLEADO"]+'\',\''+nom+'\',\''+est+'\',\''+emp2+'\',\''+pu+'\')"><div class="flex items-center justify-between gap-3"><div><p class="text-sm font-semibold text-slate-800">'+(emp["NOMBRE DEL TRABAJADOR"]||"—")+'</p><p class="text-xs text-slate-400">#'+emp["NO. EMPLEADO"]+' · '+emp["EMPRESA"]+' · '+emp["PUESTO"]+'</p></div><span class="text-xs font-bold '+col+' flex-shrink-0">'+est+'</span></div></button>';
+        lista.innerHTML=hits.map(emp=>{
+            const est=(emp["ESTATUS"]||"").trim();
+            const col=est==="Activo"?"text-emerald-600":"text-red-500";
+            const nomE=(emp["NOMBRE DEL TRABAJADOR"]||"—").replace(/'/g,"\\'");
+            const emp2=(emp["EMPRESA"]||"").replace(/'/g,"\\'");
+            const pu=(emp["PUESTO"]||"").replace(/'/g,"\\'");
+            return`<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition" onclick="seleccionarEmpleado('${emp["NO. EMPLEADO"]}','${nomE}','${est}','${emp2}','${pu}')"><div class="flex items-center justify-between gap-3"><div><p class="text-sm font-semibold text-slate-800">${emp["NOMBRE DEL TRABAJADOR"]||"—"}</p><p class="text-xs text-slate-400">#${emp["NO. EMPLEADO"]} · ${emp["EMPRESA"]} · ${emp["PUESTO"]}</p></div><span class="text-xs font-bold ${col} flex-shrink-0">${est}</span></div></button>`;
         }).join('');
     });
-    document.addEventListener('click',function(e){if(!lista.contains(e.target)&&e.target!==input)lista.classList.add('hidden');});
+    document.addEventListener('click',e=>{if(!lista.contains(e.target)&&e.target!==nuevo)lista.classList.add('hidden');});
 }
 
 function seleccionarEmpleado(id,nombre,estatus,empresa,puesto){
@@ -507,252 +899,181 @@ function seleccionarEmpleado(id,nombre,estatus,empresa,puesto){
     document.getElementById('baja_idEmpleado').value=id;
     document.getElementById('baja_nombreEmpleado').value=nombre;
     document.getElementById('baja_sugerencias').classList.add('hidden');
-    var badge=document.getElementById('baja_empleado_badge');
+    const badge=document.getElementById('baja_empleado_badge');
     badge.classList.remove('hidden');
-    var col=estatus==='Activo'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
-    badge.innerHTML='<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">'+nombre+'</p><p class="text-xs text-slate-400">#'+id+' · '+empresa+' · '+puesto+'</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full '+col+'">'+estatus+'</span></div>';
+    const col=estatus==='Activo'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
+    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">#${id} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
 }
 
 async function procesarBaja(event){
     event.preventDefault();
-    var id=document.getElementById('baja_idEmpleado').value.trim();
-    var nom=document.getElementById('baja_nombreEmpleado').value.trim();
-    if(!id&&!nom){Swal.fire('Selecciona un colaborador','Escribe y selecciona primero.','warning');return;}
+    const id=document.getElementById('baja_idEmpleado').value.trim();
+    const nom=document.getElementById('baja_nombreEmpleado').value.trim();
+    if(!id&&!nom){mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');return;}
     mostrarLoader("Procesando baja...");
-    var payload={numeroEmpleado:id,nombreEmpleado:nom,fechaBaja:document.getElementById('baja_fechaBaja').value,tipoSalida:document.getElementById('baja_tipoSalida').value,motivoSalida:document.getElementById('baja_motivoSalida').value,montoFiniquito:document.getElementById('baja_montoFiniquito').value};
+    const payload={numeroEmpleado:id,nombreEmpleado:nom,fechaBaja:document.getElementById('baja_fechaBaja').value,tipoSalida:document.getElementById('baja_tipoSalida').value,motivoSalida:document.getElementById('baja_motivoSalida').value,montoFiniquito:document.getElementById('baja_montoFiniquito').value};
     try{
-        var r=await enviarPeticion("baja",payload);ocultarLoader();
-        if(r.status==="success"){Swal.fire('Baja registrada',r.message,'success');document.getElementById('formBaja').reset();document.getElementById('baja_empleado_badge').classList.add('hidden');document.getElementById('baja_sugerencias').classList.add('hidden');forzarActualizacion();}
-        else Swal.fire('No encontrado',r.message,'warning');
-    }catch(e){ocultarLoader();Swal.fire('Error',e.message,'error');}
+        const r=await enviarPeticion("baja",payload);ocultarLoader();
+        if(r.status==="success"){mostrarToast('success','Baja registrada',r.message);document.getElementById('formBaja').reset();document.getElementById('baja_empleado_badge').classList.add('hidden');document.getElementById('baja_sugerencias').classList.add('hidden');forzarActualizacion();}
+        else mostrarToast('warning','No encontrado',r.message);
+    }catch(e){ocultarLoader();mostrarToast('error','Error',e.message);}
 }
 
-// ─── CACHÉ ────────────────────────────────────────────────────
-var cacheGlobal=[];
+// ─── CACHÉ Y DATOS ────────────────────────────────────────────
+let cacheGlobal=[];
 async function obtenerDatos(forzar){
     if(!forzar&&cacheGlobal.length)return cacheGlobal;
     mostrarLoader("Sincronizando base de datos...");
-    try{var r=await enviarPeticion("exportar_datos",{});ocultarLoader();
-        if(r.status==="success"){cacheGlobal=r.data.filter(function(e){return e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="";});return cacheGlobal;}
+    try{
+        const r=await enviarPeticion("exportar_datos",{});ocultarLoader();
+        if(r.status==="success"){
+            cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+            return cacheGlobal;
+        }
         return[];
     }catch(e){ocultarLoader();return[];}
 }
 async function forzarActualizacion(){
-    cacheGlobal=[];await obtenerDatos(true);cargarDashboard();
+    cacheGlobal=[];
+    const datos=await obtenerDatos(true);
+    evaluarAlertas(datos);
+    cargarDashboard();
     if(document.getElementById('module-basedatos')?.classList.contains('active'))renderizarPagina(1);
     initAutocomplete();
 }
 
-// ─── DIRECTORIO ───────────────────────────────────────────────
-var paginaActual=1;const FILAS_PAG=50;
+// ─── DIRECTORIO CON BOTÓN EDITAR ─────────────────────────────
+let paginaActual=1;const FILAS_PAG=50;
 async function cargarDatosTabla(){await obtenerDatos();paginaActual=1;renderizarPagina(1);}
 function renderizarPagina(pag){
-    var datos=cacheGlobal,totalPags=Math.max(1,Math.ceil(datos.length/FILAS_PAG));
+    const datos=cacheGlobal,totalPags=Math.max(1,Math.ceil(datos.length/FILAS_PAG));
     paginaActual=Math.max(1,Math.min(pag,totalPags));
-    var ini=(paginaActual-1)*FILAS_PAG,slice=datos.slice(ini,ini+FILAS_PAG);
-    var tbody=document.getElementById('tabla-directorio');tbody.innerHTML='';
-    slice.forEach(function(emp){
-        var est=(emp["ESTATUS"]||"").trim(),color=est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700";
-        var url=emp["URL EXPEDIENTE"]||"",link=url?'<a href="'+url+'" target="_blank" class="text-blue-500 hover:text-blue-700"><i class="fas fa-folder-open"></i></a>':'<span class="text-slate-300">—</span>';
-        tbody.innerHTML+='<tr class="hover:bg-slate-50 border-b border-slate-100 transition"><td class="px-5 py-3.5 font-semibold text-slate-700 text-sm">#'+(emp["NO. EMPLEADO"]||"—")+'</td><td class="px-5 py-3.5 text-sm">'+(emp["NOMBRE DEL TRABAJADOR"]||"—")+'</td><td class="px-5 py-3.5 text-xs text-slate-500">'+(emp["EMPRESA"]||"—")+'</td><td class="px-5 py-3.5 text-xs text-slate-500">'+(emp["PUESTO"]||"—")+'</td><td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full '+color+'">'+(est||"—")+'</span></td><td class="px-5 py-3.5 text-center">'+link+'</td></tr>';
+    const ini=(paginaActual-1)*FILAS_PAG,slice=datos.slice(ini,ini+FILAS_PAG);
+    const tbody=document.getElementById('tabla-directorio');tbody.innerHTML='';
+    slice.forEach(emp=>{
+        const est=(emp["ESTATUS"]||"").trim();
+        const color=est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-700";
+        const url=emp["URL EXPEDIENTE"]||"";
+        const link=url?`<a href="${url}" target="_blank" class="text-blue-400 hover:text-blue-600 transition"><i class="fas fa-folder-open"></i></a>`:'<span class="text-slate-200">—</span>';
+        const id=(emp["NO. EMPLEADO"]||"").toString();
+
+        // Badge de alerta de contrato en la fila
+        const ven1=emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]||"";
+        const ven2=emp["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]||"";
+        const ven3=emp["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]||"";
+        let alertaFila='';
+        [ven1,ven2,ven3].forEach(v=>{
+            if(!v)return;
+            const d=diasRestantes(v);
+            if(d!==null&&d<=30&&est==="Activo") alertaFila='<i class="fas fa-triangle-exclamation text-amber-400 ml-1 text-xs" title="Contrato por vencer"></i>';
+        });
+
+        tbody.innerHTML+=`<tr class="hover:bg-slate-50 border-b border-slate-100 transition">
+            <td class="px-5 py-3.5 font-semibold text-slate-700 text-sm">#${id}</td>
+            <td class="px-5 py-3.5 text-sm">${emp["NOMBRE DEL TRABAJADOR"]||"—"}${alertaFila}</td>
+            <td class="px-5 py-3.5 text-xs text-slate-500">${emp["EMPRESA"]||"—"}</td>
+            <td class="px-5 py-3.5 text-xs text-slate-500">${emp["PUESTO"]||"—"}</td>
+            <td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ${color}">${est||"—"}</span></td>
+            <td class="px-5 py-3.5 text-center">
+              <div class="flex items-center justify-center gap-3">
+                <button onclick="abrirEditor('${id}')" class="text-slate-400 hover:text-blue-600 transition" title="Editar / Renovar contrato"><i class="fas fa-pen-to-square text-sm"></i></button>
+                ${link}
+              </div>
+            </td></tr>`;
     });
-    var pg=document.getElementById('paginacion-directorio');if(!pg)return;
-    var ini2=ini+1,fin2=Math.min(ini+FILAS_PAG,datos.length);
-    pg.innerHTML='<div class="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl"><span class="text-sm text-slate-500">Mostrando <strong>'+ini2+'–'+fin2+'</strong> de <strong>'+datos.length+'</strong></span><div class="flex gap-2"><button onclick="renderizarPagina('+(paginaActual-1)+')" '+(paginaActual<=1?'disabled':'')+' class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">← Anterior</button><span class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg">'+paginaActual+' / '+totalPags+'</span><button onclick="renderizarPagina('+(paginaActual+1)+')" '+(paginaActual>=totalPags?'disabled':'')+' class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">Siguiente →</button></div></div>';
-    var sub=document.getElementById('subtitulo-directorio');if(sub)sub.innerText=datos.length+' colaboradores en la base maestra';
+    const pg=document.getElementById('paginacion-directorio');if(!pg)return;
+    const ini2=ini+1,fin2=Math.min(ini+FILAS_PAG,datos.length);
+    pg.innerHTML=`<div class="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl"><span class="text-sm text-slate-500">Mostrando <strong>${ini2}–${fin2}</strong> de <strong>${datos.length}</strong></span><div class="flex gap-2"><button onclick="renderizarPagina(${paginaActual-1})" ${paginaActual<=1?'disabled':''} class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">← Anterior</button><span class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg">${paginaActual} / ${totalPags}</span><button onclick="renderizarPagina(${paginaActual+1})" ${paginaActual>=totalPags?'disabled':''} class="px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition">Siguiente →</button></div></div>`;
+    const sub=document.getElementById('subtitulo-directorio');if(sub)sub.innerText=datos.length+' colaboradores en la base maestra';
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────
-var charts={};
+let charts={};
 const CD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{family:"'Inter',sans-serif",size:11},padding:10,boxWidth:12,boxHeight:12}}}};
 function dc(r){if(r)try{r.destroy();}catch(e){}return null;}
 function fmtMXN(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(n||0);}
-
-// Parsea una fecha que viene del Sheet en CUALQUIER formato:
-// "15/03/2021", "2021-03-15", número serial Excel, etc.
-function parseFechaFlexible(val){
-    if(!val)return null;
-    var s=val.toString().trim();
-    if(!s||s==="0")return null;
-    // Número serial Excel
-    var n=parseFloat(s);
-    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d;}
-    // DD/MM/YYYY
-    var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
-    // YYYY-MM-DD
-    var m2=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(m2)return new Date(parseInt(m2[1]),parseInt(m2[2])-1,parseInt(m2[3]));
-    // Nativo
-    var d=new Date(s);return isNaN(d)?null:d;
-}
-
-function calcEdad(val){
-    var d=parseFechaFlexible(val);if(!d)return null;
-    var h=new Date(),a=h.getFullYear()-d.getFullYear();
-    if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;
-    return a>=15&&a<=85?a:null;
-}
-function calcAnt(val){
-    var d=parseFechaFlexible(val);if(!d)return null;
-    var ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);
-}
-// Parsea el monto que llega del Sheet (puede traer "$", ",", espacios)
-function parsearMontoSheet(val){
-    if(!val&&val!==0)return 0;
-    var s=val.toString().replace(/[$\s,]/g,"");
-    var n=parseFloat(s);return isNaN(n)?0:n;
-}
+function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a>=15&&a<=85?a:null;}
+function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
 
 async function cargarDashboard(){
-    var todos=await obtenerDatos(),filtro=document.getElementById('filtroEmpresaGlobal').value;
-    var D=filtro==="ALL"?todos:todos.filter(function(r){return(r["EMPRESA"]||"").trim()===filtro;});
-    var activos=0,bajas=0,cEmp={},cGen={"Hombre":0,"Mujer":0},cRango={"<31":0,"31-50":0,"51-65":0,">65":0};
-    var cMotivo={},cDepto={},cTend={},finPorAnio={},totalFin=0,edades=[],ants=[];
-
-    D.forEach(function(row){
-        var est=(row["ESTATUS"]||"").trim();
-        var gen=(row["GÉNERO"]||"").trim();
-        var emp=(row["EMPRESA"]||"Sin Empresa").trim();
-        var rango=(row["RANGO DE EDAD"]||"").trim();
-        var motivo=(row["MOTIVO DE SALIDA"]||"").trim();
-        var depto=(row["DEPARTAMENTO"]||"Sin Departamento").trim();
-
-        // Fechas: parsear formato flexible
-        var fIng=row["FECHA DE INGRESO"]||"";
-        var fBaja=row["FECHA DE BAJA"]||"";
-        var fNac=row["FECHA DE NACIMIENTO"]||"";
-
-        // Monto: parsear con el helper
-        var fin=parsearMontoSheet(row["MONTO DE FINIQUITO"]);
-
-        if(est==="Activo"){
-            activos++;
-            if(gen==="Hombre"||gen==="Masculino")cGen["Hombre"]++;
-            else if(gen==="Mujer"||gen==="Femenino")cGen["Mujer"]++;
-            if(cRango[rango]!==undefined)cRango[rango]++;
-            var ed=calcEdad(fNac);if(ed!==null)edades.push(ed);
-            var an=calcAnt(fIng);if(an!==null)ants.push(an);
-            cDepto[depto]=(cDepto[depto]||0)+1;
-        }
-        if(est==="Baja"){
-            bajas++;
-            if(motivo)cMotivo[motivo]=(cMotivo[motivo]||0)+1;
-            if(fin>0){
-                totalFin+=fin;
-                var fBajaD=parseFechaFlexible(fBaja);
-                if(fBajaD){var a=fBajaD.getFullYear();finPorAnio[a]=(finPorAnio[a]||0)+fin;}
-            }
-        }
-        if(!cEmp[emp])cEmp[emp]={act:0,baj:0};
-        if(est==="Activo")cEmp[emp].act++;
-        if(est==="Baja")cEmp[emp].baj++;
-        // Tendencia
-        var fIngD=parseFechaFlexible(fIng);
-        if(fIngD){var k=fIngD.getFullYear()+'-'+String(fIngD.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0};cTend[k].altas++;}
-        var fBajaD2=parseFechaFlexible(fBaja);
-        if(fBajaD2){var k2=fBajaD2.getFullYear()+'-'+String(fBajaD2.getMonth()+1).padStart(2,'0');if(!cTend[k2])cTend[k2]={altas:0,bajas:0};cTend[k2].bajas++;}
+    const todos=await obtenerDatos(),filtro=document.getElementById('filtroEmpresaGlobal').value;
+    const D=filtro==="ALL"?todos:todos.filter(r=>(r["EMPRESA"]||"").trim()===filtro);
+    let activos=0,bajas=0,cEmp={},cGen={"Hombre":0,"Mujer":0},cRango={"<31":0,"31-50":0,"51-65":0,">65":0};
+    let cMotivo={},cDepto={},cTend={},finPorAnio={},totalFin=0,edades=[],ants=[];
+    D.forEach(row=>{
+        const est=(row["ESTATUS"]||"").trim(),gen=(row["GÉNERO"]||"").trim(),emp=(row["EMPRESA"]||"Sin Empresa").trim();
+        const rango=(row["RANGO DE EDAD"]||"").trim(),motivo=(row["MOTIVO DE SALIDA"]||"").trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").trim();
+        const fIng=row["FECHA DE INGRESO"]||"",fBaja=row["FECHA DE BAJA"]||"",fNac=row["FECHA DE NACIMIENTO"]||"";
+        const fin=parsearMontoSheet(row["MONTO DE FINIQUITO"]);
+        if(est==="Activo"){activos++;if(gen==="Hombre"||gen==="Masculino")cGen["Hombre"]++;else if(gen==="Mujer"||gen==="Femenino")cGen["Mujer"]++;if(cRango[rango]!==undefined)cRango[rango]++;const ed=calcEdad(fNac);if(ed!==null)edades.push(ed);const an=calcAnt(fIng);if(an!==null)ants.push(an);cDepto[depto]=(cDepto[depto]||0)+1;}
+        if(est==="Baja"){bajas++;if(motivo)cMotivo[motivo]=(cMotivo[motivo]||0)+1;if(fin>0){totalFin+=fin;const fBD=parseFechaFlexible(fBaja);if(fBD){const a=fBD.getFullYear();finPorAnio[a]=(finPorAnio[a]||0)+fin;}}}
+        if(!cEmp[emp])cEmp[emp]={act:0,baj:0};if(est==="Activo")cEmp[emp].act++;if(est==="Baja")cEmp[emp].baj++;
+        const fIngD=parseFechaFlexible(fIng);if(fIngD){const k=fIngD.getFullYear()+'-'+String(fIngD.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0};cTend[k].altas++;}
+        const fBD2=parseFechaFlexible(fBaja);if(fBD2){const k=fBD2.getFullYear()+'-'+String(fBD2.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0};cTend[k].bajas++;}
     });
-
-    var tot=activos+bajas;
-    var edProm=edades.length?(edades.reduce(function(a,b){return a+b;},0)/edades.length).toFixed(1):"—";
-    var anProm=ants.length?(ants.reduce(function(a,b){return a+b;},0)/ants.length).toFixed(1):"—";
-
-    document.getElementById('kpi-total').innerText=tot;
-    document.getElementById('kpi-activos').innerText=activos;
-    document.getElementById('kpi-bajas').innerText=bajas;
-    document.getElementById('kpi-rotacion').innerText=tot>0?((bajas/tot)*100).toFixed(1)+'%':'0%';
-    document.getElementById('kpi-edad-prom').innerText=edProm!=="—"?edProm+' años':"—";
-    document.getElementById('kpi-ant-prom').innerText=anProm!=="—"?anProm+' años':"—";
-    document.getElementById('kpi-finiquitos').innerText=fmtMXN(totalFin);
-    var totG=cGen["Hombre"]+cGen["Mujer"],pctH=totG>0?Math.round(cGen["Hombre"]/totG*100):0;
-    document.getElementById('kpi-genero-h').innerText=cGen["Hombre"];
-    document.getElementById('kpi-genero-m').innerText=cGen["Mujer"];
-    document.getElementById('kpi-genero-bar-h').style.width=pctH+'%';
-    document.getElementById('kpi-genero-bar-m').style.width=(100-pctH)+'%';
-
-    // Gráficas
-    var empL=Object.keys(cEmp).map(function(e){return e.length>14?e.substring(0,14)+'…':e;});
-    charts.emp=dc(charts.emp);
-    charts.emp=new Chart(document.getElementById('chartEmpresas').getContext('2d'),{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(function(v){return v.act;}),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(function(v){return v.baj;}),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
-
-    charts.rango=dc(charts.rango);
-    charts.rango=new Chart(document.getElementById('chartRangoEdad').getContext('2d'),{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
-
-    var mot=Object.entries(cMotivo).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+    const tot=activos+bajas,edP=edades.length?(edades.reduce((a,b)=>a+b,0)/edades.length).toFixed(1):"—",anP=ants.length?(ants.reduce((a,b)=>a+b,0)/ants.length).toFixed(1):"—";
+    document.getElementById('kpi-total').innerText=tot;document.getElementById('kpi-activos').innerText=activos;document.getElementById('kpi-bajas').innerText=bajas;document.getElementById('kpi-rotacion').innerText=tot>0?((bajas/tot)*100).toFixed(1)+'%':'0%';
+    document.getElementById('kpi-edad-prom').innerText=edP!=="—"?edP+' años':"—";document.getElementById('kpi-ant-prom').innerText=anP!=="—"?anP+' años':"—";document.getElementById('kpi-finiquitos').innerText=fmtMXN(totalFin);
+    const totG=cGen["Hombre"]+cGen["Mujer"],pctH=totG>0?Math.round(cGen["Hombre"]/totG*100):0;
+    document.getElementById('kpi-genero-h').innerText=cGen["Hombre"];document.getElementById('kpi-genero-m').innerText=cGen["Mujer"];
+    document.getElementById('kpi-genero-bar-h').style.width=pctH+'%';document.getElementById('kpi-genero-bar-m').style.width=(100-pctH)+'%';
+    const empL=Object.keys(cEmp).map(e=>e.length>14?e.substring(0,14)+'…':e);
+    charts.emp=dc(charts.emp);charts.emp=new Chart(document.getElementById('chartEmpresas').getContext('2d'),{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
+    charts.rango=dc(charts.rango);charts.rango=new Chart(document.getElementById('chartRangoEdad').getContext('2d'),{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+    const mot=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.mot=dc(charts.mot);
-    if(mot.length){
-        charts.mot=new Chart(document.getElementById('chartMotivoBaja').getContext('2d'),{type:'bar',data:{labels:mot.map(function(x){return x[0].length>22?x[0].substring(0,22)+'…':x[0];}),datasets:[{label:'Bajas',data:mot.map(function(x){return x[1];}),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
-    }else{
-        var c=document.getElementById('chartMotivoBaja');if(c){var p=c.parentElement;p.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin datos de bajas aún</p>';}
-    }
-
-    var dep=Object.entries(cDepto).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
-    charts.dep=dc(charts.dep);
-    charts.dep=new Chart(document.getElementById('chartDeptos').getContext('2d'),{type:'bar',data:{labels:dep.map(function(x){return x[0].length>20?x[0].substring(0,20)+'…':x[0];}),datasets:[{label:'Activos',data:dep.map(function(x){return x[1];}),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
-
-    var meses=Object.keys(cTend).sort().slice(-18);
-    var fmtM=function(k){var parts=k.split('-');return['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(parts[1])-1]+' '+parts[0].slice(2);};
-    charts.tend=dc(charts.tend);
-    charts.tend=new Chart(document.getElementById('chartTendencia').getContext('2d'),{type:'line',data:{labels:meses.map(fmtM),datasets:[{label:'Altas',data:meses.map(function(k){return cTend[k].altas;}),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#3b82f6'},{label:'Bajas',data:meses.map(function(k){return cTend[k].bajas;}),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#ef4444'}]},options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
-
-    var anios=Object.keys(finPorAnio).sort();
-    var finCanvas=document.getElementById('chartFiniquitos');
+    if(mot.length){charts.mot=new Chart(document.getElementById('chartMotivoBaja').getContext('2d'),{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});}
+    else{const c=document.getElementById('chartMotivoBaja');if(c)c.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin bajas registradas aún</p>';}
+    const dep=Object.entries(cDepto).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    charts.dep=dc(charts.dep);charts.dep=new Chart(document.getElementById('chartDeptos').getContext('2d'),{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    const meses=Object.keys(cTend).sort().slice(-18),fmtM=k=>{const[y,m]=k.split('-');return['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]+' '+y.slice(2);};
+    charts.tend=dc(charts.tend);charts.tend=new Chart(document.getElementById('chartTendencia').getContext('2d'),{type:'line',data:{labels:meses.map(fmtM),datasets:[{label:'Altas',data:meses.map(k=>cTend[k].altas),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#3b82f6'},{label:'Bajas',data:meses.map(k=>cTend[k].bajas),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#ef4444'}]},options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
+    const anios=Object.keys(finPorAnio).sort(),finC=document.getElementById('chartFiniquitos');
     charts.fin=dc(charts.fin);
-    if(anios.length){
-        charts.fin=new Chart(finCanvas.getContext('2d'),{type:'bar',data:{labels:anios,datasets:[{label:'Finiquitos',data:anios.map(function(a){return finPorAnio[a];}),backgroundColor:['#92400e','#d97706','#f59e0b','#fbbf24'].slice(0,anios.length),borderRadius:6}]},options:{...CD,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return' '+fmtMXN(ctx.raw);}}}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:function(v){return fmtMXN(v);}}}}}});
-    }else{
-        var fp=finCanvas.parentElement;fp.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin finiquitos registrados aún</p>';
-    }
-
-    var top=Object.entries(cMotivo).sort(function(a,b){return b[1]-a[1];}).slice(0,6);
-    var tb=document.getElementById('tabla-causas-baja');
-    if(tb){
-        if(top.length){
-            tb.innerHTML=top.map(function(x){var m=x[0],n=x[1],pct=bajas>0?((n/bajas)*100).toFixed(1):"0";return'<tr class="border-b border-slate-100 last:border-0"><td class="py-2.5 pr-4 text-sm text-slate-700">'+m+'</td><td class="py-2.5 text-center text-sm font-bold text-slate-800">'+n+'</td><td class="py-2.5 pl-4"><div class="flex items-center gap-2"><div class="flex-1 bg-slate-100 rounded-full h-1.5"><div class="bg-red-400 h-1.5 rounded-full" style="width:'+pct+'%"></div></div><span class="text-xs text-slate-500 w-10 text-right">'+pct+'%</span></div></td></tr>';}).join('');
-        }else{
-            tb.innerHTML='<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">Sin bajas registradas aún</td></tr>';
-        }
-    }
+    if(anios.length){charts.fin=new Chart(finC.getContext('2d'),{type:'bar',data:{labels:anios,datasets:[{label:'Finiquitos',data:anios.map(a=>finPorAnio[a]),backgroundColor:['#92400e','#d97706','#f59e0b','#fbbf24'].slice(0,anios.length),borderRadius:6}]},options:{...CD,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtMXN(ctx.raw)}}},schools:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>fmtMXN(v)}}}}});}
+    else if(finC){finC.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin finiquitos registrados aún</p>';}
+    const top=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,6),tb=document.getElementById('tabla-causas-baja');
+    if(tb){if(top.length){tb.innerHTML=top.map(([m,n])=>{const pct=bajas>0?((n/bajas)*100).toFixed(1):"0";return`<tr class="border-b border-slate-100 last:border-0"><td class="py-2.5 pr-4 text-sm text-slate-700">${m}</td><td class="py-2.5 text-center text-sm font-bold text-slate-800">${n}</td><td class="py-2.5 pl-4"><div class="flex items-center gap-2"><div class="flex-1 bg-slate-100 rounded-full h-1.5"><div class="bg-red-400 h-1.5 rounded-full" style="width:${pct}%"></div></div><span class="text-xs text-slate-500 w-10 text-right">${pct}%</span></div></td></tr>`;}).join('');}else{tb.innerHTML='<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">Sin bajas registradas aún</td></tr>';}}
 }
 
 // ─── EXCEL ────────────────────────────────────────────────────
 async function exportarExcel(){
-    var datos=await obtenerDatos();if(!datos.length){Swal.fire('Sin datos','No hay registros.','info');return;}
-    var ws=XLSX.utils.json_to_sheet(datos),wb=XLSX.utils.book_new();
+    const datos=await obtenerDatos();if(!datos.length){mostrarToast('info','Sin datos','No hay registros para exportar.');return;}
+    const ws=XLSX.utils.json_to_sheet(datos),wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"BASE DE DATOS");
     XLSX.writeFile(wb,'GM_Respaldo_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
-
 function importarExcel(event){
-    var file=event.target.files[0];if(!file)return;
+    const file=event.target.files[0];if(!file)return;
     mostrarLoader("Leyendo archivo Excel...");
-    var reader=new FileReader();
-    reader.onload=async function(e){
-        var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-        var raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
-        // Normalizar fechas y montos antes de enviar al GAS
-        var filtrado=raw.filter(function(r){return r["NO. EMPLEADO"]&&r["NO. EMPLEADO"].toString().trim()!=="";})
-                       .map(normalizarRegistro);
+    const reader=new FileReader();
+    reader.onload=async e=>{
+        const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        const raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
+        const filtrado=raw.filter(r=>r["NO. EMPLEADO"]&&r["NO. EMPLEADO"].toString().trim()!=="").map(normalizarRegistro);
         ocultarLoader();
-        var res=await Swal.fire({title:'Confirmar importación',html:'<strong>'+filtrado.length+' filas válidas</strong> de <em>'+file.name+'</em>.<br><small class="text-slate-500">Fechas y montos normalizados automáticamente.</small>',icon:'question',showCancelButton:true,confirmButtonText:'Sí, importar',cancelButtonText:'Cancelar'});
-        if(res.isConfirmed){
-            mostrarLoader("Inyectando...");
-            try{var r=await enviarPeticion("importar_masivo",{registros:filtrado});ocultarLoader();Swal.fire('Listo',r.message,'success');forzarActualizacion();}
-            catch(err){ocultarLoader();Swal.fire('Error',err.message,'error');}
-        }
+        const{isConfirmed}=await Swal.fire({title:'Confirmar importación',html:`<strong>${filtrado.length} filas válidas</strong> de <em>${file.name}</em>.<br><small>Fechas y montos normalizados automáticamente.</small>`,icon:'question',showCancelButton:true,confirmButtonText:'Sí, importar',cancelButtonText:'Cancelar'});
+        if(isConfirmed){mostrarLoader("Inyectando...");try{const r=await enviarPeticion("importar_masivo",{registros:filtrado});ocultarLoader();mostrarToast('success','Importación completa',r.message);forzarActualizacion();}catch(err){ocultarLoader();mostrarToast('error','Error',err.message);}}
         event.target.value='';
     };
-    reader.onerror=function(){ocultarLoader();Swal.fire('Error','No se pudo leer.','error');};
+    reader.onerror=()=>{ocultarLoader();mostrarToast('error','Error','No se pudo leer el archivo.');};
     reader.readAsArrayBuffer(file);
 }
 
 // ─── INIT ─────────────────────────────────────────────────────
 async function initApp(){
     pasoActual=0;altaData={};
+    actualizarBadgeNotifs();
     renderizarStepper();
-    await cargarDashboard();
+    const datos=await cargarDashboard();
+    if(cacheGlobal.length)evaluarAlertas(cacheGlobal);
     initAutocomplete();
+    // Cerrar panel de notificaciones al hacer click fuera
+    document.addEventListener('click',e=>{
+        const panel=document.getElementById('notif-panel');
+        const btn=document.getElementById('btn-notif');
+        if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target))panel.classList.add('hidden');
+    });
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initApp);
 else initApp();
