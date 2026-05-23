@@ -999,41 +999,182 @@ async function cargarDashboard(){
     const todos=await obtenerDatos(),filtro=document.getElementById('filtroEmpresaGlobal').value;
     const D=filtro==="ALL"?todos:todos.filter(r=>(r["EMPRESA"]||"").trim()===filtro);
     let activos=0,bajas=0,cEmp={},cGen={"Hombre":0,"Mujer":0},cRango={"<31":0,"31-50":0,"51-65":0,">65":0};
-    let cMotivo={},cDepto={},cTend={},finPorAnio={},totalFin=0,edades=[],ants=[];
+    let cMotivo={},cDepto={},cTend={},finPorMes={},finPorAnio={},totalFin=0,edades=[],ants=[];
+
+    // Construir snapshot de activos por mes: para cada mes ordenado,
+    // contar cuántos empleados estaban activos en ese mes.
+    // Estrategia: acumulativo → sumar altas, restar bajas mes a mes.
     D.forEach(row=>{
         const est=(row["ESTATUS"]||"").trim(),gen=(row["GÉNERO"]||"").trim(),emp=(row["EMPRESA"]||"Sin Empresa").trim();
         const rango=(row["RANGO DE EDAD"]||"").trim(),motivo=(row["MOTIVO DE SALIDA"]||"").trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").trim();
         const fIng=row["FECHA DE INGRESO"]||"",fBaja=row["FECHA DE BAJA"]||"",fNac=row["FECHA DE NACIMIENTO"]||"";
         const fin=parsearMontoSheet(row["MONTO DE FINIQUITO"]);
-        if(est==="Activo"){activos++;if(gen==="Hombre"||gen==="Masculino")cGen["Hombre"]++;else if(gen==="Mujer"||gen==="Femenino")cGen["Mujer"]++;if(cRango[rango]!==undefined)cRango[rango]++;const ed=calcEdad(fNac);if(ed!==null)edades.push(ed);const an=calcAnt(fIng);if(an!==null)ants.push(an);cDepto[depto]=(cDepto[depto]||0)+1;}
-        if(est==="Baja"){bajas++;if(motivo)cMotivo[motivo]=(cMotivo[motivo]||0)+1;if(fin>0){totalFin+=fin;const fBD=parseFechaFlexible(fBaja);if(fBD){const a=fBD.getFullYear();finPorAnio[a]=(finPorAnio[a]||0)+fin;}}}
-        if(!cEmp[emp])cEmp[emp]={act:0,baj:0};if(est==="Activo")cEmp[emp].act++;if(est==="Baja")cEmp[emp].baj++;
-        const fIngD=parseFechaFlexible(fIng);if(fIngD){const k=fIngD.getFullYear()+'-'+String(fIngD.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0};cTend[k].altas++;}
-        const fBD2=parseFechaFlexible(fBaja);if(fBD2){const k=fBD2.getFullYear()+'-'+String(fBD2.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0};cTend[k].bajas++;}
+
+        if(est==="Activo"){
+            activos++;
+            if(gen==="Hombre"||gen==="Masculino")cGen["Hombre"]++;
+            else if(gen==="Mujer"||gen==="Femenino")cGen["Mujer"]++;
+            if(cRango[rango]!==undefined)cRango[rango]++;
+            const ed=calcEdad(fNac);if(ed!==null)edades.push(ed);
+            const an=calcAnt(fIng);if(an!==null)ants.push(an);
+            cDepto[depto]=(cDepto[depto]||0)+1;
+        }
+        if(est==="Baja"){
+            bajas++;
+            if(motivo)cMotivo[motivo]=(cMotivo[motivo]||0)+1;
+            if(fin>0){
+                totalFin+=fin;
+                // Finiquitos por MES (para gráfica mensual)
+                const fBD=parseFechaFlexible(fBaja);
+                if(fBD){
+                    const km=fBD.getFullYear()+'-'+String(fBD.getMonth()+1).padStart(2,'0');
+                    finPorMes[km]=(finPorMes[km]||0)+fin;
+                    // Finiquitos por AÑO (para KPI tabla resumen)
+                    const ka=fBD.getFullYear().toString();
+                    finPorAnio[ka]=(finPorAnio[ka]||0)+fin;
+                }
+            }
+        }
+        if(!cEmp[emp])cEmp[emp]={act:0,baj:0};
+        if(est==="Activo")cEmp[emp].act++;
+        if(est==="Baja")cEmp[emp].baj++;
+
+        // Tendencia mensual de altas y bajas
+        const fIngD=parseFechaFlexible(fIng);
+        if(fIngD){const k=fIngD.getFullYear()+'-'+String(fIngD.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].altas++;}
+        const fBD2=parseFechaFlexible(fBaja);
+        if(fBD2){const k=fBD2.getFullYear()+'-'+String(fBD2.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].bajas++;}
     });
-    const tot=activos+bajas,edP=edades.length?(edades.reduce((a,b)=>a+b,0)/edades.length).toFixed(1):"—",anP=ants.length?(ants.reduce((a,b)=>a+b,0)/ants.length).toFixed(1):"—";
-    document.getElementById('kpi-total').innerText=tot;document.getElementById('kpi-activos').innerText=activos;document.getElementById('kpi-bajas').innerText=bajas;document.getElementById('kpi-rotacion').innerText=tot>0?((bajas/tot)*100).toFixed(1)+'%':'0%';
-    document.getElementById('kpi-edad-prom').innerText=edP!=="—"?edP+' años':"—";document.getElementById('kpi-ant-prom').innerText=anP!=="—"?anP+' años':"—";document.getElementById('kpi-finiquitos').innerText=fmtMXN(totalFin);
+
+    // Calcular activos acumulados por mes (snapshot mensual)
+    const mesesOrdenados=Object.keys(cTend).sort();
+    let acumActivos=0;
+    mesesOrdenados.forEach(k=>{
+        acumActivos+=cTend[k].altas;
+        acumActivos-=cTend[k].bajas;
+        cTend[k].activos=Math.max(0,acumActivos);
+    });
+
+    const tot=activos+bajas;
+    const edP=edades.length?(edades.reduce((a,b)=>a+b,0)/edades.length).toFixed(1):"—";
+    const anP=ants.length?(ants.reduce((a,b)=>a+b,0)/ants.length).toFixed(1):"—";
+
+    // KPIs
+    document.getElementById('kpi-total').innerText=tot;
+    document.getElementById('kpi-activos').innerText=activos;
+    document.getElementById('kpi-bajas').innerText=bajas;
+    document.getElementById('kpi-rotacion').innerText=tot>0?((bajas/tot)*100).toFixed(1)+'%':'0%';
+    document.getElementById('kpi-edad-prom').innerText=edP!=="—"?edP+' años':"—";
+    document.getElementById('kpi-ant-prom').innerText=anP!=="—"?anP+' años':"—";
+    document.getElementById('kpi-finiquitos').innerText=fmtMXN(totalFin);
     const totG=cGen["Hombre"]+cGen["Mujer"],pctH=totG>0?Math.round(cGen["Hombre"]/totG*100):0;
-    document.getElementById('kpi-genero-h').innerText=cGen["Hombre"];document.getElementById('kpi-genero-m').innerText=cGen["Mujer"];
-    document.getElementById('kpi-genero-bar-h').style.width=pctH+'%';document.getElementById('kpi-genero-bar-m').style.width=(100-pctH)+'%';
+    document.getElementById('kpi-genero-h').innerText=cGen["Hombre"];
+    document.getElementById('kpi-genero-m').innerText=cGen["Mujer"];
+    document.getElementById('kpi-genero-bar-h').style.width=pctH+'%';
+    document.getElementById('kpi-genero-bar-m').style.width=(100-pctH)+'%';
+
+    // Tabla resumen de finiquitos por año
+    const tablaFin=document.getElementById('tabla-finiquitos-anio');
+    if(tablaFin){
+        const aniosOrdenados=Object.keys(finPorAnio).sort((a,b)=>b-a);
+        if(aniosOrdenados.length){
+            tablaFin.innerHTML=aniosOrdenados.map(a=>`<tr class="border-b border-slate-100 last:border-0">
+                <td class="py-2 pr-4 text-sm font-semibold text-slate-700">${a}</td>
+                <td class="py-2 text-sm font-bold text-slate-800 text-right">${fmtMXN(finPorAnio[a])}</td>
+            </tr>`).join('');
+        } else {
+            tablaFin.innerHTML='<tr><td colspan="2" class="py-6 text-center text-xs text-slate-400">Sin finiquitos registrados</td></tr>';
+        }
+    }
+
+    const fmtM=k=>{const[y,m]=k.split('-');return['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]+' '+y.slice(2);};
+
+    // ── Gráfica: Empresas ──────────────────────────────────────
     const empL=Object.keys(cEmp).map(e=>e.length>14?e.substring(0,14)+'…':e);
-    charts.emp=dc(charts.emp);charts.emp=new Chart(document.getElementById('chartEmpresas').getContext('2d'),{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
-    charts.rango=dc(charts.rango);charts.rango=new Chart(document.getElementById('chartRangoEdad').getContext('2d'),{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+    charts.emp=dc(charts.emp);
+    charts.emp=new Chart(document.getElementById('chartEmpresas').getContext('2d'),{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
+
+    // ── Gráfica: Rango de edad ─────────────────────────────────
+    charts.rango=dc(charts.rango);
+    charts.rango=new Chart(document.getElementById('chartRangoEdad').getContext('2d'),{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+
+    // ── Gráfica: Motivos de baja ───────────────────────────────
     const mot=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.mot=dc(charts.mot);
-    if(mot.length){charts.mot=new Chart(document.getElementById('chartMotivoBaja').getContext('2d'),{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});}
-    else{const c=document.getElementById('chartMotivoBaja');if(c)c.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin bajas registradas aún</p>';}
+    if(mot.length){
+        charts.mot=new Chart(document.getElementById('chartMotivoBaja').getContext('2d'),{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    } else {
+        const c=document.getElementById('chartMotivoBaja');if(c)c.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin bajas registradas aún</p>';
+    }
+
+    // ── Gráfica: Top departamentos ─────────────────────────────
     const dep=Object.entries(cDepto).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    charts.dep=dc(charts.dep);charts.dep=new Chart(document.getElementById('chartDeptos').getContext('2d'),{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
-    const meses=Object.keys(cTend).sort().slice(-18),fmtM=k=>{const[y,m]=k.split('-');return['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]+' '+y.slice(2);};
-    charts.tend=dc(charts.tend);charts.tend=new Chart(document.getElementById('chartTendencia').getContext('2d'),{type:'line',data:{labels:meses.map(fmtM),datasets:[{label:'Altas',data:meses.map(k=>cTend[k].altas),borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#3b82f6'},{label:'Bajas',data:meses.map(k=>cTend[k].bajas),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',tension:0.4,fill:true,pointRadius:3,pointBackgroundColor:'#ef4444'}]},options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
-    const anios=Object.keys(finPorAnio).sort(),finC=document.getElementById('chartFiniquitos');
+    charts.dep=dc(charts.dep);
+    charts.dep=new Chart(document.getElementById('chartDeptos').getContext('2d'),{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+
+    // ── Gráfica: Tendencia mensual — Altas, Bajas y Activos ───
+    // Muestra los últimos 24 meses con 3 líneas
+    const mesesTend=mesesOrdenados.slice(-24);
+    charts.tend=dc(charts.tend);
+    charts.tend=new Chart(document.getElementById('chartTendencia').getContext('2d'),{
+        type:'line',
+        data:{
+            labels:mesesTend.map(fmtM),
+            datasets:[
+                {label:'Activos',   data:mesesTend.map(k=>cTend[k].activos), borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',tension:0.4,fill:true,pointRadius:2,pointBackgroundColor:'#10b981',borderWidth:2},
+                {label:'Altas',     data:mesesTend.map(k=>cTend[k].altas),   borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:'#3b82f6',borderWidth:1.5},
+                {label:'Bajas',     data:mesesTend.map(k=>cTend[k].bajas),   borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.06)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:'#ef4444',borderWidth:1.5},
+            ]
+        },
+        options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
+    });
+
+    // ── Gráfica: Finiquitos pagados por MES ────────────────────
+    // BUG FIX: era por año, ahora por mes. BUG FIX: "schools" → "scales"
+    const mesesFin=Object.keys(finPorMes).sort().slice(-24);
+    const finC=document.getElementById('chartFiniquitos');
     charts.fin=dc(charts.fin);
-    if(anios.length){charts.fin=new Chart(finC.getContext('2d'),{type:'bar',data:{labels:anios,datasets:[{label:'Finiquitos',data:anios.map(a=>finPorAnio[a]),backgroundColor:['#92400e','#d97706','#f59e0b','#fbbf24'].slice(0,anios.length),borderRadius:6}]},options:{...CD,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmtMXN(ctx.raw)}}},schools:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>fmtMXN(v)}}}}});}
-    else if(finC){finC.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin finiquitos registrados aún</p>';}
-    const top=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,6),tb=document.getElementById('tabla-causas-baja');
-    if(tb){if(top.length){tb.innerHTML=top.map(([m,n])=>{const pct=bajas>0?((n/bajas)*100).toFixed(1):"0";return`<tr class="border-b border-slate-100 last:border-0"><td class="py-2.5 pr-4 text-sm text-slate-700">${m}</td><td class="py-2.5 text-center text-sm font-bold text-slate-800">${n}</td><td class="py-2.5 pl-4"><div class="flex items-center gap-2"><div class="flex-1 bg-slate-100 rounded-full h-1.5"><div class="bg-red-400 h-1.5 rounded-full" style="width:${pct}%"></div></div><span class="text-xs text-slate-500 w-10 text-right">${pct}%</span></div></td></tr>`;}).join('');}else{tb.innerHTML='<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">Sin bajas registradas aún</td></tr>';}}
+    if(mesesFin.length){
+        charts.fin=new Chart(finC.getContext('2d'),{
+            type:'bar',
+            data:{
+                labels:mesesFin.map(fmtM),
+                datasets:[{
+                    label:'Finiquitos',
+                    data:mesesFin.map(m=>finPorMes[m]),
+                    backgroundColor:'#f59e0b',
+                    borderRadius:4
+                }]
+            },
+            options:{
+                ...CD,
+                plugins:{
+                    legend:{display:false},
+                    tooltip:{callbacks:{label:ctx=>' '+fmtMXN(ctx.raw)}}
+                },
+                scales:{   // ← BUG FIX: era "schools"
+                    x:{grid:{display:false},ticks:{font:{size:10}}},
+                    y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>fmtMXN(v),font:{size:10}}}
+                }
+            }
+        });
+    } else if(finC){
+        finC.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin finiquitos registrados aún</p>';
+    }
+
+    // ── Tabla causas de baja con % ─────────────────────────────
+    const top=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,6);
+    const tb=document.getElementById('tabla-causas-baja');
+    if(tb){
+        if(top.length){
+            tb.innerHTML=top.map(([m,n])=>{
+                const pct=bajas>0?((n/bajas)*100).toFixed(1):"0";
+                return`<tr class="border-b border-slate-100 last:border-0"><td class="py-2.5 pr-4 text-sm text-slate-700">${m}</td><td class="py-2.5 text-center text-sm font-bold text-slate-800">${n}</td><td class="py-2.5 pl-4"><div class="flex items-center gap-2"><div class="flex-1 bg-slate-100 rounded-full h-1.5"><div class="bg-red-400 h-1.5 rounded-full" style="width:${pct}%"></div></div><span class="text-xs text-slate-500 w-10 text-right">${pct}%</span></div></td></tr>`;
+            }).join('');
+        } else {
+            tb.innerHTML='<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">Sin bajas registradas aún</td></tr>';
+        }
+    }
 }
 
 // ─── EXCEL ────────────────────────────────────────────────────
