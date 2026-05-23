@@ -567,12 +567,21 @@ async function ejecutarOCR() {
 
             stTxt.innerText = `Analizando: ${file.name}...`;
 
-            // Enviar al GAS — Drive extrae texto de PDFs, Vision API lee imágenes
-            const r = await enviarPeticion('ocr_documento', {
+            // Motor 1: Groq/Llama (IA gratuita — Drive extrae texto, Groq analiza)
+            // Motor 2: fallback a Vision API + regex si Groq falla
+            let r = await enviarPeticion('groq_ocr', {
                 data:     b64,
                 mimeType: file.type,
                 nombre:   file.name
             });
+            if (r.status !== 'success') {
+                console.warn('[OCR] Groq falló, usando Vision API:', r.message);
+                r = await enviarPeticion('ocr_documento', {
+                    data:     b64,
+                    mimeType: file.type,
+                    nombre:   file.name
+                });
+            }
 
             if (r.status !== 'success') {
                 errores.push(`${file.name}: ${r.message}`);
