@@ -567,7 +567,7 @@ async function ejecutarOCR() {
 
             stTxt.innerText = `Procesando con IA: ${file.name}...`;
 
-            // Enviar al GAS como proxy — él llama a Anthropic sin CORS
+            // Enviar al GAS como proxy — él llama a Google Vision API sin CORS
             const r = await enviarPeticion('ocr_documento', {
                 data:     b64,
                 mimeType: file.type,
@@ -645,7 +645,7 @@ async function ejecutarOCR() {
             ${errores.map(e => `<p class="text-xs text-red-600 mb-1">• ${e}</p>`).join('')}
             <div class="mt-3 pt-3 border-t border-red-200 space-y-1">
               <p class="text-xs font-semibold text-slate-600">¿Qué hacer?</p>
-              <p class="text-xs text-slate-500">• Verifica que la API Key de Anthropic esté configurada en las propiedades del script de GAS</p>
+              <p class="text-xs text-slate-500">• Verifica que GOOGLE_VISION_API_KEY esté configurada en las propiedades del script de GAS</p>
               <p class="text-xs text-slate-500">• Si el PDF tiene contraseña o está protegido, primero quítale la protección</p>
               <p class="text-xs text-slate-500">• Puedes capturar manualmente los datos en los pasos siguientes</p>
             </div>
