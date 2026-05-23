@@ -651,6 +651,12 @@ if ('serviceWorker' in navigator) {
   <div id="notif-lista"></div>
 </div>
 
-<script src="main.js?v=16.0"></script>
+<script>
+// API key de Google Places (New) — misma cuenta de Google Cloud
+// Asegúrate de habilitar "Places API (New)" en Google Cloud Console
+// y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
+window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
+</script>
+<script src="main.js?v=19.0"></script>
 </body>
 </html>

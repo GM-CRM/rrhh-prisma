@@ -764,20 +764,28 @@ async function ejecutarOCR() {
     }
 
     // ── Aplicar resultados al altaData ────────────────────────
+    // Solo campos que SÍ se muestran del OCR
     const mapaL = {
-        nombreTrabajador:'Nombre',       curp:'CURP',
-        rfc:'RFC',                       nss:'NSS',
-        domicilioCompleto:'Domicilio',   estadoCivil:'Estado Civil',
-        escolaridad:'Escolaridad'
-        // Nota: fechaNacimiento, genero, lugarNacimiento y nacionalidad
-        // los calcula el Sheet con fórmulas desde la CURP — no se capturan del OCR.
-        // Teléfono y correo se capturan manualmente en el formulario.
+        nombreTrabajador: 'Nombre',
+        curp:             'CURP',
+        rfc:              'RFC',
+        nss:              'NSS',
+        domicilioCompleto:'Domicilio',
+        escolaridad:      'Escolaridad'
     };
     const detectados = [];
 
+    // Campos que NUNCA se muestran ni se aplican desde el OCR
+    // Son calculados por fórmulas del Sheet o capturados manualmente
+    const CAMPOS_EXCLUIDOS = new Set([
+        'genero','lugarNacimiento','nacionalidad','fechaNacimiento',
+        'estadoCivil','telefonoPersonal','correoElectronico',
+        'tipoDocumento','_motor'
+    ]);
+
     Object.entries(acum).forEach(([k, v]) => {
-        if (!v) return;
-        altaData[k] = v; // Guardar SIEMPRE en altaData, aunque el campo no esté en el DOM
+        if (!v || CAMPOS_EXCLUIDOS.has(k)) return; // Filtrar campos no permitidos
+        altaData[k] = v;
         detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
             <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
             <span class="text-xs font-semibold text-slate-500 w-24 flex-shrink-0">${mapaL[k] || k}:</span>
