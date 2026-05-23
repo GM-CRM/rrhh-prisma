@@ -45,11 +45,28 @@
     #notif-panel{max-height:70vh;overflow-y:auto}
   </style>
 <script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js')
-      .then(r=>console.log('SW registrado'))
-      .catch(e=>console.warn('SW error:',e));
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+
+      // Verificar actualizaciones cada vez que se abre la app
+      reg.addEventListener('updatefound', () => {
+        const nuevoSW = reg.installing;
+        nuevoSW.addEventListener('statechange', () => {
+          if (nuevoSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Hay una nueva versión disponible — recargar automáticamente
+            nuevoSW.postMessage('SKIP_WAITING');
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              window.location.reload();
+            });
+          }
+        });
+      });
+
+      // Forzar verificación de actualización al abrir
+      reg.update();
+
+    }).catch(e => console.warn('SW error:', e));
   });
 }
 </script>
@@ -634,6 +651,6 @@ if('serviceWorker' in navigator){
   <div id="notif-lista"></div>
 </div>
 
-<script src="app.js?v=14.0"></script>
+<script src="app.js?v=15.0"></script>
 </body>
 </html>
