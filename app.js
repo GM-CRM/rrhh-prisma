@@ -565,24 +565,14 @@ async function ejecutarOCR() {
                 r.readAsDataURL(file);
             });
 
-            stTxt.innerText = `Procesando con IA: ${file.name}...`;
+            stTxt.innerText = `Analizando: ${file.name}...`;
 
-            // Intentar primero con Gemini (IA gratuita, más inteligente)
-            // Fallback automático a Vision API + regex si Gemini falla
-            let r = await enviarPeticion('gemini_ocr', {
+            // Enviar al GAS — Drive extrae texto de PDFs, Vision API lee imágenes
+            const r = await enviarPeticion('ocr_documento', {
                 data:     b64,
                 mimeType: file.type,
                 nombre:   file.name
             });
-            // Si Gemini falla, usar Vision API clásica
-            if (r.status !== 'success') {
-                console.warn('Gemini falló, usando Vision API:', r.message);
-                r = await enviarPeticion('ocr_documento', {
-                    data:     b64,
-                    mimeType: file.type,
-                    nombre:   file.name
-                });
-            }
 
             if (r.status !== 'success') {
                 errores.push(`${file.name}: ${r.message}`);
@@ -647,7 +637,6 @@ async function ejecutarOCR() {
         resEl.classList.remove('hidden');
         camposEl.innerHTML = detectados.join('');
         const notaErr = errores.length ? ` (${errores.length} archivo(s) con advertencia)` : '';
-        const motorUsado = Object.values(acum).length && acum._motor ? ` (via ${acum._motor})` : '';
         mostrarToast('success', `${detectados.length} campo(s) detectados`, 'Datos aplicados al formulario.' + notaErr, 6000);
     } else if (errores.length) {
         resEl.classList.remove('hidden');
