@@ -1349,15 +1349,18 @@ function renderizarPagina(pag) {
         slice.forEach(emp => {
             const est   = (emp["ESTATUS"] || "").trim();
             const color = est === "Activo" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
-            const url   = (emp["URL EXPEDIENTE"] || "").toString().trim();
-            // La URL puede venir de getUrl() de Drive con formato https://drive.google.com/...
-            // También puede ser un número serial de Google Sheets (fecha) si la columna está mal formateada
-            const urlLimpia = url.replace(/^['"\s]+|['"\s]+$/g, ''); // quitar comillas y espacios
-            const urlOk = urlLimpia.startsWith('http') || urlLimpia.startsWith('https');
-            if (url && !urlOk) console.warn('[URL Expediente] Formato inesperado:', JSON.stringify(url));
-            const link  = urlOk
-                ? '<a href="' + urlLimpia + '" target="_blank" rel="noopener" class="text-slate-400 hover:text-blue-600 transition" title="Abrir expediente en Drive"><i class="fas fa-folder-open text-sm"></i></a>'
-                : '<span class="text-slate-300" title="' + (url ? 'URL inválida: ' + url.substring(0,30) : 'Sin expediente') + '"><i class="fas fa-folder text-sm"></i></span>';
+            // URL del expediente en Drive — columna AX del Sheet
+            const urlRaw  = emp["URL EXPEDIENTE"] || emp["URL EXPEDIENTE "] || "";
+            const url     = urlRaw.toString().replace(/\s+/g,'').trim();
+            const urlOk   = url.indexOf('http') === 0;
+            const link    = urlOk
+                ? '<a href="' + url + '" target="_blank" rel="noopener noreferrer" '
+                  + 'class="text-slate-400 hover:text-blue-600 transition" '
+                  + 'title="Abrir expediente en Drive" '
+                  + 'onclick="event.stopPropagation()">'
+                  + '<i class="fas fa-folder-open text-sm"></i></a>'
+                : '<span class="text-slate-400" title="Sin expediente asignado">'
+                  + '<i class="fas fa-folder text-sm"></i></span>';
             const id    = (emp["NO. EMPLEADO"] || "").toString();
             const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").replace(/'/g, "\'");
 
