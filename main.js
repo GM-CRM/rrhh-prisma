@@ -991,161 +991,216 @@ function badgeContrato(val){
     return`<span class="ml-2 text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">Vigente ${dias}d</span>`;
 }
 
-function renderizarDrawer(emp){
-    const nom=emp["NOMBRE DEL TRABAJADOR"]||"—";
-    const id=emp["NO. EMPLEADO"]||"";
-    const est=(emp["ESTATUS"]||"").trim();
-    const estColor=est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600";
 
-    // Datos de contratos
-    const contratos=[
-        {n:'1er',ini:emp["FECHA DE INICIO DEL PRIMER CONTRATO"],ven:emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"],col:'blue'},
-        {n:'2do',ini:emp["FECHA DE INICIO DEL SEGUNDO CONTRATO"],ven:emp["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"],col:'indigo'},
-        {n:'3er',ini:emp["FECHA DE INICIO DEL TERCER CONTRATO"], ven:emp["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"],col:'violet'},
-    ].filter(c=>c.ini||c.ven);
-
-    const ent15=(emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"Pendiente").trim();
-    const ent45=(emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"Pendiente").trim();
-    const eval360=emp["FECHA EVALUACIÓN 360"]||"";
-    const badgeEnt=v=>v==="Sí"?'<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Realizada</span>':v==="No"?'<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600">No realizada</span>':'<span class="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-600">Pendiente</span>';
-
-    document.getElementById('drawer-titulo').innerHTML=`
-      <div class="flex items-center gap-3 flex-1 min-w-0">
-        <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-          <i class="fas fa-user text-blue-600"></i>
-        </div>
-        <div class="min-w-0">
-          <p class="text-sm font-bold text-slate-800 truncate">${nom}</p>
-          <p class="text-xs text-slate-400">#${id} · ${emp["EMPRESA"]||"—"}</p>
-        </div>
-      </div>
-      <span class="px-2.5 py-1 rounded-full text-xs font-bold ${estColor} flex-shrink-0">${est}</span>`;
-
-    document.getElementById('drawer-cuerpo').innerHTML=`
-
-    <!-- SECCIÓN: Historial de contratos -->
-    <div class="mb-6">
-      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-        <i class="fas fa-file-contract text-indigo-500"></i> Historial de Contratos
-      </p>
-
-      <!-- Línea de tiempo -->
-      <div class="relative pl-6 space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-        ${contratos.length ? contratos.map((c,i)=>{
-            const activo=i===contratos.length-1;
-            const dot=activo?'bg-blue-500 ring-2 ring-blue-200':'bg-slate-300';
-            return`<div class="relative">
-              <div class="absolute -left-4 top-1 w-3 h-3 rounded-full ${dot}"></div>
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-                <div class="flex items-center justify-between mb-2">
-                  <p class="text-xs font-bold text-slate-700">${c.n} Contrato ${activo?'<span class="text-blue-500">(actual)</span>':''}</p>
-                  ${c.ven?badgeContrato(c.ven):''}
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
-                  <div><span class="font-medium">Inicio:</span> ${fmtFechaDisplay(c.ini)}</div>
-                  <div><span class="font-medium">Vence:</span> ${fmtFechaDisplay(c.ven)}</div>
-                </div>
-              </div>
-            </div>`;
-        }).join('') : '<div class="text-xs text-slate-400 bg-slate-50 rounded-xl p-4 text-center"><i class="fas fa-info-circle mb-1"></i><br>Sin contratos registrados</div>'}
-      </div>
-
-      <!-- Formulario de renovación -->
-      <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <p class="text-xs font-bold text-blue-800 mb-3 flex items-center gap-2">
-          <i class="fas fa-plus-circle text-blue-500"></i> Registrar renovación / actualizar contrato
-        </p>
-        <div class="grid grid-cols-1 gap-3">
-          <div>
-            <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Tipo de Contrato</label>
-            <select id="ed_tipoContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">
-              <option value="">Sin cambio</option>
-              <option ${emp["TIPO DE CONTRATO"]==="Tiempo Indeterminado"?'selected':''}>Tiempo Indeterminado</option>
-              <option ${emp["TIPO DE CONTRATO"]==="Prueba"?'selected':''}>Prueba</option>
-              <option ${emp["TIPO DE CONTRATO"]==="Temporal"?'selected':''}>Temporal</option>
-            </select>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Inicio nuevo contrato</label>
-              <input type="date" id="ed_iniContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">Vencimiento</label>
-              <input type="date" id="ed_venContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SECCIÓN: Seguimiento -->
-    <div class="mb-6">
-      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-        <i class="fas fa-clipboard-list text-teal-500"></i> Seguimiento
-      </p>
-      <div class="space-y-3">
-        <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
-          <div><p class="text-sm font-semibold text-slate-700">Entrevista 15 días</p><p class="text-xs text-slate-400">Ajuste de integración</p></div>
-          <div class="flex items-center gap-2">${badgeEnt(ent15)}<select id="ed_ent15" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:ring-1 focus:ring-blue-400"><option value="">—</option><option ${ent15==="Sí"?'selected':''} value="Sí">Realizada</option><option ${ent15==="No"?'selected':''} value="No">No realizada</option><option ${ent15==="Pendiente"?'selected':''} value="Pendiente">Pendiente</option></select></div>
-        </div>
-        <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
-          <div><p class="text-sm font-semibold text-slate-700">Entrevista 45 días</p><p class="text-xs text-slate-400">Evaluación de desempeño</p></div>
-          <div class="flex items-center gap-2">${badgeEnt(ent45)}<select id="ed_ent45" class="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white focus:ring-1 focus:ring-blue-400"><option value="">—</option><option ${ent45==="Sí"?'selected':''} value="Sí">Realizada</option><option ${ent45==="No"?'selected':''} value="No">No realizada</option><option ${ent45==="Pendiente"?'selected':''} value="Pendiente">Pendiente</option></select></div>
-        </div>
-        <div class="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3">
-          <div><p class="text-sm font-semibold text-slate-700">Evaluación 360°</p><p class="text-xs text-slate-400">Fecha de aplicación</p></div>
-          <input type="date" id="ed_eval360" value="${eval360?parsearFecha(eval360):''}" class="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-blue-400">
-        </div>
-      </div>
-    </div>
-
-    <!-- SECCIÓN: Datos laborales editables -->
-    <div class="mb-6">
-      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-        <i class="fas fa-briefcase text-blue-500"></i> Datos Laborales
-      </p>
-      <div class="grid grid-cols-1 gap-3">
-        ${[
-            {id:'ed_puesto',   label:'Puesto',           val:emp["PUESTO"]||""},
-            {id:'ed_depto',    label:'Departamento',      val:emp["DEPARTAMENTO"]||""},
-            {id:'ed_sueldo',   label:'Sueldo Mensual',    val:emp["SUELDO MENSUAL"]||"",     type:'number'},
-            {id:'ed_correo',   label:'Correo Electrónico',val:emp["CORREO ELECTRÓNICO"]||"", type:'email'},
-            {id:'ed_telefono', label:'Teléfono Personal', val:emp["TELÉFONO PERSONAL"]||""},
-            {id:'ed_domicilio',label:'Domicilio Completo',val:(emp["DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)"]||emp["DOMICILIO COMPLETO"]||"").replace(/"/g,'')},
-        ].map(f=>'<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">'+f.label+'</label><input type="'+(f.type||'text')+'" id="'+f.id+'" value="'+f.val+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>').join('')}
-      </div>
-    </div>
-
-    <!-- SECCIÓN: Contacto y emergencias -->
-    <div class="mb-6">
-      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-        <i class="fas fa-phone text-cyan-500"></i> Contacto y Emergencias
-      </p>
-      <div class="grid grid-cols-1 gap-3">
-        ${[
-            {id:'ed_contEmerg', label:'Contacto de Emergencia', val:(emp["CONTACTO DE EMERGENCIA"]||"").replace(/"/g,'')},
-            {id:'ed_parEmerg',  label:'Parentesco',              val:(emp["PARENTESCO"]||"").replace(/"/g,'')},
-            {id:'ed_telEmerg',  label:'Teléfono Emergencia',     val:(emp["TELÉFONO DE EMERGENCIA"]||"").replace(/"/g,'')},
-        ].map(f=>'<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">'+f.label+'</label><input type="text" id="'+f.id+'" value="'+f.val+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>').join('')}
-      </div>
-    </div>
-
-    <!-- SECCIÓN: Beneficiario IMSS -->
-    <div class="mb-6">
-      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-        <i class="fas fa-heart text-rose-500"></i> Beneficiario IMSS
-      </p>
-      <div class="grid grid-cols-1 gap-3">
-        ${[
-            {id:'ed_nomBenef', label:'Nombre Beneficiario',  val:(emp["NOMBRE DEL BENEFICIARIO"]||"").replace(/"/g,'')},
-            {id:'ed_rfcBenef', label:'RFC Beneficiario',     val:(emp["RFC DEL BENEFICIARIO"]||"").replace(/"/g,'')},
-            {id:'ed_parBenef', label:'Parentesco',           val:(emp["PARENTESCO DEL BENEFICIARIO"]||"").replace(/"/g,'')},
-            {id:'ed_pctBenef', label:'% Asignación',         val:(emp["PORCENTAJE DE ASIGNACIÓN"]||"").toString(), type:'number'},
-        ].map(f=>'<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">'+f.label+'</label><input type="'+(f.type||'text')+'" id="'+f.id+'" value="'+f.val+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>').join('')}
-      </div>
-    </div>`;
+// ─── FOTO DE PERFIL DEL EMPLEADO ─────────────────────────────
+async function cargarFotoPerfil(folderUrl){
+    var partes = folderUrl.split('/folders/');
+    if(partes.length < 2) return;
+    var folderId = partes[1].split('?')[0].trim();
+    if(!folderId) return;
+    try {
+        var r = await enviarPeticion('obtener_foto', { folderId: folderId });
+        if(r.status === 'success' && r.url) {
+            var avatar = document.getElementById('avatar-circulo');
+            if(avatar) {
+                var img = document.createElement('img');
+                img.src = r.url;
+                img.className = 'w-full h-full object-cover';
+                img.onerror = function(){ this.parentElement.innerHTML = '<i class="fas fa-user"></i>'; };
+                avatar.innerHTML = '';
+                avatar.appendChild(img);
+            }
+        }
+    } catch(e) {
+        console.warn('No se pudo cargar foto:', e);
+    }
 }
+
+async function subirFotoPerfil(){
+    const input = document.getElementById('input-foto-perfil');
+    if(!input||!input.files[0]||!empleadoEdicion) return;
+    const file = input.files[0];
+    if(file.size > 5*1024*1024){ mostrarToast('warning','Archivo muy grande','La foto no debe superar 5 MB.'); return; }
+    mostrarToast('info','Subiendo foto...','',3000);
+    const b64 = await new Promise((res,rej)=>{
+        const r = new FileReader();
+        r.onload = ()=>res(r.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+    });
+    const id = (empleadoEdicion["NO. EMPLEADO"]||"").toString();
+    const resp = await enviarPeticion('subir_documento',{
+        numeroEmpleado: id,
+        nombreArchivo: 'foto_perfil_'+id+'.'+file.name.split('.').pop(),
+        mimeType: file.type,
+        data: b64
+    });
+    if(resp.status === 'success'){
+        mostrarToast('success','Foto guardada','Foto de perfil actualizada en el expediente.');
+        const url = (empleadoEdicion["URL EXPEDIENTE"]||"").toString().trim();
+        if(url) cargarFotoPerfil(url);
+    } else {
+        mostrarToast('error','Error','No se pudo subir la foto: '+resp.message);
+    }
+    input.value = '';
+}
+
+function renderizarDrawer(emp){
+    const id  = (emp["NO. EMPLEADO"]||"").toString();
+    const nom = emp["NOMBRE DEL TRABAJADOR"]||"—";
+    const est = (emp["ESTATUS"]||"").trim();
+    const url = (emp["URL EXPEDIENTE"]||"").toString().trim();
+    const estColor = est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600";
+
+    const partes   = nom.split(" ").filter(function(p){return p.length>0;});
+    const iniciales= (partes[0]?partes[0][0]:"")+(partes[1]?partes[1][0]:"");
+
+    // Construir header del drawer con DOM API (evita comillas anidadas)
+    var tituloEl = document.getElementById("drawer-titulo");
+    tituloEl.innerHTML = "";
+    var avatarWrap = document.createElement("div");
+    avatarWrap.className = "flex items-center gap-3 flex-1 min-w-0";
+    var avatarOuter = document.createElement("div");
+    avatarOuter.className = "relative flex-shrink-0";
+    var avatarDiv = document.createElement("div");
+    avatarDiv.id = "avatar-circulo";
+    avatarDiv.className = "w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm cursor-pointer overflow-hidden";
+    avatarDiv.title = "Subir foto de perfil";
+    avatarDiv.onclick = function(){ document.getElementById("input-foto-perfil").click(); };
+    avatarDiv.innerHTML = iniciales || '<i class="fas fa-user"></i>';
+    var inputFoto = document.createElement("input");
+    inputFoto.type="file"; inputFoto.id="input-foto-perfil";
+    inputFoto.accept=".jpg,.jpeg,.png"; inputFoto.className="hidden";
+    inputFoto.onchange = subirFotoPerfil;
+    var camBtn = document.createElement("div");
+    camBtn.className = "absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow border border-slate-200 cursor-pointer";
+    camBtn.onclick = function(){ document.getElementById("input-foto-perfil").click(); };
+    camBtn.innerHTML = '<i class="fas fa-camera text-slate-400 text-xs"></i>';
+    avatarOuter.appendChild(avatarDiv);
+    avatarOuter.appendChild(inputFoto);
+    avatarOuter.appendChild(camBtn);
+    var infoDiv = document.createElement("div");
+    infoDiv.className = "min-w-0";
+    infoDiv.innerHTML = '<p class="text-sm font-bold text-slate-800 truncate">'+nom+'</p><p class="text-xs text-slate-400">#'+id+' &middot; '+(emp["EMPRESA"]||"—")+'</p>';
+    avatarWrap.appendChild(avatarOuter);
+    avatarWrap.appendChild(infoDiv);
+    var badgeEl = document.createElement("span");
+    badgeEl.className = "px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 "+estColor;
+    badgeEl.textContent = est;
+    tituloEl.appendChild(avatarWrap);
+    tituloEl.appendChild(badgeEl);
+    if(url && url.indexOf("http")===0) cargarFotoPerfil(url);
+
+    const ro = function(label,val){
+        return '<div><p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</p>'
+              +'<p class="text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 min-h-[36px]">'+(val||"—")+'</p></div>';
+    };
+    const ed = function(id2,label,val,type){
+        return '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</label>'
+              +'<input type="'+(type||"text")+'" id="'+id2+'" value="'+(val||"").toString().replace(/"/g,"&quot;")+'" '
+              +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>';
+    };
+    const sel = function(id2,label,val,opts){
+        return '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</label>'
+              +'<select id="'+id2+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition">'
+              +opts.map(function(o){return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';}).join('')
+              +'</select></div>';
+    };
+    const sec = function(titulo,icono,color,html){
+        return '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+              +'<i class="fas '+icono+' '+color+'"></i>'+titulo+'</p>'
+              +'<div class="grid grid-cols-2 gap-3">'+html+'</div></div>';
+    };
+    const ff = function(v){
+        if(!v||v==="0"||v==="") return "—";
+        var n=parseFloat(v);
+        if(!isNaN(n)&&n>10000){var d=new Date((n-25569)*86400*1000);return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});}
+        return v.toString();
+    };
+    const E = emp;
+
+    document.getElementById("drawer-cuerpo").innerHTML =
+    sec("Datos Laborales","fa-briefcase","text-blue-500",
+        ro("No. Empleado",E["NO. EMPLEADO"])+
+        ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
+        ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
+        ro("Antigüedad ⟵ fórmula Sheet",E["ANTIGÜEDAD"])+
+        ed("ed_empresa","Empresa",E["EMPRESA"])+
+        ed("ed_puesto","Puesto",E["PUESTO"])+
+        ed("ed_depto","Departamento",E["DEPARTAMENTO"])+
+        ed("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"])+
+        ed("ed_sueldo","Sueldo Mensual",E["SUELDO MENSUAL"],"number")+
+        ed("ed_frecPago","Frecuencia de Pago",E["FRECUENCIA DE PAGO"])+
+        ed("ed_fuente","Fuente de Contratación",E["FUENTE DE CONTRATACIÓN"])
+    )+
+    sec("Datos Personales","fa-id-card","text-teal-500",
+        ed("ed_curp","CURP",E["CURP"])+
+        ed("ed_rfc","RFC",E["RFC"])+
+        ed("ed_nss","NSS",E["NSS"])+
+        ro("Fecha Nacimiento ⟵ fórmula Sheet",ff(E["FECHA DE NACIMIENTO"]))+
+        ro("Edad ⟵ fórmula Sheet",E["EDAD"])+
+        ro("Género ⟵ fórmula Sheet",E["GÉNERO"])+
+        ro("Rango de Edad ⟵ fórmula Sheet",E["RANGO DE EDAD"])+
+        ed("ed_lugarNac","Lugar de Nacimiento",E["LUGAR DE NACIMIENTO"])+
+        ed("ed_nacionalidad","Nacionalidad",E["NACIONALIDAD"])+
+        sel("ed_edoCivil","Estado Civil",E["ESTADO CIVIL"],["","Soltero","Casado","Divorciado","Viudo","Unión Libre"])+
+        ed("ed_escolaridad","Escolaridad",E["ESCOLARIDAD"])
+    )+
+    sec("Contacto","fa-phone","text-cyan-500",
+        ed("ed_correo","Correo Electrónico",E["CORREO ELECTRÓNICO"],"email")+
+        ed("ed_telefono","Teléfono Personal",E["TELÉFONO PERSONAL"])+
+        '<div class="col-span-2">'+ed("ed_domicilio","Domicilio Completo",E["DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)"])+'</div>'+
+        ed("ed_contEmerg","Contacto de Emergencia",E["CONTACTO DE EMERGENCIA"])+
+        ed("ed_parEmerg","Parentesco",E["PARENTESCO"])+
+        ed("ed_telEmerg","Teléfono de Emergencia",E["TELÉFONO DE EMERGENCIA"])
+    )+
+    sec("Beneficiario IMSS","fa-heart","text-rose-500",
+        ed("ed_nomBenef","Nombre Beneficiario",E["NOMBRE DEL BENEFICIARIO"])+
+        ed("ed_rfcBenef","RFC Beneficiario",E["RFC DEL BENEFICIARIO"])+
+        ed("ed_parBenef","Parentesco",E["PARENTESCO DEL BENEFICIARIO"])+
+        ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
+    )+
+    '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+    +'<div class="grid grid-cols-2 gap-3">'
+    +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
+    +ro("Inicio 1er Contrato",ff(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
+    +ro("Vence 1er Contrato",ff(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
+    +ro("Inicio 2do Contrato",ff(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]))
+    +ro("Vence 2do Contrato",ff(E["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]))
+    +ro("Inicio 3er Contrato",ff(E["FECHA DE INICIO DEL TERCER CONTRATO"]))
+    +ro("Vence 3er Contrato",ff(E["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]))
+    +'</div>'
+    +'<div class="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3">'
+    +'<p class="text-xs font-bold text-blue-800 mb-2"><i class="fas fa-plus-circle mr-1 text-blue-500"></i>Nuevo contrato</p>'
+    +'<div class="grid grid-cols-2 gap-2">'
+    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Inicio</label>'
+    +'<input type="date" id="ed_iniContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
+    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Vencimiento</label>'
+    +'<input type="date" id="ed_venContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
+    +'</div></div></div>'+
+    sec("Seguimiento","fa-clipboard-list","text-amber-500",
+        sel("ed_ent15","Entrevista 15 Días",E["ENTREVISTA DE AJUSTE 15 DÍAS"],["","Pendiente","Sí","No"])+
+        sel("ed_ent45","Entrevista 45 Días",E["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"],["","Pendiente","Sí","No"])+
+        '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Evaluación 360°</label>'
+        +'<input type="date" id="ed_eval360" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
+    )+
+    sec("Calculado por el Sheet","fa-function","text-slate-400",
+        ro("Para Ant. Promedio ⟵ fórmula",E["PARA ANT. PROMEDIO"])+
+        ro("Se Toma en Cuenta ⟵ fórmula",E["SE TOMA EN CUENTA?"])
+    )+
+    (url&&url.indexOf("http")===0
+        ?'<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">'
+         +'<i class="fas fa-folder-open text-blue-500 text-xl"></i>'
+         +'<div class="flex-1 min-w-0"><p class="text-sm font-bold text-blue-800">Expediente en Drive</p>'
+         +'<p class="text-xs text-blue-600 truncate">'+url+'</p></div>'
+         +'<a href="'+url+'" target="_blank" rel="noopener" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0">Abrir</a></div>'
+        :'<div class="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center"><i class="fas fa-folder text-slate-300 text-2xl mb-1"></i><p class="text-xs text-slate-400 mt-1">Sin carpeta de expediente asignada</p></div>'
+    );
+
+    const eval360val = E["FECHA EVALUACIÓN 360"]||"";
+    if(eval360val){const el=document.getElementById("ed_eval360");if(el)el.value=parsearFecha(eval360val);}
+}
+
 
 async function guardarCambiosEditor(){
     if(!empleadoEdicion){cerrarEditor();return;}
@@ -1170,23 +1225,34 @@ async function guardarCambiosEditor(){
     const payload={
         numeroEmpleado: id,
         campos:{
-            "TIPO DE CONTRATO":        document.getElementById('ed_tipoContrato').value||undefined,
-            "PUESTO":                  document.getElementById('ed_puesto').value||undefined,
-            "DEPARTAMENTO":            document.getElementById('ed_depto').value||undefined,
-            "SUELDO MENSUAL":          document.getElementById('ed_sueldo').value||undefined,
-            "CORREO ELECTRÓNICO":      document.getElementById('ed_correo').value||undefined,
-            "TELÉFONO PERSONAL":       document.getElementById('ed_telefono').value||undefined,
+            "EMPRESA":                 document.getElementById('ed_empresa')?.value||undefined,
+            "PUESTO":                  document.getElementById('ed_puesto')?.value||undefined,
+            "DEPARTAMENTO":            document.getElementById('ed_depto')?.value||undefined,
+            "TIPO DE INGRESO":         document.getElementById('ed_tipoIngreso')?.value||undefined,
+            "SUELDO MENSUAL":          document.getElementById('ed_sueldo')?.value||undefined,
+            "FRECUENCIA DE PAGO":      document.getElementById('ed_frecPago')?.value||undefined,
+            "FUENTE DE CONTRATACIÓN":  document.getElementById('ed_fuente')?.value||undefined,
+            "CURP":                    document.getElementById('ed_curp')?.value||undefined,
+            "RFC":                     document.getElementById('ed_rfc')?.value||undefined,
+            "NSS":                     document.getElementById('ed_nss')?.value||undefined,
+            "LUGAR DE NACIMIENTO":     document.getElementById('ed_lugarNac')?.value||undefined,
+            "NACIONALIDAD":            document.getElementById('ed_nacionalidad')?.value||undefined,
+            "ESTADO CIVIL":            document.getElementById('ed_edoCivil')?.value||undefined,
+            "ESCOLARIDAD":             document.getElementById('ed_escolaridad')?.value||undefined,
+            "CORREO ELECTRÓNICO":      document.getElementById('ed_correo')?.value||undefined,
+            "TELÉFONO PERSONAL":       document.getElementById('ed_telefono')?.value||undefined,
             "DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)": document.getElementById('ed_domicilio')?.value||undefined,
-            "CONTACTO DE EMERGENCIA":  document.getElementById('ed_contactoEmerg')?.value||undefined,
-            "PARENTESCO":              document.getElementById('ed_parentesco')?.value||undefined,
+            "CONTACTO DE EMERGENCIA":  document.getElementById('ed_contEmerg')?.value||undefined,
+            "PARENTESCO":              document.getElementById('ed_parEmerg')?.value||undefined,
             "TELÉFONO DE EMERGENCIA":  document.getElementById('ed_telEmerg')?.value||undefined,
             "NOMBRE DEL BENEFICIARIO": document.getElementById('ed_nomBenef')?.value||undefined,
             "RFC DEL BENEFICIARIO":    document.getElementById('ed_rfcBenef')?.value||undefined,
             "PARENTESCO DEL BENEFICIARIO": document.getElementById('ed_parBenef')?.value||undefined,
             "PORCENTAJE DE ASIGNACIÓN":document.getElementById('ed_pctBenef')?.value||undefined,
-            "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15').value||undefined,
-            "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45').value||undefined,
-            "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360').value||undefined,
+            "TIPO DE CONTRATO":        document.getElementById('ed_tipoContrato')?.value||undefined,
+            "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15')?.value||undefined,
+            "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45')?.value||undefined,
+            "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360')?.value||undefined,
             ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
             ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
         }
