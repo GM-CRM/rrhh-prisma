@@ -1107,12 +1107,42 @@ function renderizarDrawer(emp){
       </p>
       <div class="grid grid-cols-1 gap-3">
         ${[
-            {id:'ed_puesto',label:'Puesto',val:emp["PUESTO"]||""},
-            {id:'ed_depto',label:'Departamento',val:emp["DEPARTAMENTO"]||""},
-            {id:'ed_sueldo',label:'Sueldo Mensual',val:emp["SUELDO MENSUAL"]||"",type:'number'},
-            {id:'ed_correo',label:'Correo Electrónico',val:emp["CORREO ELECTRÓNICO"]||"",type:'email'},
-            {id:'ed_telefono',label:'Teléfono Personal',val:emp["TELÉFONO PERSONAL"]||""},
-        ].map(f=>`<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">${f.label}</label><input type="${f.type||'text'}" id="${f.id}" value="${f.val}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>`).join('')}
+            {id:'ed_puesto',   label:'Puesto',           val:emp["PUESTO"]||""},
+            {id:'ed_depto',    label:'Departamento',      val:emp["DEPARTAMENTO"]||""},
+            {id:'ed_sueldo',   label:'Sueldo Mensual',    val:emp["SUELDO MENSUAL"]||"",     type:'number'},
+            {id:'ed_correo',   label:'Correo Electrónico',val:emp["CORREO ELECTRÓNICO"]||"", type:'email'},
+            {id:'ed_telefono', label:'Teléfono Personal', val:emp["TELÉFONO PERSONAL"]||""},
+            {id:'ed_domicilio',label:'Domicilio Completo',val:(emp["DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)"]||emp["DOMICILIO COMPLETO"]||"").replace(/"/g,'')},
+        ].map(f=>'<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">'+f.label+'</label><input type="'+(f.type||'text')+'" id="'+f.id+'" value="'+f.val+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>').join('')}
+      </div>
+    </div>
+
+    <!-- SECCIÓN: Contacto y emergencias -->
+    <div class="mb-6">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+        <i class="fas fa-phone text-cyan-500"></i> Contacto y Emergencias
+      </p>
+      <div class="grid grid-cols-1 gap-3">
+        ${[
+            {id:'ed_contEmerg', label:'Contacto de Emergencia', val:(emp["CONTACTO DE EMERGENCIA"]||"").replace(/"/g,'')},
+            {id:'ed_parEmerg',  label:'Parentesco',              val:(emp["PARENTESCO"]||"").replace(/"/g,'')},
+            {id:'ed_telEmerg',  label:'Teléfono Emergencia',     val:(emp["TELÉFONO DE EMERGENCIA"]||"").replace(/"/g,'')},
+        ].map(f=>'<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">'+f.label+'</label><input type="text" id="'+f.id+'" value="'+f.val+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>').join('')}
+      </div>
+    </div>
+
+    <!-- SECCIÓN: Beneficiario IMSS -->
+    <div class="mb-6">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+        <i class="fas fa-heart text-rose-500"></i> Beneficiario IMSS
+      </p>
+      <div class="grid grid-cols-1 gap-3">
+        ${[
+            {id:'ed_nomBenef', label:'Nombre Beneficiario',  val:(emp["NOMBRE DEL BENEFICIARIO"]||"").replace(/"/g,'')},
+            {id:'ed_rfcBenef', label:'RFC Beneficiario',     val:(emp["RFC DEL BENEFICIARIO"]||"").replace(/"/g,'')},
+            {id:'ed_parBenef', label:'Parentesco',           val:(emp["PARENTESCO DEL BENEFICIARIO"]||"").replace(/"/g,'')},
+            {id:'ed_pctBenef', label:'% Asignación',         val:(emp["PORCENTAJE DE ASIGNACIÓN"]||"").toString(), type:'number'},
+        ].map(f=>'<div><label class="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">'+f.label+'</label><input type="'+(f.type||'text')+'" id="'+f.id+'" value="'+f.val+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition"></div>').join('')}
       </div>
     </div>`;
 }
@@ -1146,6 +1176,14 @@ async function guardarCambiosEditor(){
             "SUELDO MENSUAL":          document.getElementById('ed_sueldo').value||undefined,
             "CORREO ELECTRÓNICO":      document.getElementById('ed_correo').value||undefined,
             "TELÉFONO PERSONAL":       document.getElementById('ed_telefono').value||undefined,
+            "DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)": document.getElementById('ed_domicilio')?.value||undefined,
+            "CONTACTO DE EMERGENCIA":  document.getElementById('ed_contactoEmerg')?.value||undefined,
+            "PARENTESCO":              document.getElementById('ed_parentesco')?.value||undefined,
+            "TELÉFONO DE EMERGENCIA":  document.getElementById('ed_telEmerg')?.value||undefined,
+            "NOMBRE DEL BENEFICIARIO": document.getElementById('ed_nomBenef')?.value||undefined,
+            "RFC DEL BENEFICIARIO":    document.getElementById('ed_rfcBenef')?.value||undefined,
+            "PARENTESCO DEL BENEFICIARIO": document.getElementById('ed_parBenef')?.value||undefined,
+            "PORCENTAJE DE ASIGNACIÓN":document.getElementById('ed_pctBenef')?.value||undefined,
             "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15').value||undefined,
             "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45').value||undefined,
             "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360').value||undefined,
@@ -1161,7 +1199,7 @@ async function guardarCambiosEditor(){
         const r=await enviarPeticion("actualizar_empleado",payload);
         ocultarLoader();
         if(r.status==="success"){
-            mostrarToast('success','Cambios guardados',`Registro de ${empleadoEdicion["NOMBRE DEL TRABAJADOR"]||id} actualizado.`);
+            mostrarToast('success','Cambios guardados','Cambios guardados para #'+id+'.');
             cerrarEditor();forzarActualizacion();
         }else mostrarToast('error','Error al guardar',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
@@ -1311,10 +1349,11 @@ function renderizarPagina(pag) {
         slice.forEach(emp => {
             const est   = (emp["ESTATUS"] || "").trim();
             const color = est === "Activo" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
-            const url   = emp["URL EXPEDIENTE"] || "";
-            const link  = url
-                ? '<a href="' + url + '" target="_blank" class="text-slate-400 hover:text-blue-600 transition" title="Abrir en Drive"><i class="fas fa-folder-open text-sm"></i></a>'
-                : '<span class="text-slate-200"><i class="fas fa-folder text-sm"></i></span>';
+            const url   = (emp["URL EXPEDIENTE"] || "").toString().trim();
+            const urlOk = url.startsWith('http');
+            const link  = urlOk
+                ? '<a href="' + url + '" target="_blank" rel="noopener" class="text-slate-400 hover:text-blue-600 transition" title="Abrir expediente en Drive"><i class="fas fa-folder-open text-sm"></i></a>'
+                : '<span class="text-slate-300" title="Sin expediente en Drive"><i class="fas fa-folder text-sm"></i></span>';
             const id    = (emp["NO. EMPLEADO"] || "").toString();
             const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").replace(/'/g, "\'");
 
