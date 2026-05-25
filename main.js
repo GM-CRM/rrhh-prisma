@@ -209,7 +209,58 @@ function evaluarAlertas(datos){
 }
 
 // ─── CATÁLOGOS ───────────────────────────────────────────────
-const empresas=["Newspot Mexico","Centro De Telecomunicaciones Y Publicidad De Mexico","Global Media","Editora Mexicana","Cable Master","Fember Press","Infomonitor","Rtv Comunicacion","Radio Expresion Cultural"];
+// Empresas dinámicas — se generan desde el cache del Sheet
+// El array base sirve como semilla si el cache aún no cargó
+let empresas = ["Newspot Mexico","Centro De Telecomunicaciones Y Publicidad De Mexico","Global Media","Editora Mexicana","Cable Master","Fember Press","Infomonitor","Rtv Comunicacion","Radio Expresion Cultural"];
+
+function actualizarListaEmpresas() {
+    if (!cacheGlobal || !cacheGlobal.length) return;
+    const nuevas = [...new Set(
+        cacheGlobal
+            .map(e => (e["EMPRESA"] || "").trim())
+            .filter(e => e.length > 0)
+    )].sort();
+    if (nuevas.length > 0) empresas = nuevas;
+
+    // Actualizar todos los selects de empresa en el DOM
+    const selectsEmpresa = [
+        document.getElementById("filtroEmpresaGlobal"),
+        document.getElementById("filtro-empresa"),
+    ];
+    selectsEmpresa.forEach(function(sel) {
+        if (!sel) return;
+        const valActual = sel.value;
+        // Conservar la opción "Todas" si existe
+        const primeraOpcion = sel.options[0];
+        sel.innerHTML = "";
+        if (primeraOpcion) sel.appendChild(primeraOpcion);
+        empresas.forEach(function(emp) {
+            const opt = document.createElement("option");
+            opt.value = emp;
+            opt.textContent = emp;
+            sel.appendChild(opt);
+        });
+        if (valActual) sel.value = valActual;
+    });
+
+    // Actualizar datalists de empresa en el formulario de alta
+    const listEmpAlta = document.getElementById("alta_empresa");
+    if (listEmpAlta && listEmpAlta.tagName === "SELECT") {
+        const v = listEmpAlta.value;
+        listEmpAlta.innerHTML = "<option value=''>Seleccione...</option>" +
+            empresas.map(e => "<option value='" + e + "'>" + e + "</option>").join("");
+        if (v) listEmpAlta.value = v;
+    }
+
+    // Actualizar filtro del expediente (HTML estático en index.html)
+    const filtroEmpExp = document.getElementById("filtro-empresa");
+    if (filtroEmpExp) {
+        const v = filtroEmpExp.value;
+        filtroEmpExp.innerHTML = "<option value=''>Todas las empresas</option>" +
+            empresas.map(e => "<option value='" + e + "'>" + e + "</option>").join("");
+        if (v) filtroEmpExp.value = v;
+    }
+}
 
 // ─── PARSERS ─────────────────────────────────────────────────
 function parsearFecha(val){
@@ -541,8 +592,20 @@ function renderizarPasoActual(){
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>`;
 
-    // Autonum
-    if(paso.campos.some(c=>c.autonum)&&!altaData.numeroEmpleado) cargarSiguienteNumero();
+    // Autonum — recalcular cuando cambia la empresa
+    if(paso.campos.some(c=>c.autonum)){
+        if(!altaData.numeroEmpleado) cargarSiguienteNumero();
+        const elEmp = document.getElementById("alta_empresa");
+        if(elEmp){
+            elEmp.addEventListener("change", function(){
+                altaData.empresa = this.value;
+                altaData.numeroEmpleado = ""; // resetear para recalcular
+                const elNum = document.getElementById("alta_numeroEmpleado");
+                if(elNum) elNum.value = "";
+                cargarSiguienteNumero();
+            });
+        }
+    }
     // Listener fecha nac
     const fn=document.getElementById('alta_fechaNacimiento');
     if(fn){fn.addEventListener('change',calcularRangoEdadAuto);fn.addEventListener('blur',calcularRangoEdadAuto);}
@@ -637,12 +700,18 @@ function actualizarListaArchivos(){
 
 async function cargarSiguienteNumero(){
     try{
-        const r=await enviarPeticion("siguiente_numero",{});
-        if(r.status==="success"){
-            const el=document.getElementById('alta_numeroEmpleado');
-            if(el&&!el.value&&!altaData.numeroEmpleado){el.value=r.siguiente;altaData.numeroEmpleado=r.siguiente.toString();}
+        const empresa = altaData.empresa || document.getElementById("alta_empresa")?.value || "";
+        const r = await enviarPeticion("siguiente_numero", { empresa });
+        if(r.status === "success"){
+            const el = document.getElementById("alta_numeroEmpleado");
+            if(el && !el.value && !altaData.numeroEmpleado){
+                el.value = r.siguiente;
+                altaData.numeroEmpleado = r.siguiente.toString();
+            }
+            // Precargar el ID interno que corresponde
+            if(r.idInterno) altaData._idInterno = r.idInterno;
         }
-    }catch(e){}
+    }catch(e){ console.warn("cargarSiguienteNumero:", e); }
 }
 
 // ─── DECODIFICADOR CURP ───────────────────────────────────────
@@ -1342,6 +1411,7 @@ async function forzarActualizacion(){
     cacheGlobal=[];
     datosFiltrados=[];
     const datos=await obtenerDatos(true);
+    actualizarListaEmpresas(); // actualizar lista de empresas dinámicamente
     poblarCatalogos(); // actualizar catálogos de departamentos y puestos
     evaluarAlertas(datos);
     cargarDashboard();
@@ -1797,6 +1867,7 @@ async function initApp(){
     actualizarBadgeNotifs();
     renderizarStepper();
     const datos=await cargarDashboard();
+    actualizarListaEmpresas();
     poblarCatalogos();
     if(cacheGlobal.length)evaluarAlertas(cacheGlobal);
     initAutocomplete();
