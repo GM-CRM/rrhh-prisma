@@ -594,17 +594,21 @@ function renderizarPasoActual(){
 
     // Autonum — recalcular cuando cambia la empresa
     if(paso.campos.some(c=>c.autonum)){
-        if(!altaData.numeroEmpleado) cargarSiguienteNumero();
-        const elEmp = document.getElementById("alta_empresa");
-        if(elEmp){
-            elEmp.addEventListener("change", function(){
-                altaData.empresa = this.value;
-                altaData.numeroEmpleado = ""; // resetear para recalcular
-                const elNum = document.getElementById("alta_numeroEmpleado");
-                if(elNum) elNum.value = "";
-                cargarSiguienteNumero();
-            });
-        }
+        // Solo llamar si ya hay empresa seleccionada
+        if(altaData.empresa && !altaData.numeroEmpleado) cargarSiguienteNumero();
+        // Listener en el campo empresa para recalcular al cambiar
+        setTimeout(function(){
+            const elEmp = document.getElementById("alta_empresa");
+            if(elEmp){
+                elEmp.addEventListener("change", function(){
+                    altaData.empresa = this.value;
+                    altaData.numeroEmpleado = "";
+                    const elNum = document.getElementById("alta_numeroEmpleado");
+                    if(elNum){ elNum.value = ""; elNum.placeholder = "Calculando..."; }
+                    cargarSiguienteNumero();
+                }, { once: false });
+            }
+        }, 200); // esperar a que el DOM esté listo
     }
     // Listener fecha nac
     const fn=document.getElementById('alta_fechaNacimiento');
@@ -699,16 +703,22 @@ function actualizarListaArchivos(){
 }
 
 async function cargarSiguienteNumero(){
+    const empresa = altaData.empresa || document.getElementById("alta_empresa")?.value || "";
+    if(!empresa){
+        // Sin empresa seleccionada — no asignar número aún
+        const el = document.getElementById("alta_numeroEmpleado");
+        if(el) el.placeholder = "Selecciona la empresa primero";
+        return;
+    }
     try{
-        const empresa = altaData.empresa || document.getElementById("alta_empresa")?.value || "";
         const r = await enviarPeticion("siguiente_numero", { empresa });
         if(r.status === "success"){
             const el = document.getElementById("alta_numeroEmpleado");
-            if(el && !el.value && !altaData.numeroEmpleado){
+            if(el){
                 el.value = r.siguiente;
-                altaData.numeroEmpleado = r.siguiente.toString();
+                el.placeholder = "";
             }
-            // Precargar el ID interno que corresponde
+            altaData.numeroEmpleado = r.siguiente.toString();
             if(r.idInterno) altaData._idInterno = r.idInterno;
         }
     }catch(e){ console.warn("cargarSiguienteNumero:", e); }
@@ -1061,6 +1071,57 @@ function badgeContrato(val){
 }
 
 
+
+// ─── CREAR EXPEDIENTE EN DRIVE DESDE EL DRAWER ───────────────
+async function crearExpedienteEnDrive() {
+    if (!empleadoEdicion) return;
+    const id  = (empleadoEdicion["NO. EMPLEADO"] || "").toString();
+    const nom = empleadoEdicion["NOMBRE DEL TRABAJADOR"] || "Sin Nombre";
+    const emp = empleadoEdicion["EMPRESA"] || "";
+
+    const btn = document.querySelector('[onclick="crearExpedienteEnDrive()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando carpeta...';
+    }
+
+    try {
+        const r = await enviarPeticion('crear_expediente', {
+            numeroEmpleado:  id,
+            nombreTrabajador: nom,
+            empresa:         emp
+        });
+
+        if (r.status === 'success') {
+            // Actualizar el cache local con la URL nueva
+            const empCache = cacheGlobal.find(e =>
+                (e["NO. EMPLEADO"] || "").toString() === id &&
+                (e["EMPRESA"] || "").trim() === emp.trim()
+            );
+            if (empCache) empCache["URL EXPEDIENTE"] = r.url;
+            if (empleadoEdicion) empleadoEdicion["URL EXPEDIENTE"] = r.url;
+
+            mostrarToast('success', 'Expediente creado',
+                'Carpeta creada en Drive para ' + nom + '.', 6000);
+
+            // Re-renderizar el drawer para mostrar el link
+            renderizarDrawer(empleadoEdicion);
+        } else {
+            mostrarToast('error', 'Error al crear expediente', r.message || 'Intenta de nuevo.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente';
+            }
+        }
+    } catch(e) {
+        console.error('crearExpedienteEnDrive:', e);
+        mostrarToast('error', 'Error', 'No se pudo crear la carpeta. Verifica la conexión.');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente';
+        }
+    }
+}
 // ─── FOTO DE PERFIL DEL EMPLEADO ─────────────────────────────
 async function cargarFotoPerfil(folderUrl){
     var partes = folderUrl.split('/folders/');
@@ -1257,13 +1318,34 @@ function renderizarDrawer(emp){
         ro("Para Ant. Promedio ⟵ fórmula",E["PARA ANT. PROMEDIO"])+
         ro("Se Toma en Cuenta ⟵ fórmula",E["SE TOMA EN CUENTA?"])
     )+
-    (url&&url.indexOf("http")===0
-        ?'<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">'
-         +'<i class="fas fa-folder-open text-blue-500 text-xl"></i>'
-         +'<div class="flex-1 min-w-0"><p class="text-sm font-bold text-blue-800">Expediente en Drive</p>'
-         +'<p class="text-xs text-blue-600 truncate">'+url+'</p></div>'
-         +'<a href="'+url+'" target="_blank" rel="noopener" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0">Abrir</a></div>'
-        :'<div class="mb-5 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center"><i class="fas fa-folder text-slate-300 text-2xl mb-1"></i><p class="text-xs text-slate-400 mt-1">Sin carpeta de expediente asignada</p></div>'
+    (url && url.indexOf("http") === 0
+        // ── Con expediente: mostrar link + botón subir docs ──
+        ? '<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4">'
+          + '<div class="flex items-center gap-3">'
+          + '<i class="fas fa-folder-open text-blue-500 text-xl flex-shrink-0"></i>'
+          + '<div class="flex-1 min-w-0">'
+          + '<p class="text-sm font-bold text-blue-800">Expediente en Drive</p>'
+          + '<p class="text-xs text-blue-600 truncate">' + url + '</p>'
+          + '</div>'
+          + '<a href="' + url + '" target="_blank" rel="noopener" '
+          + 'class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0">'
+          + '<i class="fas fa-external-link-alt mr-1"></i>Abrir</a>'
+          + '</div>'
+          + '</div>'
+        // ── Sin expediente: botón para crear la carpeta en Drive ──
+        : '<div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4">'
+          + '<div class="flex items-center gap-3 mb-3">'
+          + '<i class="fas fa-folder text-amber-400 text-xl flex-shrink-0"></i>'
+          + '<div class="flex-1">'
+          + '<p class="text-sm font-bold text-amber-800">Sin expediente en Drive</p>'
+          + '<p class="text-xs text-amber-600">Este empleado no tiene carpeta asignada en Drive.</p>'
+          + '</div>'
+          + '</div>'
+          + '<button onclick="crearExpedienteEnDrive()" '
+          + 'class="w-full text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 py-2.5 rounded-xl transition flex items-center justify-center gap-2">'
+          + '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente'
+          + '</button>'
+          + '</div>'
     );
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
