@@ -1037,11 +1037,22 @@ async function enviarPeticion(action,payload){
 // ─── DRAWER EDICIÓN DE EMPLEADO ───────────────────────────────
 let empleadoEdicion=null;
 
-function abrirEditor(noEmpleado){
-    const emp=cacheGlobal.find(e=>(e["NO. EMPLEADO"]||"").toString()===noEmpleado.toString());
-    if(!emp){mostrarToast('error','No encontrado','No se encontró el registro.');return;}
-    empleadoEdicion=emp;
-    const drawer=document.getElementById('drawer-editor');
+function abrirEditor(idInterno, empresaHint){
+    // Buscar por ID INTERNO primero (único global)
+    let emp = cacheGlobal.find(e => {
+        const id = (e["ID INTERNO"]||"").toString().trim();
+        return id !== "" && id === idInterno.toString().trim();
+    });
+    // Fallback: No.Emp + Empresa (cuando aún no hay ID asignado)
+    if(!emp && empresaHint) {
+        emp = cacheGlobal.find(e =>
+            (e["NO. EMPLEADO"]||"").toString() === idInterno.toString() &&
+            (e["EMPRESA"]||"").trim() === empresaHint.trim()
+        );
+    }
+    if(!emp){ mostrarToast('error','No encontrado','No se encontró el registro #'+idInterno); return; }
+    empleadoEdicion = emp;
+    const drawer = document.getElementById('drawer-editor');
     renderizarDrawer(emp);
     drawer.classList.remove('translate-x-full');
     document.getElementById('drawer-overlay').classList.remove('hidden');
@@ -1374,7 +1385,9 @@ async function guardarCambiosEditor(){
     }
 
     const payload={
+        idInterno:      empleadoEdicion["ID INTERNO"] || "",
         numeroEmpleado: id,
+        empresa:        empleadoEdicion["EMPRESA"] || "",
         campos:{
             "EMPRESA":                 document.getElementById('ed_empresa')?.value||undefined,
             "PUESTO":                  document.getElementById('ed_puesto')?.value||undefined,
@@ -1435,16 +1448,28 @@ function initAutocomplete(){
         document.getElementById('baja_nombreEmpleado').value='';
         document.getElementById('baja_empleado_badge').classList.add('hidden');
         if(q.length<2){lista.classList.add('hidden');return;}
-        const hits=cacheGlobal.filter(e=>(e["NOMBRE DEL TRABAJADOR"]||"").toLowerCase().includes(q)||(e["NO. EMPLEADO"]||"").toString().includes(q)).slice(0,8);
-        if(!hits.length){lista.classList.add('hidden');return;}
+        const hits = cacheGlobal.filter(function(e) {
+            if ((e['ESTATUS']||'').trim() !== 'Activo') return false;
+            return (e['NOMBRE DEL TRABAJADOR']||'').toLowerCase().includes(q)
+                || (e['NO. EMPLEADO']||'').toString().includes(q)
+                || (e['ID INTERNO']||'').toString().toLowerCase().includes(q);
+        }).slice(0, 8);
+        if(!hits.length){ lista.classList.add('hidden'); return; }
         lista.classList.remove('hidden');
-        lista.innerHTML=hits.map(emp=>{
-            const est=(emp["ESTATUS"]||"").trim();
-            const col=est==="Activo"?"text-emerald-600":"text-red-500";
-            const nomE=(emp["NOMBRE DEL TRABAJADOR"]||"—").replace(/'/g,"\\'");
-            const emp2=(emp["EMPRESA"]||"").replace(/'/g,"\\'");
-            const pu=(emp["PUESTO"]||"").replace(/'/g,"\\'");
-            return`<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition" onclick="seleccionarEmpleado('${emp["NO. EMPLEADO"]}','${nomE}','${est}','${emp2}','${pu}')"><div class="flex items-center justify-between gap-3"><div><p class="text-sm font-semibold text-slate-800">${emp["NOMBRE DEL TRABAJADOR"]||"—"}</p><p class="text-xs text-slate-400">#${emp["NO. EMPLEADO"]} · ${emp["EMPRESA"]} · ${emp["PUESTO"]}</p></div><span class="text-xs font-bold ${col} flex-shrink-0">${est}</span></div></button>`;
+        lista.innerHTML = hits.map(function(emp) {
+            const est   = (emp['ESTATUS']||'').trim();
+            const col   = est==='Activo' ? 'text-emerald-600' : 'text-red-500';
+            const nomE  = (emp['NOMBRE DEL TRABAJADOR']||'—').replace(/'/g,"\\'");
+            const emp2  = (emp['EMPRESA']||'').replace(/'/g,"\\'");
+            const pu    = (emp['PUESTO']||'').replace(/'/g,"\\'");
+            const idInt = (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString();
+            return '<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition"'
+                 + ' onclick="seleccionarEmpleado(\'' + idInt + '\',\'' + nomE + '\',\'' + est + '\',\'' + emp2 + '\',\'' + pu + '\')'  + '">'
+                 + '<div class="flex items-center justify-between gap-3">'
+                 + '<div><p class="text-sm font-semibold text-slate-800">' + (emp['NOMBRE DEL TRABAJADOR']||'—') + '</p>'
+                 + '<p class="text-xs text-slate-400">' + idInt + ' · ' + (emp['EMPRESA']||'') + ' · ' + (emp['PUESTO']||'') + '</p></div>'
+                 + '<span class="text-xs font-bold ' + col + ' flex-shrink-0">' + est + '</span>'
+                 + '</div></button>';
         }).join('');
     });
     document.addEventListener('click',e=>{if(!lista.contains(e.target)&&e.target!==nuevo)lista.classList.add('hidden');});
@@ -1467,7 +1492,19 @@ async function procesarBaja(event){
     const nom=document.getElementById('baja_nombreEmpleado').value.trim();
     if(!id&&!nom){mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');return;}
     mostrarLoader("Procesando baja...");
-    const payload={numeroEmpleado:id,nombreEmpleado:nom,fechaBaja:document.getElementById('baja_fechaBaja').value,tipoSalida:document.getElementById('baja_tipoSalida').value,motivoSalida:document.getElementById('baja_motivoSalida').value,montoFiniquito:document.getElementById('baja_montoFiniquito').value};
+    // Buscar el empleado en cache usando el ID INTERNO para obtener empresa y número real
+    const empBaja = cacheGlobal.find(e => (e["ID INTERNO"]||"").toString().trim() === id.trim()
+                                       || (e["NO. EMPLEADO"]||"").toString() === id.trim());
+    const payload = {
+        idInterno:      id,
+        numeroEmpleado: empBaja ? (empBaja["NO. EMPLEADO"]||"").toString() : id,
+        empresa:        empBaja ? (empBaja["EMPRESA"]||"") : "",
+        nombreEmpleado: nom,
+        fechaBaja:      document.getElementById('baja_fechaBaja').value,
+        tipoSalida:     document.getElementById('baja_tipoSalida').value,
+        motivoSalida:   document.getElementById('baja_motivoSalida').value,
+        montoFiniquito: document.getElementById('baja_montoFiniquito').value
+    };
     try{
         const r=await enviarPeticion("baja",payload);ocultarLoader();
         if(r.status==="success"){mostrarToast('success','Baja registrada',r.message);document.getElementById('formBaja').reset();document.getElementById('baja_empleado_badge').classList.add('hidden');document.getElementById('baja_sugerencias').classList.add('hidden');forzarActualizacion();}
@@ -1600,7 +1637,7 @@ function renderizarPagina(pag) {
                 + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["PUESTO"]  || "—") + '</td>'
                 + '<td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
                 + '<td class="px-5 py-3.5"><div class="flex items-center justify-center gap-3">'
-                + '<button onclick="abrirEditor(\'' + id + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
+                + '<button onclick="abrirEditor(\'' + (emp['ID INTERNO']||id) + '\',\'' + (emp['EMPRESA']||'').replace(/'/g,'') + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
                 + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
                 + link
                 + '</div></td></tr>';
