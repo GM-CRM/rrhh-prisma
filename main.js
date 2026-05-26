@@ -71,12 +71,13 @@ function cerrarToast(id){
     setTimeout(()=>el.remove(), 350);
 }
 
-function agregarNotificacion(tipo, titulo, mensaje, empleadoId=''){
+function agregarNotificacion(tipo, titulo, mensaje, empleadoId='', silencioso=false){
     const notif = {id: Date.now(), tipo, titulo, mensaje, empleadoId, leida: false, fecha: new Date().toISOString()};
     notificaciones.unshift(notif);
     guardarNotifs();
     actualizarBadgeNotifs();
-    mostrarToast(tipo, titulo, mensaje);
+    // Solo mostrar toast si NO es silencioso (silencioso=true al cargar la app)
+    if(!silencioso) mostrarToast(tipo, titulo, mensaje);
 }
 
 function actualizarBadgeNotifs(){
@@ -172,10 +173,10 @@ function evaluarAlertas(datos){
             if(alertasVistas[clave] === fv.toISOString().slice(0,10)) return;
 
             if(dias < 0){
-                agregarNotificacion('error', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id);
+                agregarNotificacion('error', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             } else if(dias <= DIAS_ALERTA_CONTRATO){
-                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fv.toLocaleDateString('es-MX')}). Gestiona la renovación.`, id);
+                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fv.toLocaleDateString('es-MX')}). Gestiona la renovación.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             }
         });
@@ -187,7 +188,7 @@ function evaluarAlertas(datos){
             const diasIngreso = Math.round((hoy - fIng) / 86400000);
             const clave15 = `ent15_${id}`;
             if(diasIngreso >= 13 && diasIngreso <= 20 && !alertasVistas[clave15]){
-                agregarNotificacion('warning', `Entrevista 15 días — ${nom}`, `Lleva ${diasIngreso} días en la empresa. Debe realizarse la entrevista de ajuste de 15 días.`, id);
+                agregarNotificacion('warning', `Entrevista 15 días — ${nom}`, `Lleva ${diasIngreso} días en la empresa. Debe realizarse la entrevista de ajuste de 15 días.`, id, true);
                 alertasVistas[clave15] = '1'; nuevas++;
             }
         }
@@ -198,7 +199,7 @@ function evaluarAlertas(datos){
             const diasIngreso = Math.round((hoy - fIng) / 86400000);
             const clave45 = `ent45_${id}`;
             if(diasIngreso >= 43 && diasIngreso <= 55 && !alertasVistas[clave45]){
-                agregarNotificacion('warning', `Entrevista 45 días — ${nom}`, `Lleva ${diasIngreso} días. Debe aplicarse la evaluación de desempeño de 45 días.`, id);
+                agregarNotificacion('warning', `Entrevista 45 días — ${nom}`, `Lleva ${diasIngreso} días. Debe aplicarse la evaluación de desempeño de 45 días.`, id, true);
                 alertasVistas[clave45] = '1'; nuevas++;
             }
         }
