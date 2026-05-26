@@ -1031,6 +1031,10 @@ async function enviarAlta(){
 
 // ─── API GAS ──────────────────────────────────────────────────
 async function enviarPeticion(action,payload){
+    // Agregar token de sesión automáticamente (excepto en login y validar_token)
+    if(action !== 'login' && action !== 'validar_token' && sesionActual && sesionActual.token) {
+        payload = Object.assign({}, payload, { token: sesionActual.token });
+    }
     const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload})});
     return await res.json();
 }
@@ -1962,7 +1966,7 @@ async function exportarExcel(){
     const datos=await obtenerDatos();if(!datos.length){mostrarToast('info','Sin datos','No hay registros para exportar.');return;}
     const ws=XLSX.utils.json_to_sheet(datos),wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"BASE DE DATOS");
-    XLSX.writeFile(wb,'GM_Respaldo_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    XLSX.writeFile(wb,'Plantilla_Respaldo_('+new Date().toISOString().slice(0,10)+').xlsx');
 }
 function importarExcel(event){
     const file=event.target.files[0];if(!file)return;
@@ -2023,5 +2027,11 @@ async function instalarPWA() {
     document.getElementById('pwa-banner').classList.add('hidden');
 }
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initApp);
-else initApp();
+// Verificar sesión antes de inicializar la app
+async function arrancarApp(){
+    const sesionOk = await verificarSesion();
+    if(sesionOk) { await initApp(); }
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', arrancarApp);
+else arrancarApp();

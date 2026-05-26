@@ -76,6 +76,52 @@ if ('serviceWorker' in navigator) {
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
+<!-- ── PANTALLA DE LOGIN ───────────────────────────────────── -->
+<div id="login-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#1e1b4b]">
+  <div class="w-full max-w-md px-6">
+    <div class="flex flex-col items-center mb-8">
+      <img src="icon.svg" alt="RRHH Prisma" class="w-16 h-16 rounded-2xl shadow-xl mb-4">
+      <h1 class="text-2xl font-bold text-white tracking-wide">RRHH <span style="color:#a78bfa">Prisma</span></h1>
+      <p class="text-sm text-slate-400 mt-1">Sistema de Gestión de Recursos Humanos</p>
+    </div>
+    <div class="bg-white rounded-2xl shadow-2xl p-8">
+      <h2 class="text-lg font-bold text-slate-800 mb-6">Iniciar Sesión</h2>
+      <div id="login-error" class="hidden mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+        <i class="fas fa-exclamation-circle flex-shrink-0"></i>
+        <span id="login-error-msg"></span>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Correo electrónico</label>
+          <div class="relative">
+            <i class="fas fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+            <input type="email" id="login-email" placeholder="correo@empresa.com" autocomplete="email"
+              class="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+              onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contraseña</label>
+          <div class="relative">
+            <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+              class="w-full border border-slate-200 rounded-xl pl-10 pr-12 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+              onkeydown="if(event.key==='Enter')procesarLogin()">
+            <button type="button" onclick="togglePassVis()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <i id="pass-eye" class="fas fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+        <button onclick="procesarLogin()" id="btn-login"
+          class="w-full bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold py-3 rounded-xl transition shadow-lg flex items-center justify-center gap-2 mt-2">
+          <i class="fas fa-sign-in-alt"></i> Entrar
+        </button>
+      </div>
+    </div>
+    <p class="text-center text-xs text-slate-500 mt-6">RRHH Prisma · Grupo Multimedia México</p>
+  </div>
+</div>
+
 <!-- LOADER -->
 <div id="global-loader" class="flex">
   <div class="spinner mb-4"></div>
@@ -118,6 +164,11 @@ if ('serviceWorker' in navigator) {
       class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
       <i class="fas fa-id-card w-4 text-slate-400 group-hover:text-purple-400 transition"></i><span class="font-medium">Expedientes</span>
     </button>
+    <button id="nav-btn-usuarios" onclick="activarNav(this);showModule('usuarios');cargarModuloUsuarios();"
+      class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
+      <i class="fas fa-users-cog w-4 text-slate-400 group-hover:text-violet-400 transition"></i>
+      <span class="font-medium" id="nav-label-usuarios">Usuarios</span>
+    </button>
   </nav>
 
   <div class="p-4 border-t border-white/5">
@@ -141,7 +192,12 @@ if ('serviceWorker' in navigator) {
       <h2 class="text-base md:text-lg font-bold text-slate-800" id="header-title">Indicadores</h2>
     </div>
     <div class="flex items-center gap-3">
-      <button onclick="forzarActualizacion()" class="hidden md:flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition font-medium">
+      <button onclick="procesarLogout()" title="Cerrar sesión"
+    class="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-red-500 transition px-3 py-2 rounded-lg hover:bg-red-50">
+    <i class="fas fa-sign-out-alt"></i>
+    <span class="hidden md:inline">Salir</span>
+  </button>
+  <button onclick="forzarActualizacion()" class="hidden md:flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition font-medium">
         <i class="fas fa-sync-alt text-xs"></i> Sincronizar
       </button>
       <button id="btn-notif" onclick="toggleCentroNotifs()" class="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition">
@@ -464,7 +520,34 @@ if ('serviceWorker' in navigator) {
   </section>
 
   <!-- ══ DIRECTORIO ═══════════════════════════════════════════ -->
-  <section id="module-basedatos" class="module-section">
+  <!-- MÓDULO: Usuarios / Perfil -->
+<section id="module-usuarios" class="module-section">
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200" id="panel-usuarios-admin">
+    <!-- Admin: gestión de usuarios -->
+    <div class="p-5 border-b border-slate-100 bg-slate-50 rounded-t-2xl flex items-center justify-between">
+      <div>
+        <h3 class="text-base font-bold text-slate-800">Gestión de Usuarios</h3>
+        <p class="text-xs text-slate-400 mt-0.5">Administra los accesos al sistema</p>
+      </div>
+      <button onclick="abrirModalNuevoUsuario()" class="bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 flex items-center gap-2 text-xs font-semibold transition shadow-sm">
+        <i class="fas fa-user-plus"></i> Nuevo Usuario
+      </button>
+    </div>
+    <div id="tabla-usuarios-container" class="p-4">
+      <p class="text-sm text-slate-400 text-center py-8">Cargando usuarios...</p>
+    </div>
+  </div>
+  <!-- Auxiliar: perfil propio -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 hidden" id="panel-perfil-auxiliar">
+    <div class="p-5 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
+      <h3 class="text-base font-bold text-slate-800">Mi Perfil</h3>
+      <p class="text-xs text-slate-400 mt-0.5">Actualiza tu información personal</p>
+    </div>
+    <div id="perfil-auxiliar-body" class="p-6"></div>
+  </div>
+</section>
+
+<section id="module-basedatos" class="module-section">
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
 
       <!-- Cabecera con acciones -->
@@ -660,6 +743,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=32.0"></script>
+<script src="main.js?v=33.0"></script>
 </body>
 </html>
