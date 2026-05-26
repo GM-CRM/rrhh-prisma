@@ -703,15 +703,16 @@ function actualizarListaArchivos(){
 }
 
 async function cargarSiguienteNumero(){
-    const empresa = altaData.empresa || document.getElementById("alta_empresa")?.value || "";
+    const empresa = (altaData.empresa || document.getElementById("alta_empresa")?.value || "").trim();
+    console.log("[cargarSiguienteNumero] empresa:", JSON.stringify(empresa));
     if(!empresa){
-        // Sin empresa seleccionada — no asignar número aún
         const el = document.getElementById("alta_numeroEmpleado");
         if(el) el.placeholder = "Selecciona la empresa primero";
         return;
     }
     try{
-        const r = await enviarPeticion("siguiente_numero", { empresa });
+        const r = await enviarPeticion("siguiente_numero", { empresa: empresa });
+        console.log("[cargarSiguienteNumero] respuesta GAS:", r);
         if(r.status === "success"){
             const el = document.getElementById("alta_numeroEmpleado");
             if(el){
