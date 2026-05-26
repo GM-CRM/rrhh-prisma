@@ -1513,6 +1513,9 @@ function renderizarDashboardEncuesta(encId, respuestas, container){
     +'<p class="text-xs text-slate-400 mt-0.5">'+total+' respuesta(s) registrada(s)</p>'
     +'</div>'
     +'<div class="flex gap-2">'
+    +'<button onclick="abrirEditorEncuesta(\''+encId+'\')" '
+    +'style="display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;background:#f1f5f9;border:none;color:#475569;padding:8px 14px;border-radius:10px;cursor:pointer;" title="Editar preguntas y estructura">'
+    +'<i class="fas fa-pen-to-square"></i> Editar encuesta</button>'
     +'<button onclick="copiarLinkEncuesta(this.dataset.link)" data-link="'+link+'" '
     +'class="flex items-center gap-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition">'
     +'<i class="fas fa-link"></i> Copiar link</button>'
@@ -1566,6 +1569,344 @@ function copiarLinkEncuesta(link){
     }).catch(function(){
         prompt('Copia este link:', link);
     });
+}
+
+
+// ══════════════════════════════════════════════════════════════
+//  EDITOR DE ENCUESTAS — RRHH Prisma
+// ══════════════════════════════════════════════════════════════
+let editorEncuesta = {
+    encId:    null,
+    bloques:  [],      // copia editable de la estructura
+    titulo:   '',
+    descripcion: ''
+};
+
+// ── Abrir editor ──────────────────────────────────────────────
+async function abrirEditorEncuesta(encId) {
+    editorEncuesta.encId = encId;
+
+    // Crear overlay del editor si no existe
+    let overlay = document.getElementById('editor-enc-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'editor-enc-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;background:#f8f7ff;';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+    overlay.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;">'
+        + '<div style="text-align:center;"><i class="fas fa-spinner fa-spin text-violet-500 text-3xl"></i>'
+        + '<p style="margin-top:12px;font-size:.9rem;color:#64748b;">Cargando encuesta...</p></div></div>';
+
+    // Cargar estructura desde GAS
+    const r = await enviarPeticion('obtener_encuesta', { encId });
+    if (r.status !== 'success') {
+        mostrarToast('error', 'Error', 'No se pudo cargar la encuesta.');
+        overlay.style.display = 'none';
+        return;
+    }
+
+    editorEncuesta.titulo      = r.encuesta.titulo      || '';
+    editorEncuesta.descripcion = r.encuesta.descripcion || '';
+    editorEncuesta.bloques     = JSON.parse(JSON.stringify(r.encuesta.bloques || []));
+
+    renderizarEditor(overlay);
+}
+
+// ── Renderizar el editor completo ─────────────────────────────
+function renderizarEditor(overlay) {
+    const enc = editorEncuesta;
+    const totalPregs = enc.bloques.reduce(function(s,b){ return s + (b.preguntas||[]).length; }, 0);
+
+    overlay.innerHTML =
+    // ── Header del editor ──
+    '<div style="background:#0d1b3e;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,.3);">'
+    + '<div style="display:flex;align-items:center;gap:12px;">'
+    + '<button onclick="cerrarEditorEncuesta()" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:1rem;" title="Cerrar">'
+    + '<i class="fas fa-arrow-left"></i></button>'
+    + '<div><p style="font-weight:800;font-size:1rem;margin:0;">Editando: '+enc.titulo+'</p>'
+    + '<p style="font-size:.7rem;color:rgba(255,255,255,.5);margin:0;">'+enc.bloques.length+' bloques · '+totalPregs+' preguntas</p></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;">'
+    + '<button onclick="agregarBloqueEditor()" style="background:rgba(124,58,237,.3);border:1px solid rgba(124,58,237,.5);color:#c4b5fd;padding:8px 16px;border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;">'
+    + '<i class="fas fa-plus mr-1"></i> Bloque</button>'
+    + '<button onclick="guardarEditorEncuesta()" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#fff;padding:8px 20px;border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;box-shadow:0 4px 12px rgba(124,58,237,.4);" id="btn-guardar-editor">'
+    + '<i class="fas fa-save mr-1"></i> Guardar</button>'
+    + '</div></div>'
+
+    // ── Área de configuración general ──
+    + '<div style="background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 20px;display:flex;gap:12px;flex-shrink:0;">'
+    + '<div style="flex:1;">'
+    + '<label style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Título</label>'
+    + '<input id="editor-titulo" value="'+enc.titulo.replace(/"/g,'&quot;')+'" oninput="editorEncuesta.titulo=this.value" '
+    + 'style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 12px;font-size:.9rem;margin-top:3px;">'
+    + '</div>'
+    + '<div style="flex:2;">'
+    + '<label style="font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Descripción / instrucciones</label>'
+    + '<input id="editor-desc" value="'+enc.descripcion.replace(/"/g,'&quot;')+'" oninput="editorEncuesta.descripcion=this.value" '
+    + 'style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 12px;font-size:.9rem;margin-top:3px;">'
+    + '</div></div>'
+
+    // ── Área scrollable de bloques ──
+    + '<div id="editor-bloques" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;">'
+    + renderizarBloquesEditor()
+    + '</div>';
+}
+
+// ── Renderizar todos los bloques ──────────────────────────────
+function renderizarBloquesEditor() {
+    if (!editorEncuesta.bloques.length) {
+        return '<div style="text-align:center;padding:48px;color:#94a3b8;">'
+            + '<i class="fas fa-layer-group" style="font-size:3rem;margin-bottom:12px;display:block;"></i>'
+            + '<p style="font-weight:600;">Sin bloques aún</p>'
+            + '<p style="font-size:.85rem;margin-top:4px;">Haz clic en <strong>+ Bloque</strong> para comenzar.</p></div>';
+    }
+
+    return editorEncuesta.bloques.map(function(bloque, bi) {
+        var numPregs = (bloque.preguntas||[]).length;
+        return '<div style="background:#fff;border-radius:14px;border:1.5px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04);">'
+        // Header del bloque
+        + '<div style="background:linear-gradient(135deg,#f8f7ff,#f0ebff);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e9e3ff;">'
+        + '<div style="display:flex;align-items:center;gap:10px;flex:1;">'
+        + '<input type="text" value="'+(bloque.icono||'📋')+'" oninput="editorEncuesta.bloques['+bi+'].icono=this.value" '
+        + 'style="width:48px;border:1.5px solid #ddd6fe;border-radius:8px;padding:4px;text-align:center;font-size:1.2rem;background:#fff;" title="Ícono del bloque">'
+        + '<input type="text" value="'+(bloque.titulo||'').replace(/"/g,'&quot;')+'" '
+        + 'oninput="editorEncuesta.bloques['+bi+'].titulo=this.value" '
+        + 'style="flex:1;border:1.5px solid #ddd6fe;border-radius:8px;padding:6px 10px;font-weight:700;font-size:.9rem;background:#fff;" placeholder="Título del bloque">'
+        + '<span style="font-size:.75rem;color:#8b5cf6;font-weight:600;white-space:nowrap;">'+numPregs+' preg.</span>'
+        + '</div>'
+        + '<div style="display:flex;gap:6px;margin-left:10px;">'
+        + (bi > 0 ? '<button onclick="moverBloqueEditor('+bi+',-1)" style="'+btnIconStyle('slate')+'" title="Subir"><i class="fas fa-chevron-up"></i></button>' : '')
+        + (bi < editorEncuesta.bloques.length-1 ? '<button onclick="moverBloqueEditor('+bi+',1)" style="'+btnIconStyle('slate')+'" title="Bajar"><i class="fas fa-chevron-down"></i></button>' : '')
+        + '<button onclick="agregarPreguntaEditor('+bi+')" style="'+btnIconStyle('violet')+'" title="Agregar pregunta"><i class="fas fa-plus"></i></button>'
+        + '<button onclick="eliminarBloqueEditor('+bi+')" style="'+btnIconStyle('red')+'" title="Eliminar bloque"><i class="fas fa-trash"></i></button>'
+        + '</div></div>'
+        // Preguntas del bloque
+        + '<div style="padding:12px;display:flex;flex-direction:column;gap:8px;">'
+        + (bloque.preguntas||[]).map(function(preg, pi) {
+            return renderizarPreguntaEditor(bi, pi, preg);
+        }).join('')
+        + (!(bloque.preguntas||[]).length
+            ? '<p style="text-align:center;padding:20px;color:#94a3b8;font-size:.85rem;">Sin preguntas — haz clic en <strong>+</strong> para agregar.</p>'
+            : '')
+        + '</div></div>';
+    }).join('');
+}
+
+// ── Estilos de botones inline ─────────────────────────────────
+function btnIconStyle(color) {
+    var colors = {
+        slate:  'background:#f1f5f9;border:none;color:#64748b;',
+        violet: 'background:#ede9fe;border:none;color:#7c3aed;',
+        red:    'background:#fef2f2;border:none;color:#ef4444;',
+        green:  'background:#f0fdf4;border:none;color:#22c55e;'
+    };
+    return (colors[color]||colors.slate)
+        + 'width:30px;height:30px;border-radius:7px;cursor:pointer;font-size:.8rem;'
+        + 'display:inline-flex;align-items:center;justify-content:center;transition:opacity .15s;';
+}
+
+// ── Renderizar una pregunta en el editor ──────────────────────
+function renderizarPreguntaEditor(bi, pi, preg) {
+    var tipos = [
+        { val:'escala',   label:'Escala 1-5',         icon:'fa-star-half-alt' },
+        { val:'abierta',  label:'Respuesta abierta',   icon:'fa-align-left' },
+        { val:'multiple', label:'Opción múltiple',     icon:'fa-list-check' }
+    ];
+
+    var tipoSelect = '<select onchange="cambiarTipoPregunta('+bi+','+pi+',this.value)" '
+        + 'style="border:1.5px solid #e2e8f0;border-radius:7px;padding:4px 8px;font-size:.75rem;color:#475569;background:#fff;cursor:pointer;">';
+    tipos.forEach(function(t){
+        tipoSelect += '<option value="'+t.val+'"'+(preg.tipo===t.val?' selected':'')+'>'+t.label+'</option>';
+    });
+    tipoSelect += '</select>';
+
+    // Sección de opciones para tipo múltiple
+    var opcionesHTML = '';
+    if (preg.tipo === 'multiple') {
+        opcionesHTML = '<div style="margin-top:10px;background:#f8f7ff;border-radius:8px;padding:10px;">'
+            + '<p style="font-size:.7rem;font-weight:700;color:#7c3aed;text-transform:uppercase;margin-bottom:8px;">Opciones:</p>'
+            + '<div id="opts-'+bi+'-'+pi+'" style="display:flex;flex-direction:column;gap:5px;">'
+            + (preg.opciones||[]).map(function(op, oi){
+                return '<div style="display:flex;gap:6px;align-items:center;">'
+                    + '<input type="text" value="'+op.replace(/"/g,'&quot;')+'" '
+                    + 'oninput="editorEncuesta.bloques['+bi+'].preguntas['+pi+'].opciones['+oi+']=this.value" '
+                    + 'style="flex:1;border:1.5px solid #ddd6fe;border-radius:7px;padding:5px 9px;font-size:.82rem;">'
+                    + '<button onclick="eliminarOpcionEditor('+bi+','+pi+','+oi+')" style="'+btnIconStyle('red')+'">'
+                    + '<i class="fas fa-times"></i></button></div>';
+            }).join('')
+            + '</div>'
+            + '<button onclick="agregarOpcionEditor('+bi+','+pi+')" '
+            + 'style="margin-top:8px;background:transparent;border:1.5px dashed #a78bfa;color:#7c3aed;border-radius:7px;padding:5px 12px;font-size:.75rem;font-weight:700;cursor:pointer;width:100%;">'
+            + '<i class="fas fa-plus mr-1"></i> Agregar opción</button>'
+            + '</div>';
+    }
+
+    // Badge de tipo
+    var tipoBadgeColor = preg.tipo==='escala' ? '#ede9fe;color:#7c3aed'
+                       : preg.tipo==='abierta' ? '#fef9c3;color:#92400e'
+                       : '#dcfce7;color:#166534';
+
+    return '<div style="border:1.5px solid #f1f5f9;border-radius:10px;padding:12px;background:#fafafa;transition:border-color .2s;" '
+        + 'class="enc-preg-card" data-bi="'+bi+'" data-pi="'+pi+'">' 
+        // Row: número + tipo + acciones
+        + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+        + '<span style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:.65rem;font-weight:800;border-radius:6px;padding:2px 7px;flex-shrink:0;">'
+        + (pi+1)+'</span>'
+        + tipoSelect
+        + '<div style="flex:1;"></div>'
+        + (pi > 0 ? '<button onclick="moverPreguntaEditor('+bi+','+pi+',-1)" style="'+btnIconStyle('slate')+'" title="Subir"><i class="fas fa-chevron-up"></i></button>' : '')
+        + (pi < (editorEncuesta.bloques[bi].preguntas||[]).length-1
+            ? '<button onclick="moverPreguntaEditor('+bi+','+pi+',1)" style="'+btnIconStyle('slate')+'" title="Bajar"><i class="fas fa-chevron-down"></i></button>'
+            : '')
+        + '<button onclick="eliminarPreguntaEditor('+bi+','+pi+')" style="'+btnIconStyle('red')+'" title="Eliminar"><i class="fas fa-trash text-xs"></i></button>'
+        + '</div>'
+        // Texto de la pregunta
+        + '<textarea oninput="editorEncuesta.bloques['+bi+'].preguntas['+pi+'].texto=this.value" '
+        + 'style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.88rem;resize:vertical;min-height:56px;font-family:inherit;background:#fff;" '
+        + 'placeholder="Escribe la pregunta aquí...">'+(preg.texto||'')+'</textarea>'
+        + opcionesHTML
+        + '</div>';
+}
+
+// ── Acciones del editor ───────────────────────────────────────
+function agregarBloqueEditor() {
+    editorEncuesta.bloques.push({ icono:'📋', titulo:'Nuevo bloque', preguntas:[] });
+    actualizarEditorBloques();
+}
+
+function eliminarBloqueEditor(bi) {
+    if (!confirm('¿Eliminar este bloque y todas sus preguntas?')) return;
+    editorEncuesta.bloques.splice(bi, 1);
+    actualizarEditorBloques();
+}
+
+function moverBloqueEditor(bi, dir) {
+    var b = editorEncuesta.bloques;
+    var target = bi + dir;
+    if (target < 0 || target >= b.length) return;
+    var tmp = b[bi]; b[bi] = b[target]; b[target] = tmp;
+    actualizarEditorBloques();
+}
+
+function agregarPreguntaEditor(bi) {
+    if (!editorEncuesta.bloques[bi].preguntas) editorEncuesta.bloques[bi].preguntas = [];
+    editorEncuesta.bloques[bi].preguntas.push({ tipo:'escala', texto:'' });
+    actualizarEditorBloques();
+}
+
+function eliminarPreguntaEditor(bi, pi) {
+    editorEncuesta.bloques[bi].preguntas.splice(pi, 1);
+    actualizarEditorBloques();
+}
+
+function moverPreguntaEditor(bi, pi, dir) {
+    var p = editorEncuesta.bloques[bi].preguntas;
+    var target = pi + dir;
+    if (target < 0 || target >= p.length) return;
+    var tmp = p[pi]; p[pi] = p[target]; p[target] = tmp;
+    actualizarEditorBloques();
+}
+
+function cambiarTipoPregunta(bi, pi, nuevoTipo) {
+    editorEncuesta.bloques[bi].preguntas[pi].tipo = nuevoTipo;
+    if (nuevoTipo === 'multiple' && !editorEncuesta.bloques[bi].preguntas[pi].opciones) {
+        editorEncuesta.bloques[bi].preguntas[pi].opciones = ['Opción 1', 'Opción 2'];
+    }
+    actualizarEditorBloques();
+}
+
+function agregarOpcionEditor(bi, pi) {
+    if (!editorEncuesta.bloques[bi].preguntas[pi].opciones) {
+        editorEncuesta.bloques[bi].preguntas[pi].opciones = [];
+    }
+    editorEncuesta.bloques[bi].preguntas[pi].opciones.push('Nueva opción');
+    actualizarEditorBloques();
+}
+
+function eliminarOpcionEditor(bi, pi, oi) {
+    editorEncuesta.bloques[bi].preguntas[pi].opciones.splice(oi, 1);
+    actualizarEditorBloques();
+}
+
+// ── Re-renderizar solo el área de bloques (sin re-crear el header)
+function actualizarEditorBloques() {
+    var container = document.getElementById('editor-bloques');
+    if (!container) return;
+
+    // Leer valores actuales de los inputs antes de re-renderizar
+    var tituloInput = document.getElementById('editor-titulo');
+    var descInput   = document.getElementById('editor-desc');
+    if (tituloInput) editorEncuesta.titulo      = tituloInput.value;
+    if (descInput)   editorEncuesta.descripcion = descInput.value;
+
+    // Actualizar contador en header
+    var totalPregs = editorEncuesta.bloques.reduce(function(s,b){ return s+(b.preguntas||[]).length; }, 0);
+    var headerInfo = document.querySelector('#editor-enc-overlay p[style*="rgba"]');
+    if (headerInfo) headerInfo.textContent = editorEncuesta.bloques.length+' bloques · '+totalPregs+' preguntas';
+
+    container.innerHTML = renderizarBloquesEditor();
+}
+
+// ── Guardar en GAS ────────────────────────────────────────────
+async function guardarEditorEncuesta() {
+    var btn = document.getElementById('btn-guardar-editor');
+    if (btn) { btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...'; }
+
+    // Leer valores finales de inputs
+    var tituloInput = document.getElementById('editor-titulo');
+    var descInput   = document.getElementById('editor-desc');
+    if (tituloInput) editorEncuesta.titulo      = tituloInput.value;
+    if (descInput)   editorEncuesta.descripcion = descInput.value;
+
+    // Validar que no haya preguntas con texto vacío
+    var sinTexto = 0;
+    editorEncuesta.bloques.forEach(function(b){
+        (b.preguntas||[]).forEach(function(p){ if(!p.texto||!p.texto.trim()) sinTexto++; });
+    });
+    if (sinTexto > 0) {
+        mostrarToast('warning','Preguntas vacías',sinTexto+' pregunta(s) no tienen texto. Por favor completa todas antes de guardar.');
+        if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save mr-1"></i> Guardar'; }
+        return;
+    }
+
+    var estructura = {
+        titulo:      editorEncuesta.titulo,
+        descripcion: editorEncuesta.descripcion,
+        bloques:     editorEncuesta.bloques
+    };
+
+    var r = await enviarPeticion('guardar_encuesta', {
+        token:      getToken(),
+        encId:      editorEncuesta.encId,
+        estructura: estructura
+    });
+
+    if (r.status === 'success') {
+        mostrarToast('success','Encuesta guardada','Los cambios se guardaron correctamente en el Sheet.',5000);
+        if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save mr-1"></i> Guardar'; }
+        // Recargar el tab activo para reflejar cambios
+        cerrarEditorEncuesta();
+        activarTabEncuesta(encTabActual, document.querySelector('.enc-tab.active'));
+    } else {
+        mostrarToast('error','Error al guardar',r.message||'Intenta de nuevo.');
+        if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save mr-1"></i> Guardar'; }
+    }
+}
+
+// ── Cerrar editor ─────────────────────────────────────────────
+// CSS para hover de tarjetas de pregunta en el editor
+(function(){
+    var st = document.createElement('style');
+    st.textContent = '.enc-preg-card{border:1.5px solid #f1f5f9;border-radius:10px;padding:12px;background:#fafafa;transition:border-color .2s;}'
+        + '.enc-preg-card:hover{border-color:#ddd6fe;}';
+    document.head.appendChild(st);
+})();
+
+function cerrarEditorEncuesta() {
+    var overlay = document.getElementById('editor-enc-overlay');
+    if (overlay) overlay.style.display = 'none';
 }
 
 // ─── FOTO DE PERFIL DEL EMPLEADO ─────────────────────────────
