@@ -205,7 +205,7 @@ function evaluarAlertas(datos){
     });
 
     localStorage.setItem(CLAVE_ALERTAS, JSON.stringify(alertasVistas));
-    if(nuevas > 0) mostrarToast('info','Alertas generadas',`Se encontraron ${nuevas} alertas pendientes de atención.`,6000);
+        // Alertas solo en campana, no como toast al cargar
 }
 
 // ─── CATÁLOGOS ───────────────────────────────────────────────
@@ -1028,6 +1028,279 @@ async function enviarAlta(){
         }else mostrarToast('error','Error en el alta',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
 }
+
+
+// ══════════════════════════════════════════════════════════════
+//  AUTENTICACIÓN — RRHH Prisma
+// ══════════════════════════════════════════════════════════════
+let sesionActual = null;
+
+function getToken(){  try{return localStorage.getItem('prisma_token')||'';}catch(e){return '';} }
+function setToken(t){ try{localStorage.setItem('prisma_token',t);}catch(e){} }
+function clearToken(){try{localStorage.removeItem('prisma_token');}catch(e){} }
+
+function mostrarLoginError(msg){
+    const el=document.getElementById('login-error');
+    const ms=document.getElementById('login-error-msg');
+    if(el) el.classList.remove('hidden');
+    if(ms) ms.textContent=msg||'Error desconocido';
+}
+
+function togglePassVis(){
+    const inp=document.getElementById('login-pass');
+    const ico=document.getElementById('pass-eye');
+    if(!inp) return;
+    if(inp.type==='password'){
+        inp.type='text';
+        if(ico){ico.classList.remove('fa-eye');ico.classList.add('fa-eye-slash');}
+    } else {
+        inp.type='password';
+        if(ico){ico.classList.remove('fa-eye-slash');ico.classList.add('fa-eye');}
+    }
+}
+
+async function verificarSesion(){
+    const token=getToken();
+    if(!token){mostrarLoginScreen();return false;}
+    try{
+        const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'validar_token',payload:{token}})});
+        const data=await r.json();
+        if(data.status==='success'){
+            sesionActual={token,usuario:data.usuario};
+            aplicarSesion(data.usuario);
+            ocultarLoginScreen();
+            return true;
+        }
+    }catch(e){}
+    clearToken();
+    mostrarLoginScreen('Tu sesión expiró. Inicia sesión de nuevo.');
+    return false;
+}
+
+function mostrarLoginScreen(msg){
+    const ls=document.getElementById('login-screen');
+    if(ls) ls.style.display='flex';
+    if(msg) mostrarLoginError(msg);
+}
+
+function ocultarLoginScreen(){
+    const ls=document.getElementById('login-screen');
+    if(ls) ls.style.display='none';
+}
+
+async function procesarLogin(){
+    const email=(document.getElementById('login-email')?.value||'').trim();
+    const pass=(document.getElementById('login-pass')?.value||'').trim();
+    const errEl=document.getElementById('login-error');
+    if(errEl) errEl.classList.add('hidden');
+    if(!email||!pass){mostrarLoginError('Ingresa tu correo y contraseña.');return;}
+    const btn=document.getElementById('btn-login');
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';}
+    try{
+        const device=navigator.userAgent.substring(0,100);
+        const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'login',payload:{email,password:pass,device}})});
+        const r=await res.json();
+        if(r.status==='success'){
+            setToken(r.token);
+            sesionActual={token:r.token,usuario:r.usuario};
+            aplicarSesion(r.usuario);
+            ocultarLoginScreen();
+            await initApp();
+        } else {
+            mostrarLoginError(r.message||'Credenciales incorrectas.');
+            if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Entrar';}
+        }
+    }catch(e){
+        mostrarLoginError('Error de conexión. Intenta de nuevo.');
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Entrar';}
+    }
+}
+
+function aplicarSesion(usuario){
+    if(!usuario) return;
+    const labelNav=document.getElementById('nav-label-usuarios');
+    if(labelNav) labelNav.textContent=usuario.rol==='Administrador'?'Usuarios':'Mi Perfil';
+    const headerUser=document.getElementById('header-usuario');
+    if(headerUser) headerUser.textContent=usuario.nombre||'';
+    window._empresasPermitidas=(usuario.rol!=='Administrador'&&usuario.empresas&&usuario.empresas.length)?usuario.empresas:null;
+}
+
+async function procesarLogout(){
+    const token=getToken();
+    if(token){try{await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'logout',payload:{token}})});}catch(e){}}
+    clearToken();
+    sesionActual=null;
+    window._empresasPermitidas=null;
+    cacheGlobal=[];
+    datosFiltrados=[];
+    mostrarLoginScreen();
+}
+
+function filtrarPorEmpresasPermitidas(datos){
+    if(!window._empresasPermitidas||!window._empresasPermitidas.length) return datos;
+    return datos.filter(function(e){
+        return window._empresasPermitidas.some(function(emp){
+            return (e["EMPRESA"]||"").trim().toLowerCase()===emp.trim().toLowerCase();
+        });
+    });
+}
+
+async function cargarModuloUsuarios(){
+    if(!sesionActual) return;
+    const rol=sesionActual.usuario.rol;
+    const panelAdmin=document.getElementById('panel-usuarios-admin');
+    const panelAux=document.getElementById('panel-perfil-auxiliar');
+    if(rol==='Administrador'){
+        if(panelAdmin) panelAdmin.classList.remove('hidden');
+        if(panelAux)   panelAux.classList.add('hidden');
+        await cargarTablaUsuarios();
+    } else {
+        if(panelAdmin) panelAdmin.classList.add('hidden');
+        if(panelAux)   panelAux.classList.remove('hidden');
+        renderizarPerfilAuxiliar();
+    }
+}
+
+async function cargarTablaUsuarios(){
+    const cont=document.getElementById('tabla-usuarios-container');
+    if(!cont) return;
+    cont.innerHTML='<p class="text-sm text-slate-400 text-center py-8"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando...</p>';
+    const r=await enviarPeticion('listar_usuarios',{token:getToken()});
+    if(r.status!=='success'){cont.innerHTML='<p class="text-sm text-red-400 text-center py-8">'+r.message+'</p>';return;}
+    const us=r.usuarios||[];
+    cont.innerHTML='<div class="overflow-x-auto"><table class="w-full text-sm text-left">'
+        +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b">'
+        +'<tr><th class="px-4 py-3">Usuario</th><th class="px-4 py-3">Email</th>'
+        +'<th class="px-4 py-3">Rol</th><th class="px-4 py-3">Empresas</th>'
+        +'<th class="px-4 py-3">Estatus</th><th class="px-4 py-3 text-center">Acciones</th></tr></thead>'
+        +'<tbody class="divide-y divide-slate-100">'
+        +us.map(function(u){
+            const activo=u.estatus==='Activo';
+            const badge=activo?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
+            const emps=(u.empresas||[]).join(', ')||'<span class="text-slate-400 italic">Todas</span>';
+            const ini=((u.nombre||'U').split(' ')[0]||'U')[0].toUpperCase();
+            return '<tr class="hover:bg-slate-50">'
+                +'<td class="px-4 py-3"><div class="flex items-center gap-2">'
+                +'<div class="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold">'+ini+'</div>'
+                +'<span class="font-medium">'+u.nombre+'</span></div></td>'
+                +'<td class="px-4 py-3 text-slate-500">'+u.email+'</td>'
+                +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+(u.rol==='Administrador'?'bg-violet-100 text-violet-700':'bg-blue-100 text-blue-700')+'">'+u.rol+'</span></td>'
+                +'<td class="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">'+emps+'</td>'
+                +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+badge+'">'+u.estatus+'</span></td>'
+                +'<td class="px-4 py-3"><div class="flex justify-center gap-3">'
+                +'<button onclick="editarUsuario(this.getAttribute(\"data-e\"))" data-e="'+u.email+'" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen text-sm"></i></button>'
+                +'<button onclick="resetPassword(this.getAttribute(\"data-e\"))" data-e="'+u.email+'" class="text-slate-400 hover:text-amber-500 transition" title="Resetear contraseña"><i class="fas fa-key text-sm"></i></button>'
+                +'<button onclick="toggleUsuario(this.getAttribute(\"data-e\"),this.getAttribute(\"data-s\"))" data-e="'+u.email+'" data-s="'+u.estatus+'" class="text-slate-400 hover:'+(activo?'text-red-500':'text-emerald-500')+' transition" title="'+(activo?'Desactivar':'Activar')+'"><i class="fas fa-'+(activo?'ban':'check-circle')+' text-sm"></i></button>'
+        }).join('')
+        +'</tbody></table></div>';
+}
+
+function renderizarPerfilAuxiliar(){
+    const body=document.getElementById('perfil-auxiliar-body');
+    if(!body||!sesionActual) return;
+    const u=sesionActual.usuario;
+    body.innerHTML='<div class="max-w-md mx-auto space-y-5">'
+        +'<div class="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">'
+        +'<div class="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-2xl overflow-hidden" id="perfil-avatar">'
+        +(u.urlFoto?'<img src="'+u.urlFoto+'" class="w-full h-full object-cover">':((u.nombre||'U')[0].toUpperCase()))
+        +'</div><div>'
+        +'<p class="font-bold text-slate-800">'+u.nombre+'</p>'
+        +'<p class="text-xs text-slate-400">'+u.rol+' · '+u.email+'</p>'
+        +'<label class="text-xs text-violet-600 hover:text-violet-800 cursor-pointer font-semibold mt-1 inline-block">'
+        +'<i class="fas fa-camera mr-1"></i>Cambiar foto'
+        +'<input type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="subirFotoUsuario(this)"></label>'
+        +'</div></div>'
+        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Nombre completo</label>'
+        +'<input type="text" id="perfil-nombre" value="'+u.nombre+'" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500"></div>'
+        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Teléfono</label>'
+        +'<input type="tel" id="perfil-telefono" value="'+(u.telefono||'')+'" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500"></div>'
+        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Correo electrónico</label>'
+        +'<input type="email" value="'+u.email+'" disabled class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 text-slate-400 cursor-not-allowed"></div>'
+        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Empresas asignadas</label>'
+        +'<p class="text-sm text-slate-600 bg-slate-50 rounded-xl px-4 py-2.5 border border-slate-200">'+((u.empresas&&u.empresas.length)?u.empresas.join(', '):'Todas las empresas')+'</p></div>'
+        +'<div class="pt-2 border-t border-slate-100">'
+        +'<p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cambiar contraseña</p>'
+        +'<div class="space-y-3">'
+        +'<input type="password" id="perfil-pass-actual" placeholder="Contraseña actual" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500">'
+        +'<input type="password" id="perfil-pass-nuevo" placeholder="Nueva contraseña (mín. 8 caracteres)" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500">'
+        +'<button onclick="cambiarPasswordPerfil()" class="text-xs font-semibold text-violet-600 hover:text-violet-800 transition">Actualizar contraseña →</button>'
+        +'</div></div>'
+        +'<button onclick="guardarPerfilAuxiliar()" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl transition shadow-sm">'
+        +'<i class="fas fa-save mr-2"></i>Guardar cambios</button></div>';
+}
+
+async function guardarPerfilAuxiliar(){
+    if(!sesionActual) return;
+    const r=await enviarPeticion('actualizar_usuario',{token:getToken(),email:sesionActual.usuario.email,nombre:document.getElementById('perfil-nombre')?.value||'',telefono:document.getElementById('perfil-telefono')?.value||''});
+    if(r.status==='success'){sesionActual.usuario.nombre=document.getElementById('perfil-nombre')?.value||'';mostrarToast('success','Perfil actualizado','Datos guardados correctamente.');}
+    else mostrarToast('error','Error',r.message);
+}
+
+async function cambiarPasswordPerfil(){
+    const actual=document.getElementById('perfil-pass-actual')?.value||'';
+    const nuevo=document.getElementById('perfil-pass-nuevo')?.value||'';
+    if(!actual||!nuevo){mostrarToast('warning','Campos vacíos','Ingresa tu contraseña actual y la nueva.');return;}
+    const r=await enviarPeticion('cambiar_password',{token:getToken(),passActual:actual,passNuevo:nuevo});
+    if(r.status==='success'){mostrarToast('success','Contraseña actualizada','Tu contraseña fue cambiada.');document.getElementById('perfil-pass-actual').value='';document.getElementById('perfil-pass-nuevo').value='';}
+    else mostrarToast('error','Error',r.message);
+}
+
+function abrirModalNuevoUsuario(){
+    Swal.fire({
+        title:'Nuevo Usuario',
+        html:'<div class="text-left space-y-3">'
+            +'<input id="swal-nombre" class="swal2-input" placeholder="Nombre completo">'
+            +'<input id="swal-email" class="swal2-input" type="email" placeholder="correo@gmnet.mx">'
+            +'<input id="swal-pass" class="swal2-input" type="password" placeholder="Contraseña">'
+            +'<input id="swal-tel" class="swal2-input" placeholder="Teléfono">'
+            +'<select id="swal-rol" class="swal2-input"><option value="Auxiliar">Auxiliar</option><option value="Administrador">Administrador</option></select>'
+            +'<input id="swal-empresas" class="swal2-input" placeholder="Empresas (coma) o vacío = todas">'
+            +'</div>',
+        confirmButtonText:'Crear usuario',confirmButtonColor:'#7c3aed',showCancelButton:true,cancelButtonText:'Cancelar',
+        preConfirm:async function(){
+            const r=await enviarPeticion('crear_usuario',{token:getToken(),nombre:document.getElementById('swal-nombre').value,email:document.getElementById('swal-email').value,password:document.getElementById('swal-pass').value,telefono:document.getElementById('swal-tel').value,rol:document.getElementById('swal-rol').value,empresas:document.getElementById('swal-empresas').value});
+            if(r.status!=='success') Swal.showValidationMessage(r.message);
+            return r;
+        }
+    }).then(function(res){if(res.isConfirmed){mostrarToast('success','Usuario creado','Acceso creado correctamente.');cargarTablaUsuarios();}});
+}
+
+async function resetPassword(email){
+    const res=await Swal.fire({title:'¿Resetear contraseña?',html:'Se reseteará la contraseña de <strong>'+email+'</strong> a <code>Prisma2025*</code>',icon:'warning',confirmButtonText:'Sí, resetear',confirmButtonColor:'#d97706',showCancelButton:true,cancelButtonText:'Cancelar'});
+    if(!res.isConfirmed) return;
+    const r=await enviarPeticion('resetear_password',{token:getToken(),email});
+    mostrarToast(r.status==='success'?'success':'error',r.status==='success'?'Contraseña reseteada':'Error',r.message);
+}
+
+async function toggleUsuario(email,estatusActual){
+    const nuevoEstatus=estatusActual==='Activo'?'Inactivo':'Activo';
+    const r=await enviarPeticion('actualizar_usuario',{token:getToken(),email,estatus:nuevoEstatus});
+    if(r.status==='success'){mostrarToast('success',nuevoEstatus==='Activo'?'Usuario activado':'Usuario desactivado',email);cargarTablaUsuarios();}
+    else mostrarToast('error','Error',r.message);
+}
+
+async function editarUsuario(email){
+    const r=await enviarPeticion('listar_usuarios',{token:getToken()});
+    if(r.status!=='success') return;
+    const u=(r.usuarios||[]).find(function(x){return x.email===email;});
+    if(!u) return;
+    Swal.fire({
+        title:'Editar: '+u.nombre,
+        html:'<div class="text-left space-y-3">'
+            +'<input id="swal-e-nombre" class="swal2-input" value="'+(u.nombre||'')+'" placeholder="Nombre completo">'
+            +'<input id="swal-e-tel" class="swal2-input" value="'+(u.telefono||'')+'" placeholder="Teléfono">'
+            +'<select id="swal-e-rol" class="swal2-input"><option value="Auxiliar"'+(u.rol==='Auxiliar'?' selected':'')+'>Auxiliar</option><option value="Administrador"'+(u.rol==='Administrador'?' selected':'')+'>Administrador</option></select>'
+            +'<input id="swal-e-empresas" class="swal2-input" value="'+(u.empresas||[]).join(',')+'" placeholder="Empresas (coma) o vacío = todas">'
+            +'</div>',
+        confirmButtonText:'Guardar',confirmButtonColor:'#7c3aed',showCancelButton:true,cancelButtonText:'Cancelar',
+        preConfirm:async function(){
+            const r2=await enviarPeticion('actualizar_usuario',{token:getToken(),email,nombre:document.getElementById('swal-e-nombre').value,telefono:document.getElementById('swal-e-tel').value,rol:document.getElementById('swal-e-rol').value,empresas:document.getElementById('swal-e-empresas').value});
+            if(r2.status!=='success') Swal.showValidationMessage(r2.message);
+            return r2;
+        }
+    }).then(function(res){if(res.isConfirmed){mostrarToast('success','Usuario actualizado','Datos guardados.');cargarTablaUsuarios();}});
+}
+
 
 // ─── API GAS ──────────────────────────────────────────────────
 async function enviarPeticion(action,payload){

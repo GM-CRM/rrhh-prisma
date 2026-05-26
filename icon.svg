@@ -1,25 +1,103 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Fondo con gradiente prisma -->
   <defs>
+    <!-- Fondo oscuro azul-índigo como el logo -->
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#6366f1"/>
-      <stop offset="50%" style="stop-color:#8b5cf6"/>
-      <stop offset="100%" style="stop-color:#a855f7"/>
+      <stop offset="0%" style="stop-color:#0d1b3e"/>
+      <stop offset="100%" style="stop-color:#1a1040"/>
     </linearGradient>
-    <linearGradient id="prisma" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9"/>
-      <stop offset="100%" style="stop-color:#c4b5fd;stop-opacity:0.7"/>
+    <!-- Prisma gradiente cristal -->
+    <linearGradient id="prism1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c8d8f0;stop-opacity:0.9"/>
+      <stop offset="50%" style="stop-color:#8ab4d4;stop-opacity:0.7"/>
+      <stop offset="100%" style="stop-color:#5b8ab0;stop-opacity:0.5"/>
     </linearGradient>
+    <linearGradient id="prism2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e0eaf8;stop-opacity:0.6"/>
+      <stop offset="100%" style="stop-color:#7090b8;stop-opacity:0.4"/>
+    </linearGradient>
+    <!-- Rayos de luz -->
+    <linearGradient id="ray1" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#ff4444;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#ff4444;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ray2" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#ff8800;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#ff8800;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ray3" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#ffdd00;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#ffdd00;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ray4" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#44ff44;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#44ff44;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ray5" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#00bbff;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#00bbff;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ray6" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#aa44ff;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#aa44ff;stop-opacity:0"/>
+    </linearGradient>
+    <linearGradient id="ray7" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" style="stop-color:#ff44cc;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#ff44cc;stop-opacity:0"/>
+    </linearGradient>
+    <!-- Silueta cabeza neon -->
+    <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6644"/>
+      <stop offset="50%" style="stop-color:#ffaa00"/>
+      <stop offset="100%" style="stop-color:#ff44aa"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowStrong">
+      <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
+
   <!-- Fondo redondeado -->
-  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
-  <!-- Figura de persona (RH) -->
-  <circle cx="256" cy="170" r="68" fill="url(#prisma)"/>
-  <path d="M128 390c0-70 57-128 128-128s128 58 128 128" fill="url(#prisma)"/>
-  <!-- Prisma / diamante decorativo -->
-  <polygon points="390,120 430,175 390,230 350,175" fill="white" opacity="0.25"/>
-  <polygon points="390,120 430,175 390,175" fill="white" opacity="0.4"/>
-  <!-- Líneas decorativas -->
-  <line x1="90" y1="390" x2="160" y2="390" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.4"/>
-  <line x1="90" y1="415" x2="135" y2="415" stroke="white" stroke-width="8" stroke-linecap="round" opacity="0.25"/>
+  <rect width="512" height="512" rx="90" fill="url(#bg)"/>
+
+  <!-- Rayo de luz entrando al prisma (izquierda) -->
+  <line x1="60" y1="220" x2="220" y2="265" stroke="white" stroke-width="2.5" stroke-opacity="0.6" filter="url(#glow)"/>
+
+  <!-- PRISMA — triángulo cristalino -->
+  <!-- Cara frontal -->
+  <polygon points="256,130 180,310 332,310" fill="url(#prism1)" stroke="#c8d8f8" stroke-width="1.5" stroke-opacity="0.8"/>
+  <!-- Cara lateral (sombra) -->
+  <polygon points="256,130 332,310 256,260" fill="url(#prism2)" stroke="#a0c0e0" stroke-width="1" stroke-opacity="0.5"/>
+  <!-- Brillo superior del prisma -->
+  <line x1="256" y1="133" x2="290" y2="200" stroke="white" stroke-width="1.5" stroke-opacity="0.5"/>
+  <!-- Destellos en el prisma -->
+  <circle cx="256" cy="155" r="3" fill="white" opacity="0.9" filter="url(#glow)"/>
+  <circle cx="270" cy="175" r="1.5" fill="white" opacity="0.7"/>
+
+  <!-- RAYOS DE LUZ dispersos (derecha del prisma) -->
+  <line x1="332" y1="258" x2="480" y2="160" stroke="url(#ray1)" stroke-width="3.5" filter="url(#glow)"/>
+  <line x1="332" y1="268" x2="480" y2="195" stroke="url(#ray2)" stroke-width="3.5" filter="url(#glow)"/>
+  <line x1="332" y1="276" x2="480" y2="228" stroke="url(#ray3)" stroke-width="3.5" filter="url(#glow)"/>
+  <line x1="332" y1="283" x2="480" y2="260" stroke="url(#ray4)" stroke-width="3.5" filter="url(#glow)"/>
+  <line x1="332" y1="290" x2="480" y2="292" stroke="url(#ray5)" stroke-width="3.5" filter="url(#glow)"/>
+  <line x1="332" y1="297" x2="480" y2="325" stroke="url(#ray6)" stroke-width="3.5" filter="url(#glow)"/>
+  <line x1="332" y1="304" x2="480" y2="360" stroke="url(#ray7)" stroke-width="3.5" filter="url(#glow)"/>
+
+  <!-- SILUETA DE PERFIL HUMANO (neon) -->
+  <path d="M 240,80 C 200,82 170,110 168,145 C 166,178 180,200 178,225
+           C 176,245 160,260 155,280 C 150,300 158,318 168,330
+           C 178,342 190,348 190,360 L 200,360"
+        fill="none" stroke="url(#headGrad)" stroke-width="3" stroke-linecap="round"
+        stroke-linejoin="round" opacity="0.85" filter="url(#glowStrong)"/>
+
+  <!-- Detalles faciales neon (nariz, mentón) -->
+  <path d="M 175,290 C 170,295 168,305 172,312"
+        fill="none" stroke="#ff8844" stroke-width="2" stroke-linecap="round" opacity="0.7" filter="url(#glow)"/>
+
+  <!-- Pequeñas estrellas/destellos de luz -->
+  <circle cx="215" cy="170" r="2" fill="#ffffff" opacity="0.6" filter="url(#glow)"/>
+  <circle cx="108" cy="208" r="1.5" fill="#aaddff" opacity="0.5" filter="url(#glow)"/>
 </svg>

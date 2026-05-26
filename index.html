@@ -77,7 +77,7 @@ if ('serviceWorker' in navigator) {
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
 <!-- ── PANTALLA DE LOGIN ───────────────────────────────────── -->
-<div id="login-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#1e1b4b]">
+<div id="login-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d1b3e]">
   <div class="w-full max-w-md px-6">
     <div class="flex flex-col items-center mb-8">
       <img src="icon.svg" alt="RRHH Prisma" class="w-16 h-16 rounded-2xl shadow-xl mb-4">
@@ -95,7 +95,7 @@ if ('serviceWorker' in navigator) {
           <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Correo electrónico</label>
           <div class="relative">
             <i class="fas fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-            <input type="email" id="login-email" placeholder="correo@empresa.com" autocomplete="email"
+            <input type="email" id="login-email" placeholder="correo@gmnet.mx" autocomplete="email"
               class="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
               onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
           </div>
@@ -118,7 +118,7 @@ if ('serviceWorker' in navigator) {
         </button>
       </div>
     </div>
-    <p class="text-center text-xs text-slate-500 mt-6">RRHH Prisma · Grupo Multimedia México</p>
+    <p class="text-center text-xs text-slate-500 mt-6">RRHH Prisma</p>
   </div>
 </div>
 
@@ -131,7 +131,7 @@ if ('serviceWorker' in navigator) {
 <!-- ══ SIDEBAR ══════════════════════════════════════════════ -->
 <aside id="sidebar" style="min-width:256px;max-width:256px"
   class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0
-         bg-[#1e1b4b] text-slate-300 flex flex-col shadow-2xl z-40 transition-transform duration-300">
+         bg-[#0d1b3e] text-slate-300 flex flex-col shadow-2xl z-40 transition-transform duration-300">
 
   <div class="p-5 border-b border-white/5 flex justify-between items-center">
     <div class="flex items-center gap-3">
@@ -197,6 +197,7 @@ if ('serviceWorker' in navigator) {
     <i class="fas fa-sign-out-alt"></i>
     <span class="hidden md:inline">Salir</span>
   </button>
+  <span id="header-usuario" class="hidden md:inline text-xs text-slate-500 font-medium px-3 py-1.5 bg-slate-100 rounded-lg"></span>
   <button onclick="forzarActualizacion()" class="hidden md:flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition font-medium">
         <i class="fas fa-sync-alt text-xs"></i> Sincronizar
       </button>
@@ -638,7 +639,7 @@ if ('serviceWorker' in navigator) {
 
 
 <!-- Banner PWA instalable -->
-<div id="pwa-banner" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-[#1e1b4b] text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-4 max-w-sm w-11/12 border border-white/10">
+<div id="pwa-banner" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-[#0d1b3e] text-white rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-4 max-w-sm w-11/12 border border-white/10">
   <img src="icon.svg" alt="" class="w-10 h-10 rounded-xl flex-shrink-0">
   <div class="flex-1 min-w-0">
     <p class="text-sm font-bold">Instalar RRHH Prisma</p>
@@ -743,6 +744,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=33.0"></script>
+<script src="main.js?v=35.0"></script>
 </body>
 </html>
