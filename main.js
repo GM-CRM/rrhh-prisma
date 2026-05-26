@@ -1,3 +1,20 @@
+
+// ─── LOADER ANIMADO ──────────────────────────────────────────
+function setLoaderStatus(msg, pct) {
+    const status = document.getElementById('loader-status');
+    const bar    = document.getElementById('loader-bar');
+    if(status) status.textContent = msg || '';
+    if(bar && pct !== undefined) bar.style.width = pct + '%';
+}
+
+function ocultarLoader_app() {
+    const loader = document.getElementById('app-loader');
+    if(!loader) return;
+    loader.style.opacity    = '0';
+    loader.style.visibility = 'hidden';
+    setTimeout(()=>{ loader.style.display = 'none'; }, 500);
+}
+
 // ============================================================
 //  GRUPO MULTIMEDIA — Sistema RH | Frontend v6.0
 //  Novedades:
@@ -16,7 +33,7 @@ function showModule(id){
     const t=document.getElementById('module-'+id);if(!t)return;
     t.style.display='block';
     requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('active')));
-    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes'}[id]||id;
+    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes',usuarios:'Usuarios',encuestas:'Encuestas'}[id]||id;
     if(window.innerWidth<768)toggleMenu();
 }
 function mostrarLoader(t){document.getElementById('loader-text').innerText=t||'Procesando...';document.getElementById('global-loader').style.display='flex';}
@@ -1412,6 +1429,145 @@ async function crearExpedienteEnDrive() {
         }
     }
 }
+
+// ══════════════════════════════════════════════════════════════
+//  MÓDULO DE ENCUESTAS — RRHH Prisma
+// ══════════════════════════════════════════════════════════════
+let encTabActual = 'SALIDA';
+
+const ENC_TIPOS = {
+  SALIDA:  { nombre:'Encuesta de Salida',       icono:'fa-door-open',      color:'text-violet-600' },
+  CLIMA:   { nombre:'Clima Laboral',             icono:'fa-cloud-sun',      color:'text-blue-600'   },
+  DESEMPE: { nombre:'Evaluación de Desempeño',   icono:'fa-chart-line',     color:'text-emerald-600'},
+  CAPAC:   { nombre:'Detección de Capacitación', icono:'fa-graduation-cap', color:'text-amber-600'  },
+  PULSO:   { nombre:'Encuesta de Pulso',         icono:'fa-heartbeat',      color:'text-rose-600'   },
+};
+
+async function cargarModuloEncuestas(){
+    activarTabEncuesta(encTabActual,
+        document.querySelector('.enc-tab.active') || document.querySelector('.enc-tab'));
+}
+
+async function activarTabEncuesta(encId, btnEl){
+    encTabActual = encId;
+    // Estilos de tabs
+    document.querySelectorAll('.enc-tab').forEach(b=>{
+        b.classList.remove('active','border-violet-600','text-violet-700','bg-violet-50');
+        b.classList.add('border-transparent','text-slate-500');
+    });
+    if(btnEl){
+        btnEl.classList.add('active','border-violet-600','text-violet-700','bg-violet-50');
+        btnEl.classList.remove('border-transparent','text-slate-500');
+    }
+    const cont = document.getElementById('enc-contenido');
+    if(!cont) return;
+    cont.innerHTML = '<div class="flex items-center justify-center py-16 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
+
+    // Cargar respuestas
+    const r = await enviarPeticion('listar_respuestas', { token: getToken(), encId });
+    if(r.status !== 'success'){
+        cont.innerHTML = '<p class="text-sm text-red-400 text-center py-12">'+r.message+'</p>';
+        return;
+    }
+    renderizarDashboardEncuesta(encId, r.respuestas || [], cont);
+}
+
+function renderizarDashboardEncuesta(encId, respuestas, container){
+    const tipo  = ENC_TIPOS[encId] || ENC_TIPOS.SALIDA;
+    const total = respuestas.length;
+    const link  = location.origin + '/encuesta.html?enc=' + encId;
+
+    // Calcular promedios de respuestas numéricas
+    const promedios = {};
+    const conteos   = {};
+    respuestas.forEach(function(resp){
+        Object.entries(resp.respuestas||{}).forEach(function([key, val]){
+            const n = parseInt(val);
+            if(!isNaN(n) && n >= 1 && n <= 5){
+                promedios[key] = (promedios[key]||0) + n;
+                conteos[key]   = (conteos[key]||0) + 1;
+            }
+        });
+    });
+
+    // Promedio general
+    let sumTotal = 0, cntTotal = 0;
+    Object.keys(promedios).forEach(k=>{ sumTotal += promedios[k]; cntTotal += conteos[k]; });
+    const promGeneral = cntTotal > 0 ? (sumTotal/cntTotal).toFixed(2) : '—';
+    const colorProm   = parseFloat(promGeneral) >= 4 ? 'text-emerald-600' :
+                        parseFloat(promGeneral) >= 3 ? 'text-amber-500' : 'text-rose-600';
+
+    // Empresas únicas
+    const empresas = {};
+    respuestas.forEach(r=>{
+        const e = r.empresa||'Sin empresa';
+        empresas[e] = (empresas[e]||0) + 1;
+    });
+
+    container.innerHTML =
+    // ── Header del dashboard ──
+    '<div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">'
+    +'<div>'
+    +'<h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">'
+    +'<i class="fas '+tipo.icono+' '+tipo.color+'"></i>'+tipo.nombre+'</h3>'
+    +'<p class="text-xs text-slate-400 mt-0.5">'+total+' respuesta(s) registrada(s)</p>'
+    +'</div>'
+    +'<div class="flex gap-2">'
+    +'<button onclick="copiarLinkEncuesta(this.dataset.link)" data-link="'+link+'" '
+    +'class="flex items-center gap-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition">'
+    +'<i class="fas fa-link"></i> Copiar link</button>'
+    +'<a href="'+link+'" target="_blank" '
+    +'class="flex items-center gap-2 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl transition">'
+    +'<i class="fas fa-external-link-alt"></i> Abrir encuesta</a>'
+    +'</div></div>'
+
+    // ── KPIs ──
+    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">'
+    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
+    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Respuestas</p>'
+    +'<p class="text-2xl font-black text-slate-800 mt-1">'+total+'</p></div>'
+    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
+    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Promedio General</p>'
+    +'<p class="text-2xl font-black '+colorProm+' mt-1">'+promGeneral+' <span class="text-sm font-normal text-slate-400">/ 5</span></p></div>'
+    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
+    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Empresas</p>'
+    +'<p class="text-2xl font-black text-slate-800 mt-1">'+Object.keys(empresas).length+'</p></div>'
+    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
+    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Satisfacción</p>'
+    +'<p class="text-2xl font-black '+colorProm+' mt-1">'
+    +(cntTotal > 0 ? Math.round(parseFloat(promGeneral)/5*100)+'%' : '—')+'</p></div>'
+    +'</div>'
+
+    // ── Tabla de respuestas recientes ──
+    +(total === 0
+        ? '<div class="text-center py-16"><i class="fas fa-inbox text-slate-200 text-5xl mb-4"></i><p class="text-sm text-slate-400 font-semibold">Sin respuestas aún</p><p class="text-xs text-slate-300 mt-1">Comparte el link de la encuesta con los empleados.</p></div>'
+        : '<div class="overflow-x-auto"><table class="w-full text-sm text-left">'
+        +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">'
+        +'<tr><th class="px-4 py-3">Empleado</th><th class="px-4 py-3">Empresa</th>'
+        +'<th class="px-4 py-3">Fecha</th><th class="px-4 py-3 text-center">Preguntas resp.</th></tr></thead>'
+        +'<tbody class="divide-y divide-slate-100">'
+        +respuestas.slice(0,20).map(function(r){
+            const nResp = Object.keys(r.respuestas||{}).length;
+            const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-MX') : '—';
+            return '<tr class="hover:bg-slate-50">'
+                +'<td class="px-4 py-3 font-medium text-slate-700">'+r.nombre+'</td>'
+                +'<td class="px-4 py-3 text-xs text-slate-500">'+r.empresa+'</td>'
+                +'<td class="px-4 py-3 text-xs text-slate-400">'+fecha+'</td>'
+                +'<td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">'+nResp+'</span></td>'
+                +'</tr>';
+        }).join('')
+        +'</tbody></table></div>'
+    );
+}
+
+function copiarLinkEncuesta(link){
+    navigator.clipboard.writeText(link).then(function(){
+        mostrarToast('success','Link copiado','El link de la encuesta está en tu portapapeles.',4000);
+    }).catch(function(){
+        prompt('Copia este link:', link);
+    });
+}
+
 // ─── FOTO DE PERFIL DEL EMPLEADO ─────────────────────────────
 async function cargarFotoPerfil(folderUrl){
     var partes = folderUrl.split('/folders/');
@@ -2303,8 +2459,17 @@ async function instalarPWA() {
 
 // Verificar sesión antes de inicializar la app
 async function arrancarApp(){
+    setLoaderStatus('Verificando sesión...', 20);
     const sesionOk = await verificarSesion();
-    if(sesionOk) { await initApp(); }
+    if(sesionOk) {
+        setLoaderStatus('Cargando datos...', 60);
+        await initApp();
+        setLoaderStatus('Listo', 100);
+        setTimeout(ocultarLoader_app, 400);
+    } else {
+        // Mostrar login — ocultar loader
+        setTimeout(ocultarLoader_app, 300);
+    }
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', arrancarApp);

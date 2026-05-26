@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Encuesta — RRHH Prisma</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="icon.png">
+<!-- No PWA install prompt -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root {
+    --ink:     #0d1b3e;
+    --ink-2:   #1e2d52;
+    --accent:  #7c3aed;
+    --accent2: #a855f7;
+    --gold:    #f59e0b;
+    --emerald: #10b981;
+    --rose:    #f43f5e;
+    --surface: #f8f7ff;
+    --white:   #ffffff;
+    --radius:  16px;
+    --shadow:  0 4px 24px rgba(124,58,237,.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--surface);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Fondo animado ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 10% 0%, rgba(124,58,237,.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 90% 100%, rgba(168,85,247,.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header fijo ── */
+  .survey-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13,27,62,.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .survey-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .survey-header-brand img {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+  }
+
+  .survey-header-brand span {
+    font-size: .85rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: .02em;
+  }
+
+  .survey-header-brand em {
+    color: #a78bfa;
+    font-style: normal;
+  }
+
+  /* ── Barra de progreso ── */
+  .progress-wrap {
+    flex: 1;
+    max-width: 340px;
+  }
+
+  .progress-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+
+  .progress-labels span {
+    font-size: .7rem;
+    color: rgba(255,255,255,.6);
+  }
+
+  .progress-labels strong {
+    font-size: .7rem;
+    color: #a78bfa;
+    font-weight: 700;
+  }
+
+  .progress-bar-bg {
+    background: rgba(255,255,255,.12);
+    border-radius: 99px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #7c3aed, #a855f7, #f59e0b);
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+    transition: width .5s cubic-bezier(.4,0,.2,1);
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ── Contenedor principal ── */
+  .survey-container {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 16px 80px;
+  }
+
+  /* ── Pantalla de identificación ── */
+  .id-screen {
+    background: var(--white);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    padding: 40px 32px;
+    text-align: center;
+    animation: fadeUp .5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .id-screen img {
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 32px rgba(124,58,237,.3);
+  }
+
+  .id-screen h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  .id-screen p {
+    font-size: .9rem;
+    color: #64748b;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+
+  .id-fields {
+    display: grid;
+    gap: 14px;
+    text-align: left;
+    margin-bottom: 24px;
+  }
+
+  .id-fields label {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #64748b;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .id-fields input {
+    width: 100%;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: .95rem;
+    color: var(--ink);
+    transition: border-color .2s;
+    background: #fafafa;
+  }
+
+  .id-fields input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--white);
+  }
+
+  /* ── Botón primario ── */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-weight: 700;
+    font-size: .95rem;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 32px;
+    cursor: pointer;
+    width: 100%;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 16px rgba(124,58,237,.3);
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,58,237,.4); }
+  .btn-primary:active { transform: scale(.98); }
+  .btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+  /* ── Sección de bloque ── */
+  .block-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 36px 0 20px;
+    animation: fadeUp .4s ease both;
+  }
+
+  .block-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(124,58,237,.3);
+  }
+
+  .block-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  /* ── Tarjeta de pregunta ── */
+  .question-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 12px rgba(13,27,62,.06);
+    border: 1.5px solid transparent;
+    transition: border-color .2s, box-shadow .2s, transform .2s;
+    animation: fadeUp .35s ease both;
+  }
+
+  .question-card:hover {
+    border-color: rgba(124,58,237,.2);
+    box-shadow: 0 4px 20px rgba(124,58,237,.1);
+  }
+
+  .question-card.answered {
+    border-color: rgba(16,185,129,.3);
+    background: linear-gradient(135deg, #fff, #f0fdf4);
+  }
+
+  .question-num {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+
+  .question-text {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+
+  /* ── Escala 1-5 ── */
+  .scale-wrap {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .scale-option {
+    flex: 1;
+    min-width: 52px;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  .scale-option input { display: none; }
+
+  .scale-option label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 6px;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    cursor: pointer;
+    transition: all .2s;
+    background: #fafafa;
+  }
+
+  .scale-option label .num {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #94a3b8;
+    transition: color .2s;
+  }
+
+  .scale-option label .lbl {
+    font-size: .6rem;
+    text-align: center;
+    color: #94a3b8;
+    line-height: 1.2;
+    transition: color .2s;
+  }
+
+  .scale-option input:checked + label {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(124,58,237,.08), rgba(168,85,247,.08));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(124,58,237,.2);
+  }
+
+  .scale-option input:checked + label .num { color: var(--accent); }
+  .scale-option input:checked + label .lbl { color: var(--accent2); }
+
+  /* Colores por valor */
+  .scale-option[data-val="1"] input:checked + label { border-color: #ef4444; background: rgba(239,68,68,.06); }
+  .scale-option[data-val="1"] input:checked + label .num { color: #ef4444; }
+  .scale-option[data-val="2"] input:checked + label { border-color: #f97316; background: rgba(249,115,22,.06); }
+  .scale-option[data-val="2"] input:checked + label .num { color: #f97316; }
+  .scale-option[data-val="3"] input:checked + label { border-color: #f59e0b; background: rgba(245,158,11,.06); }
+  .scale-option[data-val="3"] input:checked + label .num { color: #f59e0b; }
+  .scale-option[data-val="4"] input:checked + label { border-color: #22c55e; background: rgba(34,197,94,.06); }
+  .scale-option[data-val="4"] input:checked + label .num { color: #22c55e; }
+  .scale-option[data-val="5"] input:checked + label { border-color: #10b981; background: rgba(16,185,129,.06); }
+  .scale-option[data-val="5"] input:checked + label .num { color: #10b981; }
+
+  /* ── Selección múltiple ── */
+  .multi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .multi-option {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 2px solid #e2e8f0;
+    background: #fafafa;
+    transition: all .2s;
+    font-size: .85rem;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .multi-option input { display: none; }
+
+  .multi-option .check-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 2px solid #cbd5e1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+  }
+
+  .multi-option.selected {
+    border-color: var(--accent);
+    background: rgba(124,58,237,.06);
+  }
+
+  .multi-option.selected .check-box {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+    font-size: .7rem;
+  }
+
+  /* ── Texto abierto ── */
+  .open-textarea {
+    width: 100%;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: .9rem;
+    color: var(--ink);
+    resize: vertical;
+    min-height: 90px;
+    font-family: inherit;
+    transition: border-color .2s;
+    background: #fafafa;
+    line-height: 1.5;
+  }
+
+  .open-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--white);
+  }
+
+  /* ── Tag "Pregunta abierta" ── */
+  .open-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(245,158,11,.1);
+    color: #b45309;
+    font-size: .65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-radius: 99px;
+    padding: 2px 8px;
+    margin-bottom: 8px;
+  }
+
+  /* ── Footer flotante con botón de enviar ── */
+  .survey-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(255,255,255,.95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid #e2e8f0;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .footer-info {
+    font-size: .8rem;
+    color: #64748b;
+  }
+
+  .footer-info strong { color: var(--accent); }
+
+  .btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    font-weight: 700;
+    font-size: .9rem;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 28px;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    box-shadow: 0 4px 16px rgba(124,58,237,.3);
+    white-space: nowrap;
+  }
+
+  .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,58,237,.4); }
+  .btn-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+
+  /* ── Pantalla de éxito ── */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 60px 32px;
+    background: var(--white);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    animation: fadeUp .5s ease both;
+  }
+
+  .success-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 2rem;
+    color: white;
+    box-shadow: 0 8px 24px rgba(16,185,129,.3);
+    animation: popIn .5s cubic-bezier(.4,0,.2,1) .2s both;
+  }
+
+  @keyframes popIn {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+  }
+
+  .success-screen h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+
+  .success-screen p {
+    font-size: .95rem;
+    color: #64748b;
+    line-height: 1.6;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 480px) {
+    .survey-container { padding: 20px 12px 80px; }
+    .id-screen { padding: 28px 20px; }
+    .question-card { padding: 18px 16px; }
+    .scale-wrap { gap: 5px; }
+    .scale-option label { padding: 8px 4px; }
+    .scale-option label .num { font-size: 1rem; }
+    .multi-grid { grid-template-columns: 1fr; }
+    .progress-wrap { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="survey-header">
+  <div class="survey-header-brand">
+    <img src="icon.png" alt="RRHH Prisma">
+    <span>RRHH <em>Prisma</em></span>
+  </div>
+  <div class="progress-wrap" id="progress-wrap" style="display:none">
+    <div class="progress-labels">
+      <span id="progress-label">Pregunta 0 de 0</span>
+      <strong id="progress-pct">0%</strong>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+</header>
+
+<!-- ── CONTENIDO ── -->
+<div class="survey-container" id="survey-container">
+
+  <!-- Pantalla 1: Identificación -->
+  <div id="id-screen" class="id-screen">
+    <img src="icon.png" alt="RRHH Prisma">
+    <h1 id="enc-titulo">Cargando encuesta...</h1>
+    <p id="enc-descripcion">Por favor espera un momento.</p>
+    <div class="id-fields" id="id-fields">
+      <div>
+        <label>Número de Empleado</label>
+        <input type="text" id="input-noemp" placeholder="Ej. 218" inputmode="numeric">
+      </div>
+      <div>
+        <label>Nombre Completo</label>
+        <input type="text" id="input-nombre" placeholder="Apellidos y Nombre(s)">
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()">
+      <i class="fas fa-play"></i> Comenzar encuesta
+    </button>
+  </div>
+
+  <!-- Pantalla 2: Preguntas (se genera dinámicamente) -->
+  <div id="questions-screen" style="display:none"></div>
+
+  <!-- Pantalla 3: Éxito -->
+  <div class="success-screen" id="success-screen">
+    <div class="success-icon"><i class="fas fa-check"></i></div>
+    <h2>¡Gracias por tu participación!</h2>
+    <p>Tus respuestas han sido registradas exitosamente.<br>Tu opinión es muy importante para nosotros.</p>
+  </div>
+
+</div>
+
+<!-- Footer con enviar -->
+<div class="survey-footer" id="survey-footer" style="display:none">
+  <div class="footer-info">
+    Respondidas: <strong id="footer-respondidas">0</strong> de <strong id="footer-total">0</strong>
+  </div>
+  <button class="btn-submit" id="btn-enviar" onclick="enviarEncuesta()">
+    <i class="fas fa-paper-plane"></i> Enviar respuestas
+  </button>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────
+const API_URL = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
+
+// ── Estado ────────────────────────────────────────────────────
+let encuestaData  = null;  // { id, titulo, bloques: [{titulo, preguntas:[...]}] }
+let empleadoId    = "";
+let empleadoNombre= "";
+let preIdEmp      = "";    // desde URL ?emp=XX
+
+// ── Leer parámetros de la URL ─────────────────────────────────
+const params    = new URLSearchParams(location.search);
+const encId     = params.get('enc') || 'SALIDA';
+preIdEmp        = params.get('emp') || '';
+
+// ── Escala 1-5 ────────────────────────────────────────────────
+const ESCALA = [
+  { val:1, emoji:'1️⃣', lbl:'Totalmente\nen desacuerdo' },
+  { val:2, emoji:'2️⃣', lbl:'En\ndesacuerdo' },
+  { val:3, emoji:'3️⃣', lbl:'Ni de acuerdo\nni en desacuerdo' },
+  { val:4, emoji:'4️⃣', lbl:'De\nacuerdo' },
+  { val:5, emoji:'5️⃣', lbl:'Totalmente\nde acuerdo' },
+];
+
+// ── Cargar encuesta desde GAS ─────────────────────────────────
+async function cargarEncuesta(){
+  try {
+    const r = await fetch(API_URL, {
+      method:'POST',
+      body: JSON.stringify({ action:'obtener_encuesta', payload:{ encId } })
+    });
+    const data = await r.json();
+    if(data.status === 'success') {
+      encuestaData = data.encuesta;
+      document.getElementById('enc-titulo').textContent    = encuestaData.titulo;
+      document.getElementById('enc-descripcion').textContent = encuestaData.descripcion || 'Responde con honestidad. Es anónima y confidencial.';
+    }
+  } catch(e) {
+    // Fallback: usar encuesta hardcodeada si GAS falla
+    encuestaData = ENCUESTA_SALIDA;
+    document.getElementById('enc-titulo').textContent    = encuestaData.titulo;
+    document.getElementById('enc-descripcion').textContent = encuestaData.descripcion;
+  }
+
+  // Si viene ID del empleado en URL, precargarlo
+  if(preIdEmp) {
+    document.getElementById('input-noemp').value = preIdEmp;
+    document.getElementById('input-noemp').readOnly = true;
+  }
+}
+
+// ── Iniciar encuesta (tras identificación) ────────────────────
+function iniciarEncuesta(){
+  const noemp  = document.getElementById('input-noemp').value.trim();
+  const nombre = document.getElementById('input-nombre').value.trim();
+  if(!noemp || !nombre){
+    alert('Por favor ingresa tu número de empleado y nombre completo.');
+    return;
+  }
+  empleadoId     = noemp;
+  empleadoNombre = nombre;
+
+  document.getElementById('id-screen').style.display        = 'none';
+  document.getElementById('questions-screen').style.display = 'block';
+  document.getElementById('survey-footer').style.display    = 'flex';
+  document.getElementById('progress-wrap').style.display    = 'block';
+
+  renderizarPreguntas();
+  actualizarProgreso();
+  window.scrollTo(0,0);
+}
+
+// ── Renderizar todas las preguntas ────────────────────────────
+function renderizarPreguntas(){
+  if(!encuestaData) return;
+  const container = document.getElementById('questions-screen');
+  let globalQ = 0;
+  let html    = '';
+
+  encuestaData.bloques.forEach((bloque, bi) => {
+    html += `<div class="block-header" style="animation-delay:${bi*0.05}s">
+      <div class="block-number">${bloque.icono || (bi+1)}</div>
+      <div class="block-title">${bloque.titulo}</div>
+    </div>`;
+
+    bloque.preguntas.forEach((preg, pi) => {
+      globalQ++;
+      const delay = (bi * 5 + pi) * 0.03;
+      html += `<div class="question-card" id="qcard-${globalQ}" style="animation-delay:${delay}s">`;
+      html += `<div class="question-num">Pregunta ${globalQ}</div>`;
+
+      if(preg.tipo === 'abierta') {
+        html += `<div class="open-badge"><i class="fas fa-pen-line"></i> Pregunta abierta</div>`;
+      }
+
+      html += `<div class="question-text">${preg.texto}</div>`;
+
+      if(preg.tipo === 'escala') {
+        html += '<div class="scale-wrap">';
+        ESCALA.forEach(e => {
+          html += `<div class="scale-option" data-val="${e.val}">
+            <input type="radio" name="q${globalQ}" id="q${globalQ}_${e.val}" value="${e.val}"
+              onchange="onRespuesta(${globalQ})">
+            <label for="q${globalQ}_${e.val}">
+              <span class="num">${e.val}</span>
+              <span class="lbl">${e.lbl.replace('\n','<br>')}</span>
+            </label>
+          </div>`;
+        });
+        html += '</div>';
+
+      } else if(preg.tipo === 'multiple') {
+        html += '<div class="multi-grid">';
+        (preg.opciones || []).forEach((op, oi) => {
+          html += `<label class="multi-option" id="mop-${globalQ}-${oi}" onclick="toggleMulti(${globalQ},${oi},this)">
+            <input type="checkbox" name="q${globalQ}" value="${op}">
+            <span class="check-box"><i class="fas fa-check" style="display:none"></i></span>
+            ${op}
+          </label>`;
+        });
+        html += '</div>';
+
+      } else if(preg.tipo === 'abierta') {
+        html += `<textarea class="open-textarea" id="qa-${globalQ}"
+          placeholder="Escribe tu respuesta aquí..."
+          oninput="onRespuesta(${globalQ})" rows="3"></textarea>`;
+      }
+
+      html += '</div>'; // question-card
+    });
+  });
+
+  container.innerHTML = html;
+  document.getElementById('footer-total').textContent = globalQ;
+}
+
+// ── Eventos de respuesta ──────────────────────────────────────
+function onRespuesta(qNum){
+  const card = document.getElementById('qcard-'+qNum);
+  if(card) card.classList.add('answered');
+  actualizarProgreso();
+}
+
+function toggleMulti(qNum, oi, labelEl){
+  const inp = labelEl.querySelector('input');
+  inp.checked = !inp.checked;
+  labelEl.classList.toggle('selected', inp.checked);
+  const icon = labelEl.querySelector('.fas');
+  if(icon) icon.style.display = inp.checked ? 'block' : 'none';
+  onRespuesta(qNum);
+}
+
+// ── Progreso ──────────────────────────────────────────────────
+function actualizarProgreso(){
+  const cards    = document.querySelectorAll('.question-card');
+  const total    = cards.length;
+  let respondidas = 0;
+
+  cards.forEach((card, i) => {
+    const n = i + 1;
+    const radios = document.querySelectorAll(`input[name="q${n}"]:checked`);
+    const textarea = document.getElementById('qa-'+n);
+    if(radios.length > 0 || (textarea && textarea.value.trim())) respondidas++;
+  });
+
+  const pct = total > 0 ? Math.round(respondidas/total*100) : 0;
+  document.getElementById('progress-fill').style.width  = pct + '%';
+  document.getElementById('progress-pct').textContent   = pct + '%';
+  document.getElementById('progress-label').textContent = `Pregunta ${respondidas} de ${total}`;
+  document.getElementById('footer-respondidas').textContent = respondidas;
+}
+
+// ── Recopilar respuestas ──────────────────────────────────────
+function recopilarRespuestas(){
+  const cards = document.querySelectorAll('.question-card');
+  const resp  = {};
+
+  cards.forEach((card, i) => {
+    const n      = i + 1;
+    const radios = document.querySelectorAll(`input[type="radio"][name="q${n}"]:checked`);
+    const checks = document.querySelectorAll(`input[type="checkbox"][name="q${n}"]:checked`);
+    const textarea = document.getElementById('qa-'+n);
+
+    if(radios.length > 0) {
+      resp['q'+n] = radios[0].value;
+    } else if(checks.length > 0) {
+      resp['q'+n] = Array.from(checks).map(c=>c.value);
+    } else if(textarea) {
+      resp['q'+n] = textarea.value.trim();
+    }
+  });
+
+  return resp;
+}
+
+// ── Enviar respuestas ─────────────────────────────────────────
+async function enviarEncuesta(){
+  const respuestas = recopilarRespuestas();
+  const total      = document.querySelectorAll('.question-card').length;
+  const respondidas= Object.keys(respuestas).length;
+
+  if(respondidas < Math.ceil(total * 0.7)){
+    if(!confirm(`Has respondido ${respondidas} de ${total} preguntas. ¿Deseas enviar de todas formas?`)) return;
+  }
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+
+  try {
+    const payload = {
+      encId,
+      empleadoId,
+      empleadoNombre,
+      respuestas,
+      fechaRespuesta: new Date().toISOString(),
+    };
+
+    const r = await fetch(API_URL, {
+      method:'POST',
+      body: JSON.stringify({ action:'guardar_respuesta', payload })
+    });
+    const data = await r.json();
+
+    if(data.status === 'success') {
+      mostrarExito();
+    } else {
+      alert('Error al guardar: ' + (data.message || 'Intenta de nuevo.'));
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar respuestas';
+    }
+  } catch(e) {
+    alert('Error de conexión. Verifica tu internet e intenta de nuevo.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar respuestas';
+  }
+}
+
+function mostrarExito(){
+  document.getElementById('questions-screen').style.display = 'none';
+  document.getElementById('survey-footer').style.display    = 'none';
+  document.getElementById('progress-wrap').style.display    = 'none';
+  document.getElementById('success-screen').style.display   = 'block';
+  window.scrollTo(0,0);
+}
+
+// ── Encuesta de Salida hardcodeada (fallback) ─────────────────
+const ENCUESTA_SALIDA = {
+  id: 'SALIDA',
+  titulo: 'Encuesta de Salida',
+  descripcion: 'Tus respuestas son confidenciales y nos ayudan a mejorar como organización. Gracias por tu tiempo.',
+  bloques: [
+    {
+      icono: '💰', titulo: 'Compensación y Beneficios',
+      preguntas: [
+        {tipo:'escala',  texto:'Mi salario era competitivo en comparación con el mercado.'},
+        {tipo:'escala',  texto:'Considero que mi compensación era justa en relación con mis responsabilidades.'},
+        {tipo:'escala',  texto:'Los beneficios ofrecidos cubrían adecuadamente mis necesidades.'},
+        {tipo:'escala',  texto:'Los incentivos y bonos estaban alineados con mi desempeño.'},
+        {tipo:'escala',  texto:'Existía equidad salarial dentro de mi área.'},
+        {tipo:'escala',  texto:'¿Influyó la falta de algún beneficio específico (seguro, bonos, vales) en tu decisión de salir?'},
+        {tipo:'abierta', texto:'¿Qué prestación, beneficio o aspecto de tu compensación total crees que podríamos mejorar para retener talento?'},
+      ]
+    },
+    {
+      icono: '👔', titulo: 'Liderazgo y Gestión',
+      preguntas: [
+        {tipo:'escala',  texto:'Mi jefe directo comunicaba claramente las expectativas del puesto.'},
+        {tipo:'escala',  texto:'Recibía retroalimentación útil y oportuna.'},
+        {tipo:'escala',  texto:'Me sentía apoyado(a) por mi líder para realizar mi trabajo.'},
+        {tipo:'escala',  texto:'¿Considera que la relación de su Jefe Inmediato con el personal a su cargo era buena?'},
+        {tipo:'escala',  texto:'Mi jefe promovía un ambiente de respeto y confianza.'},
+        {tipo:'escala',  texto:'Las decisiones del liderazgo eran coherentes y justas.'},
+        {tipo:'abierta', texto:'¿Qué aspectos del liderazgo influyeron en tu decisión de salida?'},
+      ]
+    },
+    {
+      icono: '🚀', titulo: 'Desarrollo y Crecimiento Profesional',
+      preguntas: [
+        {tipo:'escala',  texto:'Contaba con oportunidades reales de crecimiento dentro de la organización.'},
+        {tipo:'escala',  texto:'Existía claridad sobre mi plan de carrera.'},
+        {tipo:'escala',  texto:'¿Cuando ingresó a la empresa recibió el curso de inducción (actividades, responsabilidades, reglamento, salario, gratificaciones, sanciones)?'},
+        {tipo:'escala',  texto:'La empresa invertía en mi desarrollo profesional.'},
+        {tipo:'escala',  texto:'Tenía acceso a capacitación relevante para mi puesto.'},
+        {tipo:'escala',  texto:'Se promovía la movilidad interna.'},
+        {tipo:'abierta', texto:'¿Qué tipo de capacitación o desarrollo crees que habría mejorado tu desempeño o experiencia?'},
+      ]
+    },
+    {
+      icono: '🌱', titulo: 'Clima y Cultura Organizacional',
+      preguntas: [
+        {tipo:'escala',  texto:'El ambiente laboral era positivo.'},
+        {tipo:'escala',  texto:'Me sentía respetado(a) por mis compañeros.'},
+        {tipo:'escala',  texto:'La cultura organizacional era coherente con sus valores declarados.'},
+        {tipo:'escala',  texto:'Me sentía parte importante de la organización.'},
+        {tipo:'escala',  texto:'La empresa promovía la inclusión y diversidad.'},
+        {tipo:'abierta', texto:'Describe el ambiente de trabajo en la organización.'},
+      ]
+    },
+    {
+      icono: '⚖️', titulo: 'Carga de Trabajo y Organización',
+      preguntas: [
+        {tipo:'escala',  texto:'Mi carga de trabajo era razonable.'},
+        {tipo:'escala',  texto:'Contaba con los recursos necesarios para cumplir mis funciones.'},
+        {tipo:'escala',  texto:'Los procesos internos eran eficientes.'},
+        {tipo:'escala',  texto:'El nivel de estrés era manejable.'},
+        {tipo:'escala',  texto:'Las responsabilidades estaban bien definidas.'},
+        {tipo:'abierta', texto:'¿Qué cambios harías en la organización del trabajo?'},
+      ]
+    },
+    {
+      icono: '💬', titulo: 'Comunicación Interna',
+      preguntas: [
+        {tipo:'escala',  texto:'La información importante se comunicaba de manera clara y oportuna, así como los cambios organizacionales se explicaban adecuadamente.'},
+        {tipo:'escala',  texto:'¿El trabajo en equipo y la comunicación entre compañeros eran efectivos?'},
+        {tipo:'escala',  texto:'Podía expresar mis opiniones libremente.'},
+        {tipo:'escala',  texto:'¿Considera que los canales de comunicación utilizados (correo, chat, reuniones) eran los adecuados?'},
+        {tipo:'escala',  texto:'¿Sentía que los líderes/gerentes estaban abiertos a recibir retroalimentación y escuchaban sus preocupaciones?'},
+        {tipo:'abierta', texto:'¿Hubo algún momento en que la falta de comunicación afectara tu motivación o desempeño?'},
+      ]
+    },
+    {
+      icono: '⭐', titulo: 'Reconocimiento y Motivación',
+      preguntas: [
+        {tipo:'escala',  texto:'Mi trabajo era reconocido adecuadamente.'},
+        {tipo:'escala',  texto:'El desempeño era evaluado de manera justa.'},
+        {tipo:'escala',  texto:'Sentía que mi trabajo aportaba valor a la organización.'},
+        {tipo:'abierta', texto:'¿Qué hubiera incrementado tu nivel de motivación?'},
+      ]
+    },
+    {
+      icono: '🏢', titulo: 'Condiciones de Trabajo',
+      preguntas: [
+        {tipo:'escala',  texto:'Las herramientas tecnológicas eran adecuadas.'},
+        {tipo:'escala',  texto:'Las instalaciones para desempeñar su trabajo eran seguras y limpias.'},
+        {tipo:'escala',  texto:'Me sentía seguro(a) en mi entorno laboral.'},
+        {tipo:'escala',  texto:'¿El equipo de protección fue el adecuado para llevar a cabo su trabajo?'},
+        {tipo:'abierta', texto:'¿Qué mejorarías en tus condiciones físicas de trabajo?'},
+      ]
+    },
+    {
+      icono: '🌿', titulo: 'Balance Vida-Trabajo',
+      preguntas: [
+        {tipo:'escala', texto:'Tenía un buen equilibrio entre mi vida personal y laboral.'},
+        {tipo:'escala', texto:'La empresa respetaba mis tiempos personales.'},
+        {tipo:'escala', texto:'Existía flexibilidad cuando la necesitaba.'},
+        {tipo:'escala', texto:'Disponía de tiempo para descansar y/o consumir mis alimentos.'},
+        {tipo:'escala', texto:'¿El balance vida-trabajo influyó en tu decisión de salida?'},
+      ]
+    },
+    {
+      icono: '🎯', titulo: 'Experiencia General',
+      preguntas: [
+        {tipo:'escala',  texto:'En general, mi experiencia en la empresa fue positiva.'},
+        {tipo:'escala',  texto:'Recomendaría la empresa como un buen lugar para trabajar.'},
+        {tipo:'escala',  texto:'Consideraría regresar a trabajar aquí en el futuro.'},
+        {tipo:'abierta', texto:'¿Cuál fue el principal motivo de tu decisión de salida?'},
+        {tipo:'abierta', texto:'¿Qué debería hacer la empresa para retener talento como tú?'},
+        {tipo:'abierta', texto:'Si usted pudiera cambiar algo dentro de la empresa, ¿qué condición sería?'},
+        {tipo:'abierta', texto:'¿Cómo se sintió durante el tiempo que laboró con nosotros?'},
+        {tipo:'abierta', texto:'Observaciones, comentarios y sugerencias que quiera realizar a la empresa.'},
+      ]
+    },
+    {
+      icono: '📋', titulo: 'Razón Principal de Salida',
+      preguntas: [
+        {
+          tipo: 'multiple',
+          texto: 'Selecciona la(s) razón(es) principal(es) de tu salida (puedes elegir varias):',
+          opciones: [
+            'Mala relación con jefe directo',
+            'Mala relación con compañeros',
+            'Carga de trabajo',
+            'Discriminación / acoso / hostigamiento',
+            'Distancia entre trabajo y domicilio',
+            'Falta de herramientas para desempeñar trabajo',
+            'Horario de trabajo',
+            'Trabajo riesgoso',
+            'Capacitación',
+            'Oportunidades de desarrollo',
+            'Estudios que demandan el 100% de mi tiempo',
+            'Necesidad de estudiar y trabajar al mismo tiempo',
+            'Sueldo',
+            'Prestaciones',
+            'Enfermedad personal',
+            'Enfermedad de familiar (necesidad de cuidarlo)',
+            'Problemas legales',
+            'Matrimonio',
+            'Necesidad de atender a los hijos',
+            'Cambio de residencia',
+            'Otro'
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+// ── Arrancar ──────────────────────────────────────────────────
+cargarEncuesta();
+</script>
+</body>
+</html>

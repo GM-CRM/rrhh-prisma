@@ -76,6 +76,88 @@ if ('serviceWorker' in navigator) {
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
+<!-- ── LOADER ANIMADO CON LOGO ── -->
+<div id="app-loader" style="
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(135deg,#0d1b3e 0%,#1a0a2e 50%,#0d1b3e 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+  transition:opacity .5s ease, visibility .5s ease;">
+
+  <!-- Logo con pulso -->
+  <div style="position:relative;width:96px;height:96px;">
+    <!-- Anillos animados -->
+    <div style="
+      position:absolute;inset:-16px;border-radius:50%;
+      border:2px solid rgba(124,58,237,.3);
+      animation:ringPulse 2s ease-in-out infinite;"></div>
+    <div style="
+      position:absolute;inset:-8px;border-radius:50%;
+      border:2px solid rgba(168,85,247,.4);
+      animation:ringPulse 2s ease-in-out infinite .3s;"></div>
+    <!-- Logo -->
+    <img src="icon.png" alt="RRHH Prisma" style="
+      width:96px;height:96px;border-radius:22px;
+      box-shadow:0 0 40px rgba(124,58,237,.6),0 0 80px rgba(124,58,237,.3);
+      animation:logoPulse 2s ease-in-out infinite;">
+    <!-- Destellos de color como el logo -->
+    <div style="
+      position:absolute;top:-4px;right:-4px;width:12px;height:12px;
+      border-radius:50%;background:#f59e0b;
+      animation:sparkle 1.5s ease-in-out infinite .2s;
+      box-shadow:0 0 8px #f59e0b;"></div>
+    <div style="
+      position:absolute;bottom:-4px;left:-4px;width:8px;height:8px;
+      border-radius:50%;background:#a855f7;
+      animation:sparkle 1.5s ease-in-out infinite .7s;
+      box-shadow:0 0 8px #a855f7;"></div>
+    <div style="
+      position:absolute;top:50%;right:-12px;width:6px;height:6px;
+      border-radius:50%;background:#22c55e;
+      animation:sparkle 1.5s ease-in-out infinite 1s;
+      box-shadow:0 0 6px #22c55e;"></div>
+  </div>
+
+  <!-- Nombre -->
+  <div style="text-align:center;">
+    <p style="font-family:system-ui,sans-serif;font-size:1.4rem;font-weight:800;color:#fff;letter-spacing:.04em;margin-bottom:4px;">
+      RRHH <span style="color:#a78bfa">Prisma</span>
+    </p>
+    <p id="loader-status" style="font-family:system-ui,sans-serif;font-size:.8rem;color:rgba(255,255,255,.5);letter-spacing:.1em;text-transform:uppercase;">
+      Iniciando...
+    </p>
+  </div>
+
+  <!-- Barra de progreso del loader -->
+  <div style="width:180px;height:3px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;">
+    <div id="loader-bar" style="
+      height:100%;border-radius:99px;
+      background:linear-gradient(90deg,#7c3aed,#a855f7,#f59e0b,#22c55e,#a855f7,#7c3aed);
+      background-size:300% 100%;
+      animation:loaderShimmer 1.5s linear infinite;
+      width:0%;transition:width .4s ease;"></div>
+  </div>
+</div>
+
+<style>
+@keyframes ringPulse {
+  0%,100%{transform:scale(1);opacity:.3;}
+  50%{transform:scale(1.15);opacity:.7;}
+}
+@keyframes logoPulse {
+  0%,100%{transform:scale(1);filter:drop-shadow(0 0 20px rgba(124,58,237,.5));}
+  50%{transform:scale(1.04);filter:drop-shadow(0 0 35px rgba(124,58,237,.8));}
+}
+@keyframes sparkle {
+  0%,100%{transform:scale(1);opacity:.6;}
+  50%{transform:scale(1.5);opacity:1;}
+}
+@keyframes loaderShimmer {
+  0%{background-position:300% 0;}
+  100%{background-position:-300% 0;}
+}
+</style>
+
+
 <!-- ── PANTALLA DE LOGIN ───────────────────────────────────── -->
 <div id="login-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d1b3e]">
   <div class="w-full max-w-md px-6">
@@ -163,6 +245,11 @@ if ('serviceWorker' in navigator) {
     <button onclick="activarNav(this);showModule('basedatos');cargarDatosTabla();"
       class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
       <i class="fas fa-id-card w-4 text-slate-400 group-hover:text-purple-400 transition"></i><span class="font-medium">Expedientes</span>
+    </button>
+    <button onclick="activarNav(this);showModule('encuestas');cargarModuloEncuestas();"
+      class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
+      <i class="fas fa-clipboard-list w-4 text-slate-400 group-hover:text-emerald-400 transition"></i>
+      <span class="font-medium">Encuestas</span>
     </button>
     <button id="nav-btn-usuarios" onclick="activarNav(this);showModule('usuarios');cargarModuloUsuarios();"
       class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
@@ -521,7 +608,37 @@ if ('serviceWorker' in navigator) {
   </section>
 
   <!-- ══ DIRECTORIO ═══════════════════════════════════════════ -->
-  <!-- MÓDULO: Usuarios / Perfil -->
+  <!-- MÓDULO: Encuestas -->
+<section id="module-encuestas" class="module-section">
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+    <!-- Tabs -->
+    <div class="border-b border-slate-100 px-4 pt-4">
+      <div class="flex gap-1 overflow-x-auto pb-0" id="enc-tabs">
+        <button onclick="activarTabEncuesta('SALIDA',this)" class="enc-tab active flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-violet-600 text-violet-700 bg-violet-50 transition">
+          <i class="fas fa-door-open mr-1.5"></i>Encuesta de Salida
+        </button>
+        <button onclick="activarTabEncuesta('CLIMA',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-cloud-sun mr-1.5"></i>Clima Laboral
+        </button>
+        <button onclick="activarTabEncuesta('DESEMPE',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-chart-line mr-1.5"></i>Desempeño
+        </button>
+        <button onclick="activarTabEncuesta('CAPAC',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-graduation-cap mr-1.5"></i>Capacitación
+        </button>
+        <button onclick="activarTabEncuesta('PULSO',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-heartbeat mr-1.5"></i>Pulso
+        </button>
+      </div>
+    </div>
+    <!-- Contenido del tab activo -->
+    <div id="enc-contenido" class="p-5 min-h-[400px]">
+      <p class="text-sm text-slate-400 text-center py-12">Selecciona una encuesta para ver su dashboard.</p>
+    </div>
+  </div>
+</section>
+
+<!-- MÓDULO: Usuarios / Perfil -->
 <section id="module-usuarios" class="module-section">
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200" id="panel-usuarios-admin">
     <!-- Admin: gestión de usuarios -->
@@ -744,6 +861,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=36.0"></script>
+<script src="main.js?v=37.0"></script>
 </body>
 </html>
