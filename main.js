@@ -1,18 +1,21 @@
 
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
-    const status = document.getElementById('loader-status');
-    const bar    = document.getElementById('loader-bar');
-    if(status) status.textContent = msg || '';
-    if(bar && pct !== undefined) bar.style.width = pct + '%';
+    try {
+        const status = document.getElementById('loader-status');
+        const bar    = document.getElementById('loader-bar');
+        if(status) status.textContent = msg || '';
+        if(bar && pct !== undefined) bar.style.width = pct + '%';
+    } catch(e) { console.warn('[setLoaderStatus]', e); }
 }
 
 function ocultarLoader_app() {
     const loader = document.getElementById('app-loader');
     if(!loader) return;
-    loader.style.opacity    = '0';
-    loader.style.visibility = 'hidden';
-    setTimeout(()=>{ loader.style.display = 'none'; }, 500);
+    loader.style.transition  = 'opacity .4s ease';
+    loader.style.opacity     = '0';
+    loader.style.visibility  = 'hidden';
+    setTimeout(function(){ loader.style.display = 'none'; }, 500);
 }
 
 // ============================================================
@@ -1214,7 +1217,9 @@ async function verificarSesion(){
             ocultarLoginScreen();
             return true;
         }
-    }catch(e){}
+    }catch(e){
+        console.error('[verificarSesion] Error:', e);
+    }
     clearToken();
     mostrarLoginScreen('Tu sesión expiró. Inicia sesión de nuevo.');
     return false;
@@ -3490,16 +3495,23 @@ async function instalarPWA() {
 
 // Verificar sesión antes de inicializar la app
 async function arrancarApp(){
-    setLoaderStatus('Verificando sesión...', 20);
-    const sesionOk = await verificarSesion();
-    if(sesionOk) {
-        setLoaderStatus('Cargando datos...', 60);
-        await initApp();
-        setLoaderStatus('Listo', 100);
-        setTimeout(ocultarLoader_app, 400);
-    } else {
-        // Mostrar login — ocultar loader
-        setTimeout(ocultarLoader_app, 300);
+    try {
+        setLoaderStatus('Verificando sesión...', 20);
+        const sesionOk = await verificarSesion();
+        if(sesionOk) {
+            setLoaderStatus('Cargando datos...', 60);
+            await initApp();
+            setLoaderStatus('Listo', 100);
+            setTimeout(ocultarLoader_app, 400);
+        } else {
+            // No hay sesión — mostrar login y ocultar loader
+            setTimeout(ocultarLoader_app, 300);
+        }
+    } catch(e) {
+        console.error('[arrancarApp] Error:', e);
+        // Siempre ocultar loader aunque falle algo
+        ocultarLoader_app();
+        mostrarLoginScreen('Error al iniciar. Recarga la página.');
     }
 }
 
