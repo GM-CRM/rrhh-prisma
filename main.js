@@ -1143,7 +1143,7 @@ function togglePassVis(){
     }
 }
 
-async 
+
 // ── Olvidé mi contraseña ──────────────────────────────────────
 function mostrarFormOlvidePass() {
     const modal = document.getElementById('modal-olvide');
