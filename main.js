@@ -93,9 +93,19 @@ function agregarNotificacion(tipo, titulo, mensaje, empleadoId='', silencioso=fa
     notificaciones.unshift(notif);
     guardarNotifs();
     actualizarBadgeNotifs();
-    // Solo mostrar toast si NO es silencioso (silencioso=true al cargar la app)
     if(!silencioso) mostrarToast(tipo, titulo, mensaje);
 }
+
+// Mapa de estilos por tipo de notificación
+const NOTIF_ESTILOS = {
+    error:       { bg:'bg-red-50',    border:'border-red-200',    icon:'fa-circle-exclamation', iconColor:'text-red-500',    badge:'bg-red-100 text-red-700'    },
+    warning:     { bg:'bg-amber-50',  border:'border-amber-200',  icon:'fa-triangle-exclamation',iconColor:'text-amber-500', badge:'bg-amber-100 text-amber-700' },
+    contrato:    { bg:'bg-orange-50', border:'border-orange-200', icon:'fa-file-contract',       iconColor:'text-orange-500',badge:'bg-orange-100 text-orange-700'},
+    info:        { bg:'bg-blue-50',   border:'border-blue-200',   icon:'fa-circle-info',         iconColor:'text-blue-500',  badge:'bg-blue-100 text-blue-700'   },
+    success:     { bg:'bg-emerald-50',border:'border-emerald-200',icon:'fa-circle-check',        iconColor:'text-emerald-500',badge:'bg-emerald-100 text-emerald-700'},
+    cumple:      { bg:'bg-pink-50',   border:'border-pink-200',   icon:'fa-cake-candles',        iconColor:'text-pink-500',  badge:'bg-pink-100 text-pink-700'   },
+    aniversario: { bg:'bg-violet-50', border:'border-violet-200', icon:'fa-trophy',              iconColor:'text-violet-500',badge:'bg-violet-100 text-violet-700'},
+};
 
 function actualizarBadgeNotifs(){
     const noLeidas = notificaciones.filter(n=>!n.leida).length;
@@ -117,31 +127,35 @@ function toggleCentroNotifs(){
 }
 
 function renderizarNotificaciones(){
-    const lista = document.getElementById('notif-lista');
+    const lista=document.getElementById('notif-lista');
     if(!lista) return;
-    // Marcar todas como leídas al abrir
-    notificaciones.forEach(n=>n.leida=true);
-    guardarNotifs();
-    actualizarBadgeNotifs();
-
     if(!notificaciones.length){
-        lista.innerHTML='<div class="text-center py-10"><i class="fas fa-bell-slash text-slate-300 text-3xl mb-3"></i><p class="text-sm text-slate-400">Sin notificaciones</p></div>';
+        lista.innerHTML='<div class="text-center py-10"><i class="fas fa-bell-slash text-slate-200 text-3xl mb-2 block"></i><p class="text-slate-400 text-sm">Sin notificaciones</p></div>';
         return;
     }
-    const iconos={success:'fa-check-circle text-emerald-500',warning:'fa-triangle-exclamation text-amber-400',error:'fa-circle-xmark text-red-500',info:'fa-circle-info text-blue-500',contrato:'fa-file-contract text-orange-400'};
-    lista.innerHTML = notificaciones.map(n=>{
-        const hace = tiempoRelativo(n.fecha);
-        const ic   = iconos[n.tipo]||iconos.info;
-        const emp  = n.empleadoId ? `<button onclick="abrirEditor('${n.empleadoId}');toggleCentroNotifs()" class="text-xs text-blue-600 hover:underline mt-1">Ver empleado →</button>` : '';
-        return `<div class="flex items-start gap-3 px-4 py-3 border-b border-slate-100 hover:bg-slate-50 transition">
-          <i class="fas ${ic} text-base flex-shrink-0 mt-0.5"></i>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-slate-800">${n.titulo}</p>
-            <p class="text-xs text-slate-500 mt-0.5">${n.mensaje}</p>
-            ${emp}
-            <p class="text-xs text-slate-300 mt-1">${hace}</p>
-          </div>
-        </div>`;
+    lista.innerHTML=notificaciones.slice(0,30).map(function(n){
+        const est = NOTIF_ESTILOS[n.tipo] || NOTIF_ESTILOS.info;
+        const empBtn = n.empleadoId
+            ? '<button data-empid="'+n.empleadoId+'" class="notif-emp-btn text-xs text-blue-600 hover:underline mt-1 font-semibold">Ver empleado →</button>'
+            : '';
+        const fecha = new Date(n.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        const tipoLabel = {
+            error:'Error',warning:'Contrato',contrato:'Contrato',
+            info:'Info',success:'OK',cumple:'🎂 Cumple',aniversario:'🏆 Aniversario'
+        }[n.tipo]||n.tipo;
+        return '<div class="p-3 border-b border-slate-100 '+(n.leida?'opacity-55':'')+' hover:bg-slate-50 transition">'
+            +'<div class="flex gap-2.5 items-start">'
+            +'<div class="w-8 h-8 rounded-lg '+est.bg+' border '+est.border+' flex items-center justify-center flex-shrink-0 mt-0.5">'
+            +'<i class="fas '+est.icon+' '+est.iconColor+' text-sm"></i></div>'
+            +'<div class="flex-1 min-w-0">'
+            +'<div class="flex items-center gap-1.5 mb-0.5 flex-wrap">'
+            +'<span class="text-xs font-semibold text-slate-700 leading-tight">'+n.titulo+'</span>'
+            +'<span class="px-1.5 py-0.5 rounded-full text-xs font-bold flex-shrink-0 '+est.badge+'">'+tipoLabel+'</span>'
+            +'</div>'
+            +'<p class="text-xs text-slate-500 leading-tight">'+n.mensaje+'</p>'
+            +'<p class="text-xs text-slate-300 mt-1">'+fecha+'</p>'
+            +empBtn
+            +'</div></div></div>';
     }).join('');
 }
 
@@ -222,7 +236,56 @@ function evaluarAlertas(datos){
         }
     });
 
-    localStorage.setItem(CLAVE_ALERTAS, JSON.stringify(alertasVistas));
+
+    // ── Cumpleaños y Aniversarios (próximos 7 días) ────────────
+    const hoyFull = new Date();
+    const hoyDia  = hoyFull.getDate();
+    const hoyMes  = hoyFull.getMonth() + 1;
+    const hoyYear = hoyFull.getFullYear();
+
+    // Filtrar por empresas permitidas del usuario (Auxiliares solo ven sus empresas)
+    const datosPermitidos = filtrarPorEmpresasPermitidas(datos);
+    datosPermitidos.filter(function(e){ return (e['ESTATUS']||'').trim()==='Activo'; }).forEach(function(emp){
+        const id2  = (emp['ID INTERNO']||(emp['NO. EMPLEADO']||'')).toString();
+        const nom2 = emp['NOMBRE DEL TRABAJADOR'] || 'Empleado';
+        const pNom = nom2.split(' ')[0];
+
+        // Cumpleaños
+        const fnRaw = parseFloat(emp['FECHA DE NACIMIENTO']||'0');
+        if(fnRaw > 10000){
+            const fNac = new Date((fnRaw-25569)*86400*1000);
+            const fm=fNac.getMonth()+1, fd=fNac.getDate();
+            const edad=hoyYear-fNac.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+            var fC=new Date(hoyYear,fm-1,fd); if(fC<hoyFull) fC=new Date(hoyYear+1,fm-1,fd);
+            const dC=Math.round((fC-hoyFull)/86400000);
+            const clC='cumple_'+id2+'_'+hoyYear;
+            if(!alertasVistas[clC] && dC<=7){
+                agregarNotificacion('cumple',
+                    dC===0?'🎂 ¡Hoy cumpleaños! — '+pNom:'🎂 Cumpleaños en '+dC+' día(s) — '+pNom,
+                    nom2+(dC===0?' cumple '+edad+' años hoy. ¡Felicítale!':', cumple '+edad+' años el '+fd+'/'+fm+'.'),
+                    id2, true);
+                alertasVistas[clC]='1'; nuevas++;
+            }
+        }
+
+        // Aniversario laboral
+        const fiRaw = parseFloat(emp['FECHA DE INGRESO']||'0');
+        if(fiRaw > 10000){
+            const fIng = new Date((fiRaw-25569)*86400*1000);
+            const fm=fIng.getMonth()+1, fd=fIng.getDate();
+            const anos=hoyYear-fIng.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+            if(anos>0){
+                var fA=new Date(hoyYear,fm-1,fd); if(fA<hoyFull) fA=new Date(hoyYear+1,fm-1,fd);
+                const dA=Math.round((fA-hoyFull)/86400000);
+                var tA,mA;
+                const clA = 'aniv_'+id2+'_'+hoyYear;
+                var tA = dA===0 ? 'Hoy' : 'En '+dA+' dias';
+                var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+fd+'/'+fm+'.');
+                var titA = '🏆 Aniversario ' + tA + ' — ' + pNom;
+                if(!alertasVistas[clA] && dA<=7){ agregarNotificacion('aniversario', titA, mA, id2, true); alertasVistas[clA]='1'; nuevas++; }
+            }
+        }
+    });
         // Alertas solo en campana, no como toast al cargar
 }
 
@@ -1074,6 +1137,68 @@ function togglePassVis(){
     } else {
         inp.type='password';
         if(ico){ico.classList.remove('fa-eye-slash');ico.classList.add('fa-eye');}
+    }
+}
+
+async 
+// ── Olvidé mi contraseña ──────────────────────────────────────
+function mostrarFormOlvidePass() {
+    const modal = document.getElementById('modal-olvide');
+    if(modal) { modal.style.display = 'flex'; }
+    const inp = document.getElementById('olvide-email');
+    if(inp) { inp.value = ''; inp.focus(); }
+    const err = document.getElementById('olvide-error');
+    const ok  = document.getElementById('olvide-success');
+    const frm = document.getElementById('olvide-form');
+    if(err) err.style.display = 'none';
+    if(ok)  ok.style.display  = 'none';
+    if(frm) frm.style.display = 'block';
+}
+
+function cerrarModalOlvide() {
+    const modal = document.getElementById('modal-olvide');
+    if(modal) modal.style.display = 'none';
+}
+
+async function procesarOlvidePass() {
+    const email = (document.getElementById('olvide-email')?.value || '').trim().toLowerCase();
+    const errEl = document.getElementById('olvide-error');
+    const okEl  = document.getElementById('olvide-success');
+    const frm   = document.getElementById('olvide-form');
+    const btn   = document.getElementById('btn-olvide');
+
+    if(errEl) errEl.style.display = 'none';
+    if(okEl)  okEl.style.display  = 'none';
+
+    if(!email) {
+        if(errEl){ errEl.textContent = 'Ingresa tu correo electrónico.'; errEl.style.display = 'block'; }
+        return;
+    }
+
+    if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...'; }
+
+    try {
+        const r = await fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'solicitar_reset', payload: { email } })
+        });
+        const data = await r.json();
+
+        if(data.status === 'success' || data.status === 'info') {
+            if(frm) frm.style.display = 'none';
+            if(okEl){
+                okEl.innerHTML = '<i class="fas fa-check-circle" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>'
+                    + '<strong>Instrucciones enviadas</strong><br>'
+                    + 'Revisa tu bandeja de entrada. Si tu correo está registrado, recibirás un email con tu contraseña temporal en los próximos minutos.';
+                okEl.style.display = 'block';
+            }
+        } else {
+            if(errEl){ errEl.textContent = data.message || 'Error al procesar la solicitud.'; errEl.style.display = 'block'; }
+        }
+    } catch(e) {
+        if(errEl){ errEl.textContent = 'Error de conexión. Intenta de nuevo.'; errEl.style.display = 'block'; }
+    } finally {
+        if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Enviar instrucciones'; }
     }
 }
 
