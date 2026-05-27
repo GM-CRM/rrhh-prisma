@@ -1186,7 +1186,7 @@ async function cargarTablaUsuarios(){
     const r=await enviarPeticion('listar_usuarios',{token:getToken()});
     if(r.status!=='success'){cont.innerHTML='<p class="text-sm text-red-400 text-center py-8">'+r.message+'</p>';return;}
     const us=r.usuarios||[];
-    cont.innerHTML='<div class="overflow-x-auto"><table class="w-full text-sm text-left">'
+    cont.innerHTML='<div class="overflow-x-auto" id="tabla-usr-wrap"><table class="w-full text-sm text-left">'
         +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b">'
         +'<tr><th class="px-4 py-3">Usuario</th><th class="px-4 py-3">Email</th>'
         +'<th class="px-4 py-3">Rol</th><th class="px-4 py-3">Empresas</th>'
@@ -1195,22 +1195,34 @@ async function cargarTablaUsuarios(){
         +us.map(function(u){
             const activo=u.estatus==='Activo';
             const badge=activo?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
-            const emps=(u.empresas||[]).join(', ')||'<span class="text-slate-400 italic">Todas</span>';
+            const emps=(u.empresas||[]).join(', ')||'—';
             const ini=((u.nombre||'U').split(' ')[0]||'U')[0].toUpperCase();
             return '<tr class="hover:bg-slate-50">'
                 +'<td class="px-4 py-3"><div class="flex items-center gap-2">'
-                +'<div class="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold">'+ini+'</div>'
-                +'<span class="font-medium">'+u.nombre+'</span></div></td>'
-                +'<td class="px-4 py-3 text-slate-500">'+u.email+'</td>'
+                +'<div class="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold flex-shrink-0">'+ini+'</div>'
+                +'<span class="font-medium text-slate-700">'+u.nombre+'</span></div></td>'
+                +'<td class="px-4 py-3 text-slate-500 text-xs">'+u.email+'</td>'
                 +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+(u.rol==='Administrador'?'bg-violet-100 text-violet-700':'bg-blue-100 text-blue-700')+'">'+u.rol+'</span></td>'
                 +'<td class="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">'+emps+'</td>'
                 +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+badge+'">'+u.estatus+'</span></td>'
-                +'<td class="px-4 py-3"><div class="flex justify-center gap-3">'
-                +'<button onclick="editarUsuario(this.getAttribute(\"data-e\"))" data-e="'+u.email+'" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen text-sm"></i></button>'
-                +'<button onclick="resetPassword(this.getAttribute(\"data-e\"))" data-e="'+u.email+'" class="text-slate-400 hover:text-amber-500 transition" title="Resetear contraseña"><i class="fas fa-key text-sm"></i></button>'
-                +'<button onclick="toggleUsuario(this.getAttribute(\"data-e\"),this.getAttribute(\"data-s\"))" data-e="'+u.email+'" data-s="'+u.estatus+'" class="text-slate-400 hover:'+(activo?'text-red-500':'text-emerald-500')+' transition" title="'+(activo?'Desactivar':'Activar')+'"><i class="fas fa-'+(activo?'ban':'check-circle')+' text-sm"></i></button>'
+                +'<td class="px-4 py-3"><div class="flex justify-center gap-2">'
+                +'<button data-action="editar" data-email="'+u.email+'" class="usr-btn w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen text-xs pointer-events-none"></i></button>'
+                +'<button data-action="reset" data-email="'+u.email+'" class="usr-btn w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-amber-100 text-slate-500 hover:text-amber-600 transition" title="Resetear contraseña"><i class="fas fa-key text-xs pointer-events-none"></i></button>'
+                +'<button data-action="toggle" data-email="'+u.email+'" data-estatus="'+u.estatus+'" class="usr-btn w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 '+(activo?'hover:bg-red-100 hover:text-red-600':'hover:bg-emerald-100 hover:text-emerald-600')+' text-slate-500 transition" title="'+(activo?'Desactivar':'Activar')+'">'
+                +'<i class="fas fa-'+(activo?'ban':'check-circle')+' text-xs pointer-events-none"></i></button>'
+                +'</div></td></tr>';
         }).join('')
         +'</tbody></table></div>';
+    setTimeout(function(){
+        const wrap=document.getElementById('tabla-usr-wrap');
+        if(wrap) wrap.addEventListener('click',function(e){
+            const btn=e.target.closest('.usr-btn'); if(!btn) return;
+            const a=btn.dataset.action, em=btn.dataset.email, es=btn.dataset.estatus;
+            if(a==='editar')  editarUsuario(em);
+            if(a==='reset')   resetPassword(em);
+            if(a==='toggle')  toggleUsuario(em,es);
+        });
+    },100);;
 }
 
 function renderizarPerfilAuxiliar(){
@@ -1453,6 +1465,16 @@ const CLIMA_DIMENSIONES = [
 function renderizarDashboardClima(respuestas, container, link) {
     const total = respuestas.length;
 
+    // ── Mapa {qn: texto} desde encuestaData cacheada ─────────
+    var textoPregs = {};
+    (function(){
+        var qq = 0;
+        var bloqs = (window._climaEncData && window._climaEncData.bloques) || [];
+        bloqs.forEach(function(b){
+            (b.preguntas||[]).forEach(function(p){ qq++; textoPregs[qq] = p.texto; });
+        });
+    })();
+
     // ── Calcular promedios por pregunta ──────────────────────
     const sumQ={}, cntQ={};
     respuestas.forEach(function(resp){
@@ -1518,6 +1540,8 @@ function renderizarDashboardClima(respuestas, container, link) {
     +'<i class="fas fa-link"></i> Copiar link</button>'
     +'<a href="'+link+'" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition">'
     +'<i class="fas fa-external-link-alt"></i> Ver encuesta</a>'
+    +'<button onclick="descargarRespuestasExcel(\'CLIMA\')" class="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-file-excel"></i> Excel</button>'
     +'</div></div>'
 
     + (total===0
@@ -1636,7 +1660,7 @@ function renderizarDashboardClima(respuestas, container, link) {
                   +'<td class="px-3 py-2 text-slate-400 font-mono text-center">'+qn+'</td>'
                   +'<td class="px-3 py-2 text-slate-700" style="max-width:320px;white-space:normal;line-height:1.3;">'
                   +(cntQ[k]>0?'':'<span style="color:#94a3b8;font-style:italic;">Sin respuestas</span>'||'')
-                  +(cntQ[k]>0?'P'+qn:'')+'</td>'
+                  +(textoPregs[qn]||('Pregunta '+qn))+'</td>'
                   +'<td class="px-3 py-2 text-center font-bold" style="color:'+cProm+'">'+promStr+'</td>'
                   +'<td class="px-3 py-2 text-center font-bold" style="color:'+cFavQ+'">'+pctFavQStr+'</td>'
                   +'<td class="px-3 py-2 text-center text-slate-500">'+pctBloqueStr+'</td>'
@@ -1676,6 +1700,125 @@ function renderizarDashboardClima(respuestas, container, link) {
     );
 }
 
+
+// ── Descargar respuestas de encuesta en Excel ─────────────────
+async function descargarRespuestasExcel(encId) {
+    const encTipo = ENC_TIPOS[encId] || { nombre: encId };
+    mostrarToast('info', 'Preparando Excel...', 'Descargando respuestas de '+encTipo.nombre, 3000);
+
+    // Obtener respuestas (del cache si están disponibles)
+    let respuestas = _encCache[encId] || [];
+    if(!respuestas.length){
+        const r = await enviarPeticion('listar_respuestas', { token: getToken(), encId });
+        if(r.status !== 'success'){ mostrarToast('error','Error',r.message); return; }
+        respuestas = r.respuestas || [];
+    }
+
+    if(!respuestas.length){
+        mostrarToast('warning','Sin datos','No hay respuestas para exportar.');
+        return;
+    }
+
+    // Obtener estructura de preguntas
+    let preguntas = [];
+    try {
+        const enc = await enviarPeticion('obtener_encuesta', { encId });
+        if(enc.status === 'success' && enc.encuesta.bloques){
+            let q = 0;
+            enc.encuesta.bloques.forEach(function(b){
+                (b.preguntas||[]).forEach(function(p){
+                    q++;
+                    preguntas.push({ num: q, texto: p.texto, bloque: b.titulo, tipo: p.tipo });
+                });
+            });
+        }
+    } catch(e){}
+
+    // Construir headers del Excel
+    // Col fijas: ID, Nombre, Empresa, Fecha
+    const headersBase = ['ID Respuesta','Nombre Empleado','Empresa','Fecha'];
+    // Col por pregunta: "Q1 - Texto de la pregunta"
+    const maxQ = preguntas.length || 0;
+    const headersPregQ = preguntas.map(function(p){
+        return 'Q'+p.num+' ['+p.bloque+'] '+p.texto.substring(0,60)+(p.texto.length>60?'...':'');
+    });
+    // Si no hay preguntas, usar las claves de respuestas
+    const todasClaves = new Set();
+    if(!maxQ) respuestas.forEach(function(r){ Object.keys(r.respuestas||{}).forEach(function(k){ todasClaves.add(k); }); });
+
+    const headers = headersBase.concat(
+        maxQ > 0 ? headersPregQ : Array.from(todasClaves).sort()
+    );
+
+    // Construir filas
+    const rows = [headers];
+    respuestas.forEach(function(resp){
+        const row = [
+            resp.id || '',
+            resp.nombre || '',
+            resp.empresa || '',
+            resp.fecha ? new Date(resp.fecha).toLocaleDateString('es-MX') : ''
+        ];
+        if(maxQ > 0){
+            preguntas.forEach(function(p){
+                const k = 'q'+p.num;
+                const v = (resp.respuestas||{})[k];
+                if(Array.isArray(v)) row.push(v.join(', '));
+                else row.push(v !== undefined && v !== null ? v : '');
+            });
+        } else {
+            Array.from(todasClaves).sort().forEach(function(k){
+                const v = (resp.respuestas||{})[k];
+                if(Array.isArray(v)) row.push(v.join(', '));
+                else row.push(v !== undefined && v !== null ? v : '');
+            });
+        }
+        rows.push(row);
+    });
+
+    // Generar Excel con SheetJS
+    try {
+        const XLSX = window.XLSX;
+        if(!XLSX){ mostrarToast('error','Error','Biblioteca XLSX no disponible.'); return; }
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        // Ancho de columnas
+        ws['!cols'] = headers.map(function(h, i){
+            return { wch: i < 4 ? 20 : Math.min(50, Math.max(12, h.length)) };
+        });
+        XLSX.utils.book_append_sheet(wb, ws, 'Respuestas');
+        // Hoja de resumen
+        if(preguntas.length){
+            const resHeaders = ['#','Bloque','Pregunta','Promedio','% Favorable'];
+            const resRows = [resHeaders];
+            const sumQ={}, cntQ={}, favQ={}, totQ={};
+            respuestas.forEach(function(r){
+                Object.entries(r.respuestas||{}).forEach(function([k,v]){
+                    const n=parseInt(v); if(!isNaN(n)&&n>=1&&n<=5){
+                        sumQ[k]=(sumQ[k]||0)+n; cntQ[k]=(cntQ[k]||0)+1;
+                    }
+                    if(!isNaN(n)){ totQ[k]=(totQ[k]||0)+1; if(n>=4) favQ[k]=(favQ[k]||0)+1; }
+                });
+            });
+            preguntas.forEach(function(p){
+                const k='q'+p.num;
+                const prom=cntQ[k]>0?(sumQ[k]/cntQ[k]).toFixed(2):'—';
+                const fav=totQ[k]>0?Math.round(favQ[k]/totQ[k]*100)+'%':'—';
+                resRows.push([p.num, p.bloque, p.texto, prom, fav]);
+            });
+            const wsRes = XLSX.utils.aoa_to_sheet(resRows);
+            wsRes['!cols'] = [{wch:5},{wch:25},{wch:60},{wch:12},{wch:14}];
+            XLSX.utils.book_append_sheet(wb, wsRes, 'Resumen');
+        }
+        const fecha = new Date().toISOString().slice(0,10);
+        XLSX.writeFile(wb, 'Encuesta_'+encId+'_Respuestas_('+fecha+').xlsx');
+        mostrarToast('success','Excel descargado',respuestas.length+' respuestas exportadas.',4000);
+    } catch(e){
+        console.error('Error Excel:', e);
+        mostrarToast('error','Error al generar Excel',e.message||'Intenta de nuevo.');
+    }
+}
+
 let encTabActual = 'SALIDA';
 
 const ENC_TIPOS = {
@@ -1691,9 +1834,12 @@ async function cargarModuloEncuestas(){
         document.querySelector('.enc-tab.active') || document.querySelector('.enc-tab'));
 }
 
+// Cache de respuestas por encuesta para no recargar al cambiar tabs
+const _encCache = {};
+let _encCacheTime = {};
+
 async function activarTabEncuesta(encId, btnEl){
     encTabActual = encId;
-    // Estilos de tabs
     document.querySelectorAll('.enc-tab').forEach(b=>{
         b.classList.remove('active','border-violet-600','text-violet-700','bg-violet-50');
         b.classList.add('border-transparent','text-slate-500');
@@ -1704,6 +1850,15 @@ async function activarTabEncuesta(encId, btnEl){
     }
     const cont = document.getElementById('enc-contenido');
     if(!cont) return;
+
+    // Usar cache si tiene menos de 5 minutos
+    const ahora = Date.now();
+    const cacheValido = _encCache[encId] && _encCacheTime[encId] && (ahora - _encCacheTime[encId] < 5*60*1000);
+    if(cacheValido){
+        renderizarResultadoEncuesta(encId, _encCache[encId], cont);
+        return;
+    }
+
     cont.innerHTML = '<div class="flex items-center justify-center py-16 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
 
     // Cargar respuestas
@@ -1713,11 +1868,25 @@ async function activarTabEncuesta(encId, btnEl){
         return;
     }
     // Usar dashboard especializado para Clima
+    // Guardar en cache
+    _encCache[encId] = r.respuestas || [];
+    _encCacheTime[encId] = Date.now();
+    renderizarResultadoEncuesta(encId, r.respuestas || [], cont);
+}
+
+function renderizarResultadoEncuesta(encId, respuestas, cont){
     if(encId === 'CLIMA') {
         const link = location.origin + '/encuesta.html?enc=CLIMA';
-        renderizarDashboardClima(r.respuestas || [], cont, link);
+        if(!window._climaEncData){
+            enviarPeticion('obtener_encuesta',{encId:'CLIMA'}).then(function(enc){
+                if(enc.status==='success') window._climaEncData = enc.encuesta;
+                renderizarDashboardClima(respuestas, cont, link);
+            }).catch(function(){ renderizarDashboardClima(respuestas, cont, link); });
+        } else {
+            renderizarDashboardClima(respuestas, cont, link);
+        }
     } else {
-        renderizarDashboardEncuesta(encId, r.respuestas || [], cont);
+        renderizarDashboardEncuesta(encId, respuestas, cont);
     }
 }
 
@@ -1786,6 +1955,8 @@ function renderizarDashboardEncuesta(encId, respuestas, container){
     +'<i class="fas fa-link"></i> Copiar link</button>'
     +'<a href="'+link+'" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg transition">'
     +'<i class="fas fa-external-link-alt"></i> Ver encuesta</a>'
+    +'<button onclick="descargarRespuestasExcel(this.dataset.enc)" data-enc="'+encId+'" class="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-file-excel"></i> Excel</button>'
     +'</div></div>'
 
     + (total===0
