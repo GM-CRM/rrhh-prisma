@@ -1464,12 +1464,25 @@ async function editarUsuario(email){
 
 // ─── API GAS ──────────────────────────────────────────────────
 async function enviarPeticion(action,payload){
-    // Agregar token de sesión automáticamente (excepto en login y validar_token)
     if(action !== 'login' && action !== 'validar_token' && sesionActual && sesionActual.token) {
         payload = Object.assign({}, payload, { token: sesionActual.token });
     }
-    const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload})});
-    return await res.json();
+    // Timeout de 25 segundos para evitar que el loader se quede colgado
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(function(){ controller.abort(); }, 25000);
+    try {
+        const res = await fetch(API_URL, {
+            method:  'POST',
+            body:    JSON.stringify({action, payload}),
+            signal:  controller.signal
+        });
+        clearTimeout(timeoutId);
+        return await res.json();
+    } catch(e) {
+        clearTimeout(timeoutId);
+        if(e.name === 'AbortError') throw new Error('Tiempo de espera agotado. Verifica tu conexión.');
+        throw e;
+    }
 }
 
 // ─── DRAWER EDICIÓN DE EMPLEADO ───────────────────────────────
@@ -3495,21 +3508,28 @@ async function instalarPWA() {
 
 // Verificar sesión antes de inicializar la app
 async function arrancarApp(){
+    // Failsafe: si en 30 segundos no termina, mostrar login de todas formas
+    const failsafe = setTimeout(function(){
+        console.error('[arrancarApp] Timeout — mostrando login');
+        ocultarLoader_app();
+        mostrarLoginScreen('La conexión tardó demasiado. Intenta de nuevo.');
+    }, 30000);
+
     try {
         setLoaderStatus('Verificando sesión...', 20);
         const sesionOk = await verificarSesion();
+        clearTimeout(failsafe);
         if(sesionOk) {
             setLoaderStatus('Cargando datos...', 60);
             await initApp();
             setLoaderStatus('Listo', 100);
             setTimeout(ocultarLoader_app, 400);
         } else {
-            // No hay sesión — mostrar login y ocultar loader
             setTimeout(ocultarLoader_app, 300);
         }
     } catch(e) {
+        clearTimeout(failsafe);
         console.error('[arrancarApp] Error:', e);
-        // Siempre ocultar loader aunque falle algo
         ocultarLoader_app();
         mostrarLoginScreen('Error al iniciar. Recarga la página.');
     }
