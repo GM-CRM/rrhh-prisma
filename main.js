@@ -1433,6 +1433,249 @@ async function crearExpedienteEnDrive() {
 // ══════════════════════════════════════════════════════════════
 //  MÓDULO DE ENCUESTAS — RRHH Prisma
 // ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+//  DASHBOARD CLIMA ORGANIZACIONAL
+// ══════════════════════════════════════════════════════════════
+
+// Definición de dimensiones de Clima con sus preguntas
+const CLIMA_DIMENSIONES = [
+    { nombre:'Estilo de Liderazgo',    icono:'👔', color:'#7c3aed', pregs:[1,2,3,4,5,6,7,8,9]    },
+    { nombre:'Nivel de Satisfacción',  icono:'😊', color:'#2563eb', pregs:[10,11,12,13,14,15,16,17] },
+    { nombre:'SHE',                    icono:'🦺', color:'#d97706', pregs:[18,19,20,21,22,23]       },
+    { nombre:'Dignidad y Respeto',     icono:'🤝', color:'#059669', pregs:[24,25,26,27,28]          },
+    { nombre:'Sentido de Pertenencia', icono:'❤️', color:'#e11d48', pregs:[29,30,31,32,33]          },
+    { nombre:'Trabajo en Equipo',      icono:'👥', color:'#0891b2', pregs:[34,35,36,37]             },
+    { nombre:'Cultura Organizacional', icono:'🏢', color:'#7c3aed', pregs:[38,39,40,41,42,43]       },
+    { nombre:'Bienestar y Equilibrio', icono:'🌿', color:'#16a34a', pregs:[44,45,46,47]             },
+];
+
+function renderizarDashboardClima(respuestas, container, link) {
+    const total = respuestas.length;
+
+    // ── Calcular promedios por pregunta ──────────────────────
+    const sumQ={}, cntQ={};
+    respuestas.forEach(function(resp){
+        Object.entries(resp.respuestas||{}).forEach(function([k,v]){
+            const n=parseInt(v);
+            if(!isNaN(n)&&n>=1&&n<=5){ sumQ[k]=(sumQ[k]||0)+n; cntQ[k]=(cntQ[k]||0)+1; }
+        });
+    });
+
+    // Promedio por pregunta
+    const promQ={};
+    Object.keys(sumQ).forEach(function(k){ promQ[k]=sumQ[k]/(cntQ[k]||1); });
+
+    // ── Calcular stats por dimensión ─────────────────────────
+    const statsDim = CLIMA_DIMENSIONES.map(function(dim){
+        var s=0, c=0, fav=0, cFav=0;
+        dim.pregs.forEach(function(qn){
+            const k='q'+qn;
+            if(promQ[k]!==undefined){ s+=promQ[k]; c++; }
+            // % favorable = respuestas 4 o 5
+            respuestas.forEach(function(r){
+                const v=parseInt((r.respuestas||{})[k]);
+                if(!isNaN(v)){ cFav++; if(v>=4) fav++; }
+            });
+        });
+        const prom = c>0 ? s/c : 0;
+        const pctFav = cFav>0 ? Math.round(fav/cFav*100) : 0;
+        return { nombre:dim.nombre, icono:dim.icono, color:dim.color,
+                 prom:prom, pctFav:pctFav, numPregs:dim.pregs.length,
+                 pregsIdx:dim.pregs };
+    });
+
+    // Promedio general
+    const promGeneral = statsDim.length>0 ? statsDim.reduce(function(s,d){return s+d.prom;},0)/statsDim.length : 0;
+    const pctFavGeneral = statsDim.length>0 ? Math.round(statsDim.reduce(function(s,d){return s+d.pctFav;},0)/statsDim.length) : 0;
+
+    // ── Colores semáforo ─────────────────────────────────────
+    function colorProm(p){
+        return p>=4?'#10b981':p>=3?'#f59e0b':'#ef4444';
+    }
+    function colorFav(p){
+        return p>=75?'#10b981':p>=60?'#f59e0b':'#ef4444';
+    }
+    function bgColorFav(p){
+        return p>=75?'rgba(16,185,129,.1)':p>=60?'rgba(245,158,11,.1)':'rgba(239,68,68,.1)';
+    }
+    function etiquetaProm(p){
+        return p>=4.5?'Excelente':p>=4?'Muy bueno':p>=3?'Regular':'Por mejorar';
+    }
+
+    container.innerHTML =
+
+    // ── Toolbar ──────────────────────────────────────────────
+    '<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">'
+    +'<div><h3 class="text-base font-bold text-slate-800 flex items-center gap-2">'
+    +'<i class="fas fa-cloud-sun text-blue-600"></i>Encuesta de Clima Organizacional</h3>'
+    +'<p class="text-xs text-slate-400 mt-0.5">'+total+' respuesta'+(total!==1?'s':'')+' · 47 preguntas · 8 dimensiones</p>'
+    +'</div>'
+    +'<div class="flex flex-wrap gap-2">'
+    +'<button onclick="abrirEditorEncuesta(this.dataset.enc)" data-enc="CLIMA" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-pen-to-square"></i> Editar</button>'
+    +'<button onclick="copiarLinkEncuesta(this.dataset.link)" data-link="'+link+'" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-link"></i> Copiar link</button>'
+    +'<a href="'+link+'" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-external-link-alt"></i> Ver encuesta</a>'
+    +'</div></div>'
+
+    + (total===0
+    // ── Estado vacío ──────────────────────────────────────────
+    ? '<div class="text-center py-16"><div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">'
+      +'<i class="fas fa-cloud-sun text-slate-300 text-3xl"></i></div>'
+      +'<p class="text-slate-500 font-semibold mb-1">Sin respuestas aún</p>'
+      +'<p class="text-xs text-slate-400">Comparte el link de la encuesta con los empleados.</p></div>'
+
+    // ── KPIs generales ────────────────────────────────────────
+    : '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">'
+    +'<div class="rounded-xl p-4 border bg-white border-slate-100 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Respuestas</p>'
+      +'<p class="text-3xl font-black text-slate-800 mt-1">'+total+'</p></div>'
+    +'<div class="rounded-xl p-4 border bg-white shadow-sm text-center" style="border-color:'+colorProm(promGeneral)+'20">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Promedio Gral.</p>'
+      +'<p class="text-3xl font-black mt-1" style="color:'+colorProm(promGeneral)+'">'+promGeneral.toFixed(2)+'<span class="text-sm font-normal text-slate-400"> /5</span></p>'
+      +'<p class="text-xs font-semibold mt-0.5" style="color:'+colorProm(promGeneral)+'">'+etiquetaProm(promGeneral)+'</p></div>'
+    +'<div class="rounded-xl p-4 border bg-white shadow-sm text-center" style="border-color:'+colorFav(pctFavGeneral)+'20">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">% Favorable</p>'
+      +'<p class="text-3xl font-black mt-1" style="color:'+colorFav(pctFavGeneral)+'">'+pctFavGeneral+'%</p>'
+      +'<p class="text-xs text-slate-400 mt-0.5">Resp. 4 o 5</p></div>'
+    +'<div class="rounded-xl p-4 border bg-white border-slate-100 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Dimensiones</p>'
+      +'<p class="text-3xl font-black text-slate-800 mt-1">8</p></div>'
+    +'</div>'
+
+    // ── Gráficas por dimensión (barras horizontales) ──────────
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">'
+    +'<p class="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">'
+    +'<i class="fas fa-chart-bar text-blue-500"></i> Resultados por Dimensión</p>'
+    +'<div class="space-y-4">'
+    +statsDim.map(function(d){
+        const wProm=Math.round(d.prom/5*100);
+        const wFav=d.pctFav;
+        return '<div>'
+          +'<div class="flex items-center justify-between mb-1.5">'
+          +'<span class="text-sm font-semibold text-slate-700 flex items-center gap-1.5">'
+          +d.icono+' '+d.nombre+'</span>'
+          +'<div class="flex items-center gap-3 flex-shrink-0">'
+          +'<span class="text-xs text-slate-400">Prom: <strong style="color:'+colorProm(d.prom)+'">'+d.prom.toFixed(1)+'</strong></span>'
+          +'<span class="text-xs text-slate-400">Fav: <strong style="color:'+colorFav(d.pctFav)+'">'+d.pctFav+'%</strong></span>'
+          +'</div></div>'
+          // Barra de promedio
+          +'<div class="flex items-center gap-2 mb-1">'
+          +'<span class="text-xs text-slate-400 w-12 flex-shrink-0">Prom.</span>'
+          +'<div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">'
+          +'<div class="h-full rounded-full transition-all duration-700" style="width:'+wProm+'%;background:'+d.color+';"></div>'
+          +'</div>'
+          +'<span class="text-xs font-bold w-8 text-right" style="color:'+colorProm(d.prom)+'">'+d.prom.toFixed(1)+'</span>'
+          +'</div>'
+          // Barra de % favorable
+          +'<div class="flex items-center gap-2">'
+          +'<span class="text-xs text-slate-400 w-12 flex-shrink-0">% Fav.</span>'
+          +'<div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">'
+          +'<div class="h-full rounded-full transition-all duration-700" style="width:'+wFav+'%;background:'+colorFav(d.pctFav)+';opacity:.8;"></div>'
+          +'</div>'
+          +'<span class="text-xs font-bold w-8 text-right" style="color:'+colorFav(d.pctFav)+'">'+d.pctFav+'%</span>'
+          +'</div>'
+          +'</div>';
+    }).join('')
+    +'</div></div>'
+
+    // ── Tabla detallada por pregunta ──────────────────────────
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4">'
+    +'<div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">'
+    +'<p class="text-sm font-bold text-slate-700"><i class="fas fa-table text-slate-400 mr-2"></i>Tabla de Calificaciones por Pregunta</p>'
+    +'<span class="text-xs text-slate-400">Promedio · % Favorable · % Bloque</span>'
+    +'</div>'
+    +'<div class="overflow-x-auto">'
+    +'<table class="w-full text-xs">'
+    +'<thead class="bg-slate-50 border-b border-slate-100">'
+    +'<tr>'
+    +'<th class="px-3 py-2.5 text-left text-slate-400 uppercase tracking-wide font-bold w-8">#</th>'
+    +'<th class="px-3 py-2.5 text-left text-slate-400 uppercase tracking-wide font-bold">Pregunta</th>'
+    +'<th class="px-3 py-2.5 text-center text-slate-400 uppercase tracking-wide font-bold w-20">Prom.</th>'
+    +'<th class="px-3 py-2.5 text-center text-slate-400 uppercase tracking-wide font-bold w-20">% Fav.</th>'
+    +'<th class="px-3 py-2.5 text-center text-slate-400 uppercase tracking-wide font-bold w-20">% Dim.</th>'
+    +'</tr></thead>'
+    +'<tbody>'
+    +(function(){
+        var rows='';
+        var qGlobal=0;
+        CLIMA_DIMENSIONES.forEach(function(dim){
+            // Header de dimensión
+            rows+='<tr style="background:'+dim.color+'12;">'
+              +'<td colspan="5" class="px-3 py-2 font-bold text-xs" style="color:'+dim.color+';">'
+              +dim.icono+' '+dim.nombre+'</td></tr>';
+            // Calcular promedio de la dimensión para el % bloque
+            var sD=0, cD=0;
+            dim.pregs.forEach(function(qn){
+                const k='q'+qn;
+                if(promQ[k]!==undefined){sD+=promQ[k];cD++;}
+            });
+            var promDim=cD>0?sD/cD:0;
+            // Preguntas de la dimensión
+            dim.pregs.forEach(function(qn){
+                qGlobal++;
+                const k='q'+qn;
+                const prom=promQ[k]||0;
+                const promStr=cntQ[k]>0?prom.toFixed(2):'—';
+                // % favorable de esta pregunta
+                var favQ=0, totQ=0;
+                respuestas.forEach(function(r){
+                    const v=parseInt((r.respuestas||{})[k]);
+                    if(!isNaN(v)){totQ++;if(v>=4)favQ++;}
+                });
+                const pctFavQ=totQ>0?Math.round(favQ/totQ*100):0;
+                const pctFavQStr=totQ>0?pctFavQ+'%':'—';
+                // % del bloque = prom de esta preg / prom del bloque
+                const pctBloque=promDim>0?Math.round(prom/promDim*100):0;
+                const pctBloqueStr=promDim>0&&cntQ[k]>0?pctBloque+'%':'—';
+                const cProm=colorProm(prom);
+                const cFavQ=colorFav(pctFavQ);
+                rows+='<tr class="border-b border-slate-50 hover:bg-slate-50">'
+                  +'<td class="px-3 py-2 text-slate-400 font-mono text-center">'+qn+'</td>'
+                  +'<td class="px-3 py-2 text-slate-700" style="max-width:320px;white-space:normal;line-height:1.3;">'
+                  +(cntQ[k]>0?'':'<span style="color:#94a3b8;font-style:italic;">Sin respuestas</span>'||'')
+                  +(cntQ[k]>0?'P'+qn:'')+'</td>'
+                  +'<td class="px-3 py-2 text-center font-bold" style="color:'+cProm+'">'+promStr+'</td>'
+                  +'<td class="px-3 py-2 text-center font-bold" style="color:'+cFavQ+'">'+pctFavQStr+'</td>'
+                  +'<td class="px-3 py-2 text-center text-slate-500">'+pctBloqueStr+'</td>'
+                  +'</tr>';
+            });
+        });
+        return rows;
+    })()
+    +'</tbody></table>'
+    +'</div></div>'
+
+    // ── Respuestas recientes ──────────────────────────────────
+    +(total>0
+    ?'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">'
+    +'<div class="px-5 py-3.5 border-b border-slate-100">'
+    +'<p class="text-sm font-bold text-slate-700"><i class="fas fa-list-ul text-slate-400 mr-2"></i>Participantes recientes</p></div>'
+    +'<div class="overflow-x-auto"><table class="w-full text-sm">'
+    +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">'
+    +'<tr><th class="px-4 py-2.5 text-left">Empleado</th><th class="px-4 py-2.5 text-left">Empresa</th>'
+    +'<th class="px-4 py-2.5 text-left">Fecha</th><th class="px-4 py-2.5 text-center">Pregs.</th></tr></thead>'
+    +'<tbody class="divide-y divide-slate-50">'
+    +respuestas.slice(0,8).map(function(r){
+        const n=Object.keys(r.respuestas||{}).length;
+        const f=r.fecha?new Date(r.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+        const ini=((r.nombre||'?').trim()[0]||'?').toUpperCase();
+        return '<tr class="hover:bg-slate-50">'
+          +'<td class="px-4 py-2.5"><div class="flex items-center gap-2">'
+          +'<div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">'+ini+'</div>'
+          +'<span class="font-medium text-slate-700 text-xs">'+r.nombre+'</span></div></td>'
+          +'<td class="px-4 py-2.5 text-xs text-slate-500">'+r.empresa+'</td>'
+          +'<td class="px-4 py-2.5 text-xs text-slate-400">'+f+'</td>'
+          +'<td class="px-4 py-2.5 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">'+n+'</span></td>'
+          +'</tr>';
+    }).join('')
+    +'</tbody></table></div></div>'
+    :'')
+    );
+}
+
 let encTabActual = 'SALIDA';
 
 const ENC_TIPOS = {
@@ -1469,7 +1712,13 @@ async function activarTabEncuesta(encId, btnEl){
         cont.innerHTML = '<p class="text-sm text-red-400 text-center py-12">'+r.message+'</p>';
         return;
     }
-    renderizarDashboardEncuesta(encId, r.respuestas || [], cont);
+    // Usar dashboard especializado para Clima
+    if(encId === 'CLIMA') {
+        const link = location.origin + '/encuesta.html?enc=CLIMA';
+        renderizarDashboardClima(r.respuestas || [], cont, link);
+    } else {
+        renderizarDashboardEncuesta(encId, r.respuestas || [], cont);
+    }
 }
 
 function renderizarDashboardEncuesta(encId, respuestas, container){

@@ -337,12 +337,20 @@ let empleadoId      = '';
 let empleadoNombre  = '';
 let empleadoEmpresa = '';
 
-const ESCALA = [
+let ESCALA = [
   {v:1,l:'Totalmente\nen desacuerdo'},
   {v:2,l:'En\ndesacuerdo'},
   {v:3,l:'Ni de acuerdo\nni en desacuerdo'},
   {v:4,l:'De\nacuerdo'},
   {v:5,l:'Totalmente\nde acuerdo'},
+];
+
+const ESCALA_CLIMA = [
+  {v:1,l:'Total\\ndesacuerdo'},
+  {v:2,l:'En\\ndesacuerdo'},
+  {v:3,l:'Neutral'},
+  {v:4,l:'De\\nacuerdo'},
+  {v:5,l:'Muy de\\nacuerdo'},
 ];
 
 function mostrarError(msg){
@@ -364,6 +372,11 @@ async function cargarEncuesta(){
       encuestaData=d.encuesta;
       document.getElementById('enc-titulo').textContent=encuestaData.titulo;
       document.getElementById('enc-desc').textContent=encuestaData.descripcion||'Responde con honestidad. Es confidencial.';
+      // Ajustar escala según el tipo de encuesta
+      if(encId==='CLIMA') ESCALA=ESCALA_CLIMA;
+      else if(encuestaData.escala&&encuestaData.escala.length===5){
+        ESCALA=encuestaData.escala.map(function(e){return{v:e.valor,l:e.etiqueta};});
+      }
     } else { encuestaData=ENCUESTA_SALIDA; setTituloFallback(); }
   }catch(e){ encuestaData=ENCUESTA_SALIDA; setTituloFallback(); }
 
