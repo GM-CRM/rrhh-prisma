@@ -1207,18 +1207,25 @@ async function procesarOlvidePass() {
 
 async function verificarSesion(){
     const token=getToken();
-    if(!token){mostrarLoginScreen();return false;}
+    if(!token){
+        console.log('[verificarSesion] Sin token — mostrando login');
+        mostrarLoginScreen();
+        return false;
+    }
+    console.log('[verificarSesion] Token encontrado, validando...');
     try{
-        const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'validar_token',payload:{token}})});
-        const data=await r.json();
-        if(data.status==='success'){
-            sesionActual={token,usuario:data.usuario};
-            aplicarSesion(data.usuario);
+        const r=await enviarPeticion('validar_token',{token});
+        console.log('[verificarSesion] Respuesta GAS:', r.status, r.message||'');
+        if(r.status==='success'){
+            sesionActual={token,usuario:r.usuario};
+            aplicarSesion(r.usuario);
             ocultarLoginScreen();
+            console.log('[verificarSesion] Sesión válida:', r.usuario.email);
             return true;
         }
+        console.warn('[verificarSesion] Token inválido:', r.message);
     }catch(e){
-        console.error('[verificarSesion] Error:', e);
+        console.error('[verificarSesion] Error fetch:', e.message||e);
     }
     clearToken();
     mostrarLoginScreen('Tu sesión expiró. Inicia sesión de nuevo.');
@@ -3466,6 +3473,7 @@ function importarExcel(event){
 
 // ─── INIT ─────────────────────────────────────────────────────
 async function initApp(){
+    console.log('[initApp] Iniciando...');
     pasoActual=0;altaData={};
     actualizarBadgeNotifs();
     renderizarStepper();
