@@ -1477,89 +1477,181 @@ function renderizarDashboardEncuesta(encId, respuestas, container){
     const total = respuestas.length;
     const link  = location.origin + '/encuesta.html?enc=' + encId;
 
-    // Calcular promedios de respuestas numéricas
-    const promedios = {};
-    const conteos   = {};
+    // ── Promedios por pregunta (escala 1-5) ──────────────────
+    const sumas={}, cnts={};
     respuestas.forEach(function(resp){
-        Object.entries(resp.respuestas||{}).forEach(function([key, val]){
-            const n = parseInt(val);
-            if(!isNaN(n) && n >= 1 && n <= 5){
-                promedios[key] = (promedios[key]||0) + n;
-                conteos[key]   = (conteos[key]||0) + 1;
-            }
+        Object.entries(resp.respuestas||{}).forEach(function([k,v]){
+            const n=parseInt(v);
+            if(!isNaN(n)&&n>=1&&n<=5){ sumas[k]=(sumas[k]||0)+n; cnts[k]=(cnts[k]||0)+1; }
         });
     });
+    let sumT=0,cntT=0;
+    Object.keys(sumas).forEach(function(k){ sumT+=sumas[k]; cntT+=cnts[k]; });
+    const promG = cntT>0 ? (sumT/cntT) : 0;
+    const promGStr = promG>0 ? promG.toFixed(2) : '—';
 
-    // Promedio general
-    let sumTotal = 0, cntTotal = 0;
-    Object.keys(promedios).forEach(k=>{ sumTotal += promedios[k]; cntTotal += conteos[k]; });
-    const promGeneral = cntTotal > 0 ? (sumTotal/cntTotal).toFixed(2) : '—';
-    const colorProm   = parseFloat(promGeneral) >= 4 ? 'text-emerald-600' :
-                        parseFloat(promGeneral) >= 3 ? 'text-amber-500' : 'text-rose-600';
+    // ── Satisfacción semáforo ────────────────────────────────
+    const sat = promG>0 ? Math.round(promG/5*100) : 0;
+    const satColor = sat>=80?'#10b981':sat>=60?'#f59e0b':'#ef4444';
+    const satLabel = sat>=80?'Buena':'Moderada' ;
 
-    // Empresas únicas
-    const empresas = {};
-    respuestas.forEach(r=>{
-        const e = r.empresa||'Sin empresa';
-        empresas[e] = (empresas[e]||0) + 1;
+    // ── Razones de salida (bloque múltiple) ──────────────────
+    const razones={};
+    respuestas.forEach(function(resp){
+        Object.values(resp.respuestas||{}).forEach(function(v){
+            if(Array.isArray(v)) v.forEach(function(r){ razones[r]=(razones[r]||0)+1; });
+        });
+    });
+    const razonesOrdenadas=Object.entries(razones).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+
+    // ── Distribución de respuestas (1-5) para cada valor ────
+    const distrib={1:0,2:0,3:0,4:0,5:0};
+    Object.entries(sumas).forEach(function([k,s]){
+        const prom=Math.round(s/(cnts[k]||1));
+        if(prom>=1&&prom<=5) distrib[prom]++;
+    });
+    const maxDistrib=Math.max(...Object.values(distrib),1);
+
+    // ── Respuestas por empresa ────────────────────────────────
+    const porEmpresa={};
+    respuestas.forEach(function(r){
+        const e=r.empresa||'Sin empresa';
+        porEmpresa[e]=(porEmpresa[e]||0)+1;
     });
 
+    const colProm=promG>=4?'text-emerald-600':promG>=3?'text-amber-500':'text-rose-600';
+    const bgProm=promG>=4?'bg-emerald-50 border-emerald-200':promG>=3?'bg-amber-50 border-amber-200':'bg-rose-50 border-rose-200';
+
     container.innerHTML =
-    // ── Header del dashboard ──
-    '<div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">'
-    +'<div>'
-    +'<h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">'
+
+    // ── Toolbar ──────────────────────────────────────────────
+    '<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">'
+    +'<div><h3 class="text-base font-bold text-slate-800 flex items-center gap-2">'
     +'<i class="fas '+tipo.icono+' '+tipo.color+'"></i>'+tipo.nombre+'</h3>'
-    +'<p class="text-xs text-slate-400 mt-0.5">'+total+' respuesta(s) registrada(s)</p>'
+    +'<p class="text-xs text-slate-400 mt-0.5">'+total+' respuesta'+(total!==1?'s':'')+' registrada'+(total!==1?'s':'')+'</p>'
     +'</div>'
-    +'<div class="flex gap-2">'
-    +'<button onclick="abrirEditorEncuesta(\''+encId+'\')" '
-    +'style="display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:700;background:#f1f5f9;border:none;color:#475569;padding:8px 14px;border-radius:10px;cursor:pointer;" title="Editar preguntas y estructura">'
-    +'<i class="fas fa-pen-to-square"></i> Editar encuesta</button>'
-    +'<button onclick="copiarLinkEncuesta(this.dataset.link)" data-link="'+link+'" '
-    +'class="flex items-center gap-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition">'
+    +'<div class="flex flex-wrap gap-2">'
+    +'<button onclick="abrirEditorEncuesta(this.dataset.enc)" data-enc="'+encId+'" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-pen-to-square"></i> Editar</button>'
+    +'<button onclick="copiarLinkEncuesta(this.dataset.link)" data-link="'+link+'" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg transition">'
     +'<i class="fas fa-link"></i> Copiar link</button>'
-    +'<a href="'+link+'" target="_blank" '
-    +'class="flex items-center gap-2 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl transition">'
-    +'<i class="fas fa-external-link-alt"></i> Abrir encuesta</a>'
+    +'<a href="'+link+'" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg transition">'
+    +'<i class="fas fa-external-link-alt"></i> Ver encuesta</a>'
     +'</div></div>'
 
-    // ── KPIs ──
-    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">'
-    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
-    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Respuestas</p>'
-    +'<p class="text-2xl font-black text-slate-800 mt-1">'+total+'</p></div>'
-    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
-    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Promedio General</p>'
-    +'<p class="text-2xl font-black '+colorProm+' mt-1">'+promGeneral+' <span class="text-sm font-normal text-slate-400">/ 5</span></p></div>'
-    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
-    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Empresas</p>'
-    +'<p class="text-2xl font-black text-slate-800 mt-1">'+Object.keys(empresas).length+'</p></div>'
-    +'<div class="bg-slate-50 rounded-xl p-4 border border-slate-100">'
-    +'<p class="text-xs text-slate-400 font-semibold uppercase tracking-wide">Satisfacción</p>'
-    +'<p class="text-2xl font-black '+colorProm+' mt-1">'
-    +(cntTotal > 0 ? Math.round(parseFloat(promGeneral)/5*100)+'%' : '—')+'</p></div>'
+    + (total===0
+    // ── Estado vacío ──────────────────────────────────────────
+    ? '<div class="text-center py-16"><div class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">'
+      +'<i class="fas fa-clipboard-list text-slate-300 text-3xl"></i></div>'
+      +'<p class="text-slate-500 font-semibold mb-1">Sin respuestas aún</p>'
+      +'<p class="text-xs text-slate-400">Comparte el link con los empleados para comenzar a recopilar datos.</p></div>'
+
+    // ── Dashboard con datos ───────────────────────────────────
+    : // KPIs
+    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">'
+    +'<div class="rounded-xl p-4 border bg-white border-slate-100 shadow-sm">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Respuestas</p>'
+      +'<p class="text-3xl font-black text-slate-800 mt-1">'+total+'</p></div>'
+    +'<div class="rounded-xl p-4 border shadow-sm '+bgProm+'">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Promedio</p>'
+      +'<p class="text-3xl font-black '+colProm+' mt-1">'+promGStr+'<span class="text-sm font-normal text-slate-400"> /5</span></p></div>'
+    +'<div class="rounded-xl p-4 border bg-white border-slate-100 shadow-sm">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Satisfacción</p>'
+      +'<p class="text-3xl font-black mt-1" style="color:'+satColor+'">'+sat+'%</p>'
+      +'<p class="text-xs font-semibold mt-0.5" style="color:'+satColor+'">'+satLabel+'</p></div>'
+    +'<div class="rounded-xl p-4 border bg-white border-slate-100 shadow-sm">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Empresas</p>'
+      +'<p class="text-3xl font-black text-slate-800 mt-1">'+Object.keys(porEmpresa).length+'</p></div>'
     +'</div>'
 
-    // ── Tabla de respuestas recientes ──
-    +(total === 0
-        ? '<div class="text-center py-16"><i class="fas fa-inbox text-slate-200 text-5xl mb-4"></i><p class="text-sm text-slate-400 font-semibold">Sin respuestas aún</p><p class="text-xs text-slate-300 mt-1">Comparte el link de la encuesta con los empleados.</p></div>'
-        : '<div class="overflow-x-auto"><table class="w-full text-sm text-left">'
-        +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">'
-        +'<tr><th class="px-4 py-3">Empleado</th><th class="px-4 py-3">Empresa</th>'
-        +'<th class="px-4 py-3">Fecha</th><th class="px-4 py-3 text-center">Preguntas resp.</th></tr></thead>'
-        +'<tbody class="divide-y divide-slate-100">'
-        +respuestas.slice(0,20).map(function(r){
-            const nResp = Object.keys(r.respuestas||{}).length;
-            const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-MX') : '—';
-            return '<tr class="hover:bg-slate-50">'
-                +'<td class="px-4 py-3 font-medium text-slate-700">'+r.nombre+'</td>'
-                +'<td class="px-4 py-3 text-xs text-slate-500">'+r.empresa+'</td>'
-                +'<td class="px-4 py-3 text-xs text-slate-400">'+fecha+'</td>'
-                +'<td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">'+nResp+'</span></td>'
-                +'</tr>';
-        }).join('')
-        +'</tbody></table></div>'
+    // ── Razones de salida ─────────────────────────────────────
+    + (razonesOrdenadas.length>0
+    ? '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">'
+      +'<p class="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="fas fa-chart-bar text-violet-500"></i> Principales razones de salida</p>'
+      +'<div class="space-y-2.5">'
+      +razonesOrdenadas.map(function(e){
+          const razon=e[0], cnt=e[1];
+          const pct=total>0?Math.round(cnt/total*100):0;
+          const w=maxDistrib>0?Math.round(cnt/razonesOrdenadas[0][1]*100):0;
+          return '<div>'
+            +'<div class="flex justify-between items-center mb-1">'
+            +'<span class="text-xs font-medium text-slate-700 truncate max-w-[70%]">'+razon+'</span>'
+            +'<span class="text-xs font-bold text-violet-600 flex-shrink-0 ml-2">'+cnt+' ('+pct+'%)</span>'
+            +'</div>'
+            +'<div class="h-2 bg-slate-100 rounded-full overflow-hidden">'
+            +'<div class="h-full bg-gradient-to-r from-violet-500 to-violet-300 rounded-full transition-all duration-500" style="width:'+w+'%"></div>'
+            +'</div></div>';
+      }).join('')
+      +'</div></div>'
+    :'')
+
+    // ── Promedios por bloque ──────────────────────────────────
+    + (cntT>0
+    ? '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">'
+      +'<p class="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="fas fa-layer-group text-blue-500"></i> Satisfacción por bloque</p>'
+      +'<div class="space-y-2">'
+      + (function(){
+          // Agrupar preguntas por bloque aproximado (cada 6-7 preguntas)
+          const bloques=[
+            {n:'Compensación',qs:[1,2,3,4,5,6]},
+            {n:'Liderazgo',qs:[8,9,10,11,12,13]},
+            {n:'Desarrollo',qs:[15,16,17,18,19,20]},
+            {n:'Clima',qs:[22,23,24,25,26]},
+            {n:'Carga de Trabajo',qs:[28,29,30,31,32]},
+            {n:'Comunicación',qs:[34,35,36,37,38]},
+            {n:'Reconocimiento',qs:[40,41,42]},
+            {n:'Condiciones',qs:[44,45,46,47]},
+            {n:'Balance V-T',qs:[49,50,51,52,53]},
+            {n:'Experiencia',qs:[54,55,56]},
+          ];
+          return bloques.map(function(b){
+            let s=0,c=0;
+            b.qs.forEach(function(q){
+              const k='q'+q;
+              if(sumas[k]&&cnts[k]){s+=sumas[k];c+=cnts[k];}
+            });
+            if(c===0) return '';
+            const p=(s/c);
+            const pStr=p.toFixed(1);
+            const col=p>=4?'#10b981':p>=3?'#f59e0b':'#ef4444';
+            const w=Math.round(p/5*100);
+            return '<div class="flex items-center gap-3">'
+              +'<span class="text-xs text-slate-500 w-28 flex-shrink-0">'+b.n+'</span>'
+              +'<div class="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden">'
+              +'<div class="h-full rounded-full transition-all duration-500" style="width:'+w+'%;background:'+col+'"></div>'
+              +'</div>'
+              +'<span class="text-xs font-bold flex-shrink-0 w-8 text-right" style="color:'+col+'">'+pStr+'</span>'
+              +'</div>';
+          }).join('');
+        })()
+      +'</div></div>'
+    :'')
+
+    // ── Respuestas recientes ──────────────────────────────────
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">'
+    +'<div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">'
+    +'<p class="text-sm font-bold text-slate-700"><i class="fas fa-list-ul text-slate-400 mr-2"></i>Respuestas recientes</p>'
+    +'<span class="text-xs text-slate-400">Últimas '+Math.min(total,10)+'</span>'
+    +'</div>'
+    +'<div class="overflow-x-auto"><table class="w-full text-sm">'
+    +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">'
+    +'<tr><th class="px-4 py-2.5 text-left">Empleado</th><th class="px-4 py-2.5 text-left">Empresa</th>'
+    +'<th class="px-4 py-2.5 text-left">Fecha</th><th class="px-4 py-2.5 text-center">Resp.</th></tr></thead>'
+    +'<tbody class="divide-y divide-slate-50">'
+    +respuestas.slice(0,10).map(function(r){
+        const n=Object.keys(r.respuestas||{}).length;
+        const f=r.fecha?new Date(r.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}):'—';
+        const ini=((r.nombre||'?').trim()[0]||'?').toUpperCase();
+        return '<tr class="hover:bg-slate-50">'
+          +'<td class="px-4 py-2.5"><div class="flex items-center gap-2">'
+          +'<div class="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold flex-shrink-0">'+ini+'</div>'
+          +'<span class="font-medium text-slate-700 text-xs">'+r.nombre+'</span></div></td>'
+          +'<td class="px-4 py-2.5 text-xs text-slate-500">'+r.empresa+'</td>'
+          +'<td class="px-4 py-2.5 text-xs text-slate-400">'+f+'</td>'
+          +'<td class="px-4 py-2.5 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700">'+n+'</span></td>'
+          +'</tr>';
+    }).join('')
+    +'</tbody></table></div></div>'
     );
 }
 
@@ -1610,6 +1702,12 @@ async function abrirEditorEncuesta(encId) {
     editorEncuesta.titulo      = r.encuesta.titulo      || '';
     editorEncuesta.descripcion = r.encuesta.descripcion || '';
     editorEncuesta.bloques     = JSON.parse(JSON.stringify(r.encuesta.bloques || []));
+
+    // Debug: ver estructura recibida
+    console.log('[Editor] Bloques recibidos:', editorEncuesta.bloques.length);
+    editorEncuesta.bloques.forEach(function(b, i){
+        console.log('[Editor] Bloque', i, b.titulo, '- preguntas:', (b.preguntas||[]).length);
+    });
 
     renderizarEditor(overlay);
 }
@@ -1665,7 +1763,7 @@ function renderizarBloquesEditor() {
 
     return editorEncuesta.bloques.map(function(bloque, bi) {
         var numPregs = (bloque.preguntas||[]).length;
-        return '<div style="background:#fff;border-radius:14px;border:1.5px solid #e2e8f0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04);">'
+        return '<div style="background:#fff;border-radius:14px;border:1.5px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,.04);">'
         // Header del bloque
         + '<div style="background:linear-gradient(135deg,#f8f7ff,#f0ebff);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e9e3ff;">'
         + '<div style="display:flex;align-items:center;gap:10px;flex:1;">'
@@ -1682,14 +1780,15 @@ function renderizarBloquesEditor() {
         + '<button onclick="agregarPreguntaEditor('+bi+')" style="'+btnIconStyle('violet')+'" title="Agregar pregunta"><i class="fas fa-plus"></i></button>'
         + '<button onclick="eliminarBloqueEditor('+bi+')" style="'+btnIconStyle('red')+'" title="Eliminar bloque"><i class="fas fa-trash"></i></button>'
         + '</div></div>'
-        // Preguntas del bloque
-        + '<div style="padding:12px;display:flex;flex-direction:column;gap:8px;">'
-        + (bloque.preguntas||[]).map(function(preg, pi) {
-            return renderizarPreguntaEditor(bi, pi, preg);
-        }).join('')
-        + (!(bloque.preguntas||[]).length
-            ? '<p style="text-align:center;padding:20px;color:#94a3b8;font-size:.85rem;">Sin preguntas — haz clic en <strong>+</strong> para agregar.</p>'
-            : '')
+        // Preguntas del bloque — siempre visibles (no colapsadas)
+        + '<div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px;">'
+        + ((bloque.preguntas||[]).length === 0
+            ? '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:.85rem;border:1.5px dashed #e2e8f0;border-radius:10px;">'
+              + 'Sin preguntas — haz clic en <strong style="color:#7c3aed;">+</strong> para agregar.</div>'
+            : (bloque.preguntas||[]).map(function(preg, pi) {
+                return renderizarPreguntaEditor(bi, pi, preg);
+              }).join('')
+          )
         + '</div></div>';
     }).join('');
 }
@@ -2251,8 +2350,16 @@ function initAutocomplete(){
     document.addEventListener('click',e=>{if(!lista.contains(e.target)&&e.target!==nuevo)lista.classList.add('hidden');});
 }
 
+let empleadoSeleccionado = null;
+
 function seleccionarEmpleado(id,nombre,estatus,empresa,puesto){
-    document.getElementById('baja_busqueda').value=nombre;
+    // Guardar referencia completa al empleado
+    empleadoSeleccionado = cacheGlobal.find(function(e){
+        var idInt = (e["ID INTERNO"]||"").toString().trim();
+        var noE   = (e["NO. EMPLEADO"]||"").toString().trim();
+        var empN  = (e["EMPRESA"]||"").trim();
+        return (idInt && idInt===id) || (noE===id && empN===empresa);
+    }) || null;
     document.getElementById('baja_idEmpleado').value=id;
     document.getElementById('baja_nombreEmpleado').value=nombre;
     document.getElementById('baja_sugerencias').classList.add('hidden');
@@ -2283,7 +2390,45 @@ async function procesarBaja(event){
     };
     try{
         const r=await enviarPeticion("baja",payload);ocultarLoader();
-        if(r.status==="success"){mostrarToast('success','Baja registrada',r.message);document.getElementById('formBaja').reset();document.getElementById('baja_empleado_badge').classList.add('hidden');document.getElementById('baja_sugerencias').classList.add('hidden');forzarActualizacion();}
+        if(r.status==="success"){
+            // Generar link encuesta de salida
+            // Usar empleadoSeleccionado o empBaja (ya buscado del cache)
+            const fuenteEmp = empleadoSeleccionado || empBaja || null;
+            const idInt = fuenteEmp ? (fuenteEmp["ID INTERNO"]||"") : "";
+            const linkEnc = idInt
+                ? location.origin+'/encuesta.html?enc=SALIDA&idInterno='+encodeURIComponent(idInt)
+                : location.origin+'/encuesta.html?enc=SALIDA';
+            // Mostrar modal con confirmación y link
+            console.log('[Baja OK] idInt:', idInt, 'linkEnc:', linkEnc, 'empleadoSel:', empleadoSeleccionado);
+            Swal.fire({
+                icon:'success',
+                title:'Baja registrada',
+                html:'<p style="color:#475569;margin-bottom:16px;">'+r.message+'</p>'
+                    +'<div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:14px;text-align:left;">'
+                    +'<p style="font-size:.75rem;font-weight:700;color:#7c3aed;margin-bottom:6px;"><i class="fas fa-link" style="margin-right:4px;"></i>Encuesta de Salida</p>'
+                    +'<p style="font-size:.72rem;color:#94a3b8;word-break:break-all;margin-bottom:10px;">'+linkEnc+'</p>'
+                    +'<p style="font-size:.72rem;color:#94a3b8;word-break:break-all;margin-bottom:10px;" id="enc-link-txt">'+linkEnc+'</p>'
+                    +'<button id="btn-copy-enc-link" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:8px;font-size:.82rem;font-weight:700;cursor:pointer;">'
+                    +'<i class="fas fa-copy" style="margin-right:6px;"></i>Copiar link para compartir</button>'
+                    +'</div>',
+                didOpen: function(){
+                    const btn = document.getElementById('btn-copy-enc-link');
+                    if(btn) btn.onclick = function(){
+                        navigator.clipboard.writeText(linkEnc).then(function(){
+                            btn.textContent = '✅ ¡Link copiado!';
+                        });
+                    };
+                },
+                confirmButtonText:'Entendido',
+                confirmButtonColor:'#7c3aed'
+            });
+            document.getElementById('formBaja').reset();
+            document.getElementById('baja_empleado_badge').classList.add('hidden');
+            document.getElementById('baja_sugerencias').classList.add('hidden');
+            empleadoSeleccionado = null;
+            document.getElementById('baja_busqueda').value = '';
+            forzarActualizacion();
+        }
         else mostrarToast('warning','No encontrado',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error',e.message);}
 }
