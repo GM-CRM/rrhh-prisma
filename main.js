@@ -2313,7 +2313,7 @@ async function renderOrganigrama(cont) {
     cont.innerHTML =
     '<div class="mb-4 flex items-center justify-between">'
     +'<div><h3 class="text-base font-bold text-slate-800">Organigrama</h3>'
-    +'<p class="text-xs text-slate-400 mt-0.5">'+r.total+' colaboradores</p></div>'
+    +'<p class="text-xs text-slate-400 mt-0.5">'+totalEmps+' colaboradores</p></div>'
     +'<div class="flex gap-2">'
     +'<select id="org-empresa" onchange="filtrarOrganigrama()" class="text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none">'
     +'<option value="">Todas las empresas</option>'
