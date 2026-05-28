@@ -1458,10 +1458,18 @@ async function editarUsuario(email){
             +'<input id="swal-e-tel" class="swal2-input" value="'+(u.telefono||'')+'" placeholder="Teléfono">'
             +'<select id="swal-e-rol" class="swal2-input"><option value="Auxiliar"'+(u.rol==='Auxiliar'?' selected':'')+'>Auxiliar</option><option value="Administrador"'+(u.rol==='Administrador'?' selected':'')+'>Administrador</option></select>'
             +'<input id="swal-e-empresas" class="swal2-input" value="'+(u.empresas||[]).join(',')+'" placeholder="Empresas (coma) o vacío = todas">'
+            +'<input id="swal-e-idint" class="swal2-input" value="'+(u.idInterno||'')+'" placeholder="ID INTERNO del empleado (ej. NM5) — para evaluaciones">'
             +'</div>',
         confirmButtonText:'Guardar',confirmButtonColor:'#7c3aed',showCancelButton:true,cancelButtonText:'Cancelar',
         preConfirm:async function(){
-            const r2=await enviarPeticion('actualizar_usuario',{token:getToken(),email,nombre:document.getElementById('swal-e-nombre').value,telefono:document.getElementById('swal-e-tel').value,rol:document.getElementById('swal-e-rol').value,empresas:document.getElementById('swal-e-empresas').value});
+            const r2=await enviarPeticion('actualizar_usuario',{
+                token:getToken(), email,
+                nombre:     document.getElementById('swal-e-nombre').value,
+                telefono:   document.getElementById('swal-e-tel').value,
+                rol:        document.getElementById('swal-e-rol').value,
+                empresas:   document.getElementById('swal-e-empresas').value,
+                idInterno:  document.getElementById('swal-e-idint').value.trim()
+            });
             if(r2.status!=='success') Swal.showValidationMessage(r2.message);
             return r2;
         }
