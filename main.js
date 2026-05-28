@@ -2003,11 +2003,63 @@ function activarTabPersonas(tab, btnEl) {
 // ── Obtener datos (cache 5 min) ───────────────────────────────
 async function getPersonasData() {
     const ahora = Date.now();
-    if(_personasCache && (ahora - _personasCacheTime) < 5*60*1000) return _personasCache;
-    const r = await enviarPeticion('obtener_directorio', { token: getToken() });
-    if(r.status === 'success') {
-        _personasCache = r.empleados || [];
-        _personasCacheTime = ahora;
+    if(_personasCache && (ahora - _personasCacheTime) < 5*60*1000) {
+        console.log('[Personas] Usando cache:', _personasCache.length, 'empleados');
+        return _personasCache;
+    }
+    try {
+        console.log('[Personas] Solicitando directorio al GAS...');
+        const r = await enviarPeticion('obtener_directorio', { token: getToken() });
+        console.log('[Personas] Respuesta GAS:', r.status, 'total:', r.total, 'msg:', r.message||'');
+        if(r.status === 'success') {
+            _personasCache = r.empleados || [];
+            _personasCacheTime = ahora;
+            console.log('[Personas] Empleados cargados:', _personasCache.length);
+        } else {
+            console.error('[Personas] Error GAS:', r.message);
+            // Fallback: usar cacheGlobal que ya está cargado
+            if(cacheGlobal && cacheGlobal.length) {
+                console.log('[Personas] Usando cacheGlobal como fallback:', cacheGlobal.length);
+                _personasCache = cacheGlobal.map(function(e){
+                    return {
+                        idInterno:  (e['ID INTERNO']||'').toString().trim(),
+                        noEmpleado: (e['NO. EMPLEADO']||'').toString().trim(),
+                        nombre:     (e['NOMBRE DEL TRABAJADOR']||'').toString().trim(),
+                        empresa:    (e['EMPRESA']||'').toString().trim(),
+                        puesto:     (e['PUESTO']||'').toString().trim(),
+                        depto:      (e['DEPARTAMENTO']||'').toString().trim(),
+                        estatus:    (e['ESTATUS']||'').toString().trim(),
+                        telefono:   (e['TELÉFONO PERSONAL']||'').toString().trim(),
+                        email:      (e['CORREO ELECTRÓNICO']||'').toString().trim(),
+                        jefe:       (e['JEFE DIRECTO']||'').toString().trim(),
+                        correoAcce: (e['CORREO ACCESO']||'').toString().trim(),
+                        urlExp:     (e['URL EXPEDIENTE']||'').toString().trim()
+                    };
+                });
+                _personasCacheTime = ahora;
+            }
+        }
+    } catch(e) {
+        console.error('[Personas] Error fetch:', e);
+        // Fallback a cacheGlobal
+        if(cacheGlobal && cacheGlobal.length) {
+            _personasCache = cacheGlobal.map(function(e){
+                return {
+                    idInterno:  (e['ID INTERNO']||'').toString().trim(),
+                    noEmpleado: (e['NO. EMPLEADO']||'').toString().trim(),
+                    nombre:     (e['NOMBRE DEL TRABAJADOR']||'').toString().trim(),
+                    empresa:    (e['EMPRESA']||'').toString().trim(),
+                    puesto:     (e['PUESTO']||'').toString().trim(),
+                    depto:      (e['DEPARTAMENTO']||'').toString().trim(),
+                    estatus:    (e['ESTATUS']||'').toString().trim(),
+                    telefono:   (e['TELÉFONO PERSONAL']||'').toString().trim(),
+                    email:      (e['CORREO ELECTRÓNICO']||'').toString().trim(),
+                    jefe:       (e['JEFE DIRECTO']||'').toString().trim(),
+                    correoAcce: (e['CORREO ACCESO']||'').toString().trim(),
+                    urlExp:     (e['URL EXPEDIENTE']||'').toString().trim()
+                };
+            });
+        }
     }
     return _personasCache || [];
 }
