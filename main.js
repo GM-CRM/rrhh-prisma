@@ -2243,16 +2243,72 @@ function abrirPerfilPersona(idInterno) {
 }
 
 // ── ORGANIGRAMA ───────────────────────────────────────────────
+
+// ── Construir árbol de organigrama desde cacheGlobal ─────────
+function construirArbolDesdeCache() {
+    if(!cacheGlobal || !cacheGlobal.length) return [];
+
+    const empleados = cacheGlobal
+        .filter(function(e){ return (e["NO. EMPLEADO"]||"").toString().trim(); })
+        .map(function(e){
+            return {
+                idInterno:  (e["ID INTERNO"]||"").toString().trim(),
+                noEmpleado: (e["NO. EMPLEADO"]||"").toString().trim(),
+                nombre:     (e["NOMBRE DEL TRABAJADOR"]||"").toString().trim(),
+                empresa:    (e["EMPRESA"]||"").toString().trim(),
+                puesto:     (e["PUESTO"]||"").toString().trim(),
+                depto:      (e["DEPARTAMENTO"]||"").toString().trim(),
+                estatus:    (e["ESTATUS"]||"").toString().trim(),
+                jefe:       (e["JEFE DIRECTO"]||"").toString().trim(),
+                children:   []
+            };
+        });
+
+    const mapa = {};
+    empleados.forEach(function(e){ if(e.idInterno) mapa[e.idInterno] = e; });
+
+    const raices = [];
+    empleados.forEach(function(e){
+        if(e.jefe && mapa[e.jefe] && e.jefe !== e.idInterno) {
+            mapa[e.jefe].children.push(e);
+        } else {
+            raices.push(e);
+        }
+    });
+
+    return raices;
+}
 async function renderOrganigrama(cont) {
-    const r = await enviarPeticion('obtener_organigrama', { token: getToken() });
-    if(r.status !== 'success'){ cont.innerHTML='<p class="text-red-400 text-center py-8">'+r.message+'</p>'; return; }
+    cont.innerHTML = '<div class="flex justify-center py-12"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div>';
+    let arbol = [];
+    let totalEmps = 0;
 
-    const data = filtrarPorEmpresasPermitidas(
-        r.arbol ? flattenArbol(r.arbol) : []
-    );
+    try {
+        const r = await enviarPeticion('obtener_organigrama', { token: getToken() });
+        if(r.status === 'success') {
+            arbol = r.arbol || [];
+            totalEmps = r.total || 0;
+        } else {
+            // Fallback: construir árbol desde cacheGlobal
+            console.warn('[Organigrama] GAS falló, usando cacheGlobal');
+            arbol = construirArbolDesdeCache();
+            totalEmps = cacheGlobal.length;
+        }
+    } catch(e) {
+        console.error('[Organigrama] Error:', e);
+        arbol = construirArbolDesdeCache();
+        totalEmps = cacheGlobal.length;
+    }
 
-    // Filtrar el árbol por empresas permitidas
-    let arbol = r.arbol || [];
+    // Filtrar por empresas permitidas
+    const todosFlat = flattenArbol(arbol);
+    const permitidos = filtrarPorEmpresasPermitidas(todosFlat);
+    const idsPermitidos = new Set(permitidos.map(function(e){ return e.idInterno; }));
+
+    // Si hay filtro de empresas, filtrar el árbol
+    if(window._empresasPermitidas && window._empresasPermitidas.length) {
+        arbol = arbol.filter(function(n){ return idsPermitidos.has(n.idInterno); });
+    }
 
     cont.innerHTML =
     '<div class="mb-4 flex items-center justify-between">'
@@ -2299,11 +2355,32 @@ function filtrarOrganigrama() {
 function renderNodosOrg(nodos, empFiltro) {
     const wrap = document.getElementById('org-wrap');
     if(!wrap) return;
+
+    const todos = flattenArbol(nodos);
+    const sinJefe = todos.filter(function(n){ return !n.jefe || !n.jefe.trim(); });
+    const conJefe = todos.filter(function(n){ return n.jefe && n.jefe.trim(); });
+
     if(!nodos.length){
-        wrap.innerHTML='<div class="text-center py-12 text-slate-400"><i class="fas fa-sitemap text-3xl mb-2 block"></i>Sin datos de organigrama.<br><span class="text-xs">Asigna jefes directos en los expedientes.</span></div>';
+        wrap.innerHTML='<div class="text-center py-12 text-slate-400"><i class="fas fa-sitemap text-4xl mb-3 block text-slate-200"></i>'
+            +'<p class="font-semibold">Sin datos de organigrama</p>'
+            +'<p class="text-xs mt-1">Asigna el campo <strong>Jefe Directo</strong> en los expedientes para construir la jerarquía.</p></div>';
         return;
     }
-    wrap.innerHTML = '<div class="org-tree">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
+
+    // Aviso si pocos tienen jefe asignado
+    const avisoHtml = conJefe.length === 0
+        ? '<div class="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">'
+          +'<i class="fas fa-triangle-exclamation mr-1.5"></i>'
+          +'<strong>Sin jerarquía definida</strong> — ningún empleado tiene Jefe Directo asignado. '
+          +'Edita los expedientes y asigna el ID INTERNO del jefe en el campo "Jefe Directo".</div>'
+        : conJefe.length < todos.length
+            ? '<div class="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700">'
+              +'<i class="fas fa-info-circle mr-1.5"></i>'
+              +conJefe.length+' de '+todos.length+' empleados tienen jefe asignado. '
+              +(todos.length-conJefe.length)+' aparecen como raíces sin jefe.</div>'
+            : '';
+
+    wrap.innerHTML = avisoHtml + '<div class="org-tree">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
 }
 
 function renderNodoHtml(nodos, nivel, empFiltro) {
