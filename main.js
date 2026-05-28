@@ -1969,6 +1969,425 @@ async function descargarRespuestasExcel(encId) {
     }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+//  MÓDULO PERSONAS
+// ══════════════════════════════════════════════════════════════
+let _personasCache = null;
+let _personasCacheTime = 0;
+
+async function cargarModuloPersonas() {
+    activarTabPersonas('directorio',
+        document.querySelector('.per-tab[data-tab="directorio"]'));
+}
+
+function activarTabPersonas(tab, btnEl) {
+    document.querySelectorAll('.per-tab').forEach(function(b){
+        b.classList.remove('active','border-violet-600','text-violet-700','bg-violet-50');
+        b.classList.add('border-transparent','text-slate-500');
+    });
+    if(btnEl){
+        btnEl.classList.add('active','border-violet-600','text-violet-700','bg-violet-50');
+        btnEl.classList.remove('border-transparent','text-slate-500');
+    }
+    const cont = document.getElementById('personas-contenido');
+    if(!cont) return;
+    cont.innerHTML = '<div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div>';
+
+    if(tab==='directorio')    renderDirectorio(cont);
+    else if(tab==='organigrama') renderOrganigrama(cont);
+    else if(tab==='informes') renderInformesPersonas(cont);
+    else if(tab==='admin')    renderAdminPersonas(cont);
+}
+
+// ── Obtener datos (cache 5 min) ───────────────────────────────
+async function getPersonasData() {
+    const ahora = Date.now();
+    if(_personasCache && (ahora - _personasCacheTime) < 5*60*1000) return _personasCache;
+    const r = await enviarPeticion('obtener_directorio', { token: getToken() });
+    if(r.status === 'success') {
+        _personasCache = r.empleados || [];
+        _personasCacheTime = ahora;
+    }
+    return _personasCache || [];
+}
+
+// ── Iniciales para avatar ─────────────────────────────────────
+function getIniciales(nombre) {
+    const p = (nombre||'').trim().split(/\s+/).filter(Boolean);
+    return ((p[0]||'')[0]||'') + ((p[1]||'')[0]||'');
+}
+
+// Colores de avatar por letra
+const AVATAR_COLORS = [
+    '#7c3aed','#2563eb','#059669','#d97706','#e11d48',
+    '#0891b2','#7c3aed','#16a34a','#9333ea','#1d4ed8'
+];
+function avatarColor(nombre) {
+    const c = (nombre||'A').charCodeAt(0);
+    return AVATAR_COLORS[c % AVATAR_COLORS.length];
+}
+
+// ── DIRECTORIO ────────────────────────────────────────────────
+async function renderDirectorio(cont) {
+    const todos = await getPersonasData();
+    // Filtrar por empresas permitidas
+    const data = filtrarPorEmpresasPermitidas(todos);
+
+    // Controles de filtro
+    const empresasUnicas = [...new Set(data.map(e=>e.empresa).filter(Boolean))].sort();
+    const deptosUnicos   = [...new Set(data.map(e=>e.depto).filter(Boolean))].sort();
+
+    cont.innerHTML =
+    // ── Toolbar ──────────────────────────────────────────────
+    '<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">'
+    +'<div><h3 class="text-base font-bold text-slate-800">Directorio de Personas</h3>'
+    +'<p class="text-xs text-slate-400 mt-0.5">'+data.length+' colaboradores</p></div>'
+    +'<div class="flex gap-2">'
+    +'<button onclick="toggleVistaDirect()" id="btn-vista-dir" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-violet-100 text-slate-500 hover:text-violet-600 transition" title="Cambiar vista">'
+    +'<i class="fas fa-grip id-vista-icon"></i></button>'
+    +'</div></div>'
+    // Filtros
+    +'<div class="flex flex-wrap gap-2 mb-4">'
+    +'<div class="relative"><i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>'
+    +'<input type="text" id="dir-search" placeholder="Buscar por nombre, puesto..." oninput="filtrarDirectorio()"'
+    +' class="pl-8 pr-4 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none w-56"></div>'
+    +'<select id="dir-empresa" onchange="filtrarDirectorio()" class="text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-violet-500 outline-none">'
+    +'<option value="">Todas las empresas</option>'
+    +empresasUnicas.map(function(e){ return '<option>'+e+'</option>'; }).join('')
+    +'</select>'
+    +'<select id="dir-depto" onchange="filtrarDirectorio()" class="text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-violet-500 outline-none">'
+    +'<option value="">Todos los departamentos</option>'
+    +deptosUnicos.map(function(d){ return '<option>'+d+'</option>'; }).join('')
+    +'</select>'
+    +'<select id="dir-estatus" onchange="filtrarDirectorio()" class="text-xs border border-slate-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-violet-500 outline-none">'
+    +'<option value="">Todos</option><option value="Activo">Activos</option><option value="Baja">Bajas</option>'
+    +'</select>'
+    +'</div>'
+    // Contenedor de tarjetas
+    +'<div id="dir-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4"></div>'
+    +'<div id="dir-table" style="display:none" class="overflow-x-auto bg-white rounded-2xl border border-slate-100 shadow-sm"></div>';
+
+    // Guardar datos para filtrado
+    window._dirData = data;
+    filtrarDirectorio();
+}
+
+let _vistaGrid = true;
+function toggleVistaDirect() {
+    _vistaGrid = !_vistaGrid;
+    const grid  = document.getElementById('dir-grid');
+    const table = document.getElementById('dir-table');
+    const icon  = document.querySelector('.id-vista-icon');
+    if(grid)  grid.style.display  = _vistaGrid ? 'grid'  : 'none';
+    if(table) table.style.display = _vistaGrid ? 'none'  : 'block';
+    if(icon){ icon.className = 'fas id-vista-icon ' + (_vistaGrid ? 'fa-grip' : 'fa-list'); }
+    if(!_vistaGrid) renderTablaDirectorio(window._dirDataFiltrada||[]);
+}
+
+function filtrarDirectorio() {
+    const q   = (document.getElementById('dir-search')?.value||'').toLowerCase();
+    const emp = (document.getElementById('dir-empresa')?.value||'');
+    const dep = (document.getElementById('dir-depto')?.value||'');
+    const est = (document.getElementById('dir-estatus')?.value||'');
+    const data = window._dirData || [];
+
+    const filt = data.filter(function(e){
+        if(emp && e.empresa !== emp) return false;
+        if(dep && e.depto   !== dep) return false;
+        if(est && e.estatus !== est) return false;
+        if(q){
+            return (e.nombre||'').toLowerCase().includes(q)
+                || (e.puesto||'').toLowerCase().includes(q)
+                || (e.depto||'').toLowerCase().includes(q)
+                || (e.idInterno||'').toLowerCase().includes(q);
+        }
+        return true;
+    });
+
+    window._dirDataFiltrada = filt;
+
+    if(_vistaGrid) renderGridDirectorio(filt);
+    else renderTablaDirectorio(filt);
+}
+
+function renderGridDirectorio(data) {
+    const grid = document.getElementById('dir-grid');
+    if(!grid) return;
+    if(!data.length){
+        grid.innerHTML = '<div class="col-span-4 text-center py-16 text-slate-400"><i class="fas fa-users-slash text-3xl mb-2 block"></i>Sin resultados</div>';
+        return;
+    }
+    grid.innerHTML = data.map(function(e){
+        const ini   = getIniciales(e.nombre) || '?';
+        const color = avatarColor(e.nombre);
+        const act   = e.estatus === 'Activo';
+        const badge = act ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600';
+        // Foto desde Drive si tiene URL de expediente
+        const fotoHtml = e.urlExp && e.urlExp.startsWith('http')
+            ? '' // intentaremos cargar foto
+            : '';
+        return '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md hover:border-violet-200 transition cursor-pointer dir-card"'
+            +' data-id="'+e.idInterno+'" class="org-card">'
+            +'<div class="flex flex-col items-center text-center">'
+            // Avatar
+            +'<div class="w-16 h-16 rounded-full mb-3 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0"'
+            +' style="background:'+color+';">'+ini+'</div>'
+            // Nombre
+            +'<p class="font-bold text-slate-800 text-sm leading-tight mb-0.5">'+e.nombre+'</p>'
+            +'<p class="text-xs text-slate-400 mb-2">'+e.puesto+'</p>'
+            // Badge estatus
+            +'<span class="px-2 py-0.5 rounded-full text-xs font-bold mb-3 '+badge+'">'+e.estatus+'</span>'
+            // Info
+            +'<div class="w-full text-left space-y-1 border-t border-slate-100 pt-3">'
+            +(e.empresa?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-building text-slate-300 w-3"></i>'+e.empresa+'</p>':'')
+            +(e.depto?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-sitemap text-slate-300 w-3"></i>'+e.depto+'</p>':'')
+            +(e.email?'<p class="text-xs text-slate-500 flex items-center gap-1.5 truncate"><i class="fas fa-envelope text-slate-300 w-3"></i>'+e.email+'</p>':'')
+            +(e.telefono?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-phone text-slate-300 w-3"></i>'+e.telefono+'</p>':'')
+            +'</div></div></div>';
+    }).join('');
+}
+
+function renderTablaDirectorio(data) {
+    const table = document.getElementById('dir-table');
+    if(!table) return;
+    if(!data.length){ table.innerHTML='<p class="text-center py-8 text-slate-400 text-sm">Sin resultados</p>'; return; }
+    table.innerHTML = '<table class="w-full text-sm">'
+        +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">'
+        +'<tr><th class="px-4 py-3 text-left">Colaborador</th><th class="px-4 py-3 text-left">Puesto</th>'
+        +'<th class="px-4 py-3 text-left">Departamento</th><th class="px-4 py-3 text-left">Empresa</th>'
+        +'<th class="px-4 py-3 text-left">Contacto</th><th class="px-4 py-3 text-center">Estatus</th></tr></thead>'
+        +'<tbody class="divide-y divide-slate-50">'
+        +data.map(function(e){
+            const ini=getIniciales(e.nombre)||'?';
+            const col=avatarColor(e.nombre);
+            const act=e.estatus==='Activo';
+            return '<tr class="hover:bg-slate-50 cursor-pointer dir-table-row" data-id="'+e.idInterno+'">'+
+                +'<td class="px-4 py-3"><div class="flex items-center gap-2">'
+                +'<div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+col+';">'+ini+'</div>'
+                +'<div><p class="font-semibold text-slate-700">'+e.nombre+'</p>'
+                +'<p class="text-xs text-slate-400">'+e.idInterno+'</p></div></div></td>'
+                +'<td class="px-4 py-3 text-xs text-slate-600">'+e.puesto+'</td>'
+                +'<td class="px-4 py-3 text-xs text-slate-500">'+e.depto+'</td>'
+                +'<td class="px-4 py-3 text-xs text-slate-500">'+e.empresa+'</td>'
+                +'<td class="px-4 py-3 text-xs text-slate-500">'+(e.email||'—')+'</td>'
+                +'<td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold '+(act?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600')+'">'+e.estatus+'</span></td>'
+                +'</tr>';
+        }).join('')
+        +'</tbody></table>';
+    setTimeout(function(){
+        var t=document.getElementById('dir-table');
+        if(t) t.addEventListener('click',function(e){
+            var row=e.target.closest('.dir-table-row');
+            if(row && row.dataset.id) abrirPerfilPersona(row.dataset.id);
+        });
+    },50);
+}
+
+// ── Abrir perfil individual ───────────────────────────────────
+function abrirPerfilPersona(idInterno) {
+    // Reutilizar el drawer de expedientes
+    abrirEditor(idInterno);
+}
+
+// ── ORGANIGRAMA ───────────────────────────────────────────────
+async function renderOrganigrama(cont) {
+    const r = await enviarPeticion('obtener_organigrama', { token: getToken() });
+    if(r.status !== 'success'){ cont.innerHTML='<p class="text-red-400 text-center py-8">'+r.message+'</p>'; return; }
+
+    const data = filtrarPorEmpresasPermitidas(
+        r.arbol ? flattenArbol(r.arbol) : []
+    );
+
+    // Filtrar el árbol por empresas permitidas
+    let arbol = r.arbol || [];
+
+    cont.innerHTML =
+    '<div class="mb-4 flex items-center justify-between">'
+    +'<div><h3 class="text-base font-bold text-slate-800">Organigrama</h3>'
+    +'<p class="text-xs text-slate-400 mt-0.5">'+r.total+' colaboradores</p></div>'
+    +'<div class="flex gap-2">'
+    +'<select id="org-empresa" onchange="filtrarOrganigrama()" class="text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none">'
+    +'<option value="">Todas las empresas</option>'
+    +[...new Set(flattenArbol(arbol).map(function(e){return e.empresa;}).filter(Boolean))].sort().map(function(e){
+        return '<option>'+e+'</option>';
+    }).join('')
+    +'</select></div></div>'
+    +'<div id="org-wrap" class="overflow-auto pb-4"></div>';
+
+    window._orgArbol = arbol;
+    renderNodosOrg(arbol, '');
+    setTimeout(function(){
+        var w=document.getElementById('org-wrap');
+        if(w) w.addEventListener('click',function(e){
+            var card=e.target.closest('.org-card');
+            if(card && card.dataset.id) abrirPerfilPersona(card.dataset.id);
+        });
+    },100);
+}
+
+function flattenArbol(nodos) {
+    var res = [];
+    (nodos||[]).forEach(function(n){
+        res.push(n);
+        if(n.children && n.children.length) res = res.concat(flattenArbol(n.children));
+    });
+    return res;
+}
+
+function filtrarOrganigrama() {
+    const emp = (document.getElementById('org-empresa')?.value||'');
+    let arbol = window._orgArbol || [];
+    if(emp) {
+        arbol = arbol.filter(function(n){ return n.empresa === emp; });
+    }
+    renderNodosOrg(arbol, emp);
+}
+
+function renderNodosOrg(nodos, empFiltro) {
+    const wrap = document.getElementById('org-wrap');
+    if(!wrap) return;
+    if(!nodos.length){
+        wrap.innerHTML='<div class="text-center py-12 text-slate-400"><i class="fas fa-sitemap text-3xl mb-2 block"></i>Sin datos de organigrama.<br><span class="text-xs">Asigna jefes directos en los expedientes.</span></div>';
+        return;
+    }
+    wrap.innerHTML = '<div class="org-tree">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
+}
+
+function renderNodoHtml(nodos, nivel, empFiltro) {
+    return nodos.map(function(e){
+        const ini   = getIniciales(e.nombre)||'?';
+        const color = avatarColor(e.nombre);
+        const hijos = (e.children||[]).filter(function(c){
+            return !empFiltro || c.empresa === empFiltro;
+        });
+        const tieneHijos = hijos.length > 0;
+        return '<div class="org-node" style="--nivel:'+nivel+';">'
+            +'<div class="org-card" data-id="'+e.idInterno+'" title="'+e.nombre+'">'+
+            +'<div class="org-avatar" style="background:'+color+';">'+ini+'</div>'
+            +'<div class="org-info">'
+            +'<p class="org-nombre">'+e.nombre+'</p>'
+            +'<p class="org-puesto">'+e.puesto+'</p>'
+            +(nivel===0?'<p class="org-empresa">'+e.empresa+'</p>':'')
+            +'</div>'
+            +(tieneHijos?'<span class="org-count">'+hijos.length+'</span>':'')
+            +'</div>'
+            +(tieneHijos?'<div class="org-children">'+renderNodoHtml(hijos,nivel+1,empFiltro)+'</div>':'')
+            +'</div>';
+    }).join('');
+}
+
+// ── INFORMES ──────────────────────────────────────────────────
+async function renderInformesPersonas(cont) {
+    const todos = await getPersonasData();
+    const data  = filtrarPorEmpresasPermitidas(todos);
+    const act   = data.filter(function(e){ return e.estatus==='Activo'; });
+    const bajas = data.filter(function(e){ return e.estatus!=='Activo'; });
+
+    // Distribución por empresa
+    const porEmp = {};
+    act.forEach(function(e){ porEmp[e.empresa]=(porEmp[e.empresa]||0)+1; });
+    const empEntries = Object.entries(porEmp).sort(function(a,b){ return b[1]-a[1]; });
+
+    // Distribución por departamento
+    const porDep = {};
+    act.forEach(function(e){ if(e.depto) porDep[e.depto]=(porDep[e.depto]||0)+1; });
+    const depEntries = Object.entries(porDep).sort(function(a,b){ return b[1]-a[1]; }).slice(0,10);
+
+    const maxEmp = empEntries.length ? empEntries[0][1] : 1;
+    const maxDep = depEntries.length ? depEntries[0][1] : 1;
+
+    cont.innerHTML =
+    '<h3 class="text-base font-bold text-slate-800 mb-5">Informes de Personas</h3>'
+    // KPIs
+    +'<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">'
+    +[
+        ['Total registros', data.length, 'fa-users','text-slate-800'],
+        ['Plantilla activa', act.length, 'fa-user-check','text-emerald-600'],
+        ['Bajas', bajas.length, 'fa-user-minus','text-red-500'],
+        ['Empresas', Object.keys(porEmp).length, 'fa-building','text-violet-600']
+    ].map(function(k){
+        return '<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">'
+            +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">'+k[0]+'</p>'
+            +'<p class="text-2xl font-black '+k[3]+' mt-1">'+k[1]+'</p></div>';
+    }).join('')
+    +'</div>'
+    // Por empresa
+    +'<div class="grid grid-cols-1 md:grid-cols-2 gap-4">'
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-building text-violet-400 mr-2"></i>Plantilla por Empresa</p>'
+    +'<div class="space-y-2.5">'
+    +empEntries.map(function(e){
+        const w=Math.round(e[1]/maxEmp*100);
+        return '<div><div class="flex justify-between mb-1"><span class="text-xs font-medium text-slate-600 truncate max-w-[70%]">'+e[0]+'</span>'
+            +'<span class="text-xs font-bold text-violet-600">'+e[1]+'</span></div>'
+            +'<div class="h-2 bg-slate-100 rounded-full overflow-hidden">'
+            +'<div class="h-full bg-gradient-to-r from-violet-500 to-violet-300 rounded-full" style="width:'+w+'%"></div>'
+            +'</div></div>';
+    }).join('')
+    +'</div></div>'
+    // Por departamento
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-sitemap text-blue-400 mr-2"></i>Top 10 Departamentos</p>'
+    +'<div class="space-y-2.5">'
+    +depEntries.map(function(e){
+        const w=Math.round(e[1]/maxDep*100);
+        return '<div><div class="flex justify-between mb-1"><span class="text-xs font-medium text-slate-600 truncate max-w-[70%]">'+e[0]+'</span>'
+            +'<span class="text-xs font-bold text-blue-600">'+e[1]+'</span></div>'
+            +'<div class="h-2 bg-slate-100 rounded-full overflow-hidden">'
+            +'<div class="h-full bg-gradient-to-r from-blue-500 to-blue-300 rounded-full" style="width:'+w+'%"></div>'
+            +'</div></div>';
+    }).join('')
+    +'</div></div></div>';
+}
+
+// ── ADMINISTRACIÓN ────────────────────────────────────────────
+async function renderAdminPersonas(cont) {
+    const todos = await getPersonasData();
+    const data  = filtrarPorEmpresasPermitidas(todos);
+
+    // Catálogos únicos
+    const deptos  = [...new Set(data.map(function(e){return e.depto;}).filter(Boolean))].sort();
+    const puestos = [...new Set(data.map(function(e){return e.puesto;}).filter(Boolean))].sort();
+    const emps    = [...new Set(data.map(function(e){return e.empresa;}).filter(Boolean))].sort();
+
+    cont.innerHTML =
+    '<h3 class="text-base font-bold text-slate-800 mb-5">Administración — Catálogos</h3>'
+    +'<p class="text-xs text-slate-400 mb-5">Estos catálogos se generan automáticamente desde los datos del Sheet. Para modificarlos, edita directamente el expediente del colaborador.</p>'
+    +'<div class="grid grid-cols-1 md:grid-cols-3 gap-4">'
+    // Departamentos
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-sitemap text-violet-500"></i>Departamentos <span class="text-xs text-slate-400 font-normal ml-auto">'+deptos.length+'</span></p>'
+    +'<div class="space-y-1 max-h-64 overflow-y-auto">'
+    +deptos.map(function(d){
+        const cnt = data.filter(function(e){return e.depto===d;}).length;
+        return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
+            +'<span class="text-xs text-slate-600">'+d+'</span>'
+            +'<span class="text-xs font-bold text-slate-400">'+cnt+'</span></div>';
+    }).join('')+'</div></div>'
+    // Puestos
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-briefcase text-blue-500"></i>Puestos <span class="text-xs text-slate-400 font-normal ml-auto">'+puestos.length+'</span></p>'
+    +'<div class="space-y-1 max-h-64 overflow-y-auto">'
+    +puestos.map(function(p){
+        const cnt = data.filter(function(e){return e.puesto===p;}).length;
+        return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
+            +'<span class="text-xs text-slate-600">'+p+'</span>'
+            +'<span class="text-xs font-bold text-slate-400">'+cnt+'</span></div>';
+    }).join('')+'</div></div>'
+    // Empresas
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-building text-emerald-500"></i>Empresas <span class="text-xs text-slate-400 font-normal ml-auto">'+emps.length+'</span></p>'
+    +'<div class="space-y-1 max-h-64 overflow-y-auto">'
+    +emps.map(function(e2){
+        const cnt = data.filter(function(e){return e.empresa===e2;}).length;
+        return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
+            +'<span class="text-xs text-slate-600">'+e2+'</span>'
+            +'<span class="text-xs font-bold text-slate-400">'+cnt+'</span></div>';
+    }).join('')+'</div></div>'
+    +'</div>';
+}
+
 let encTabActual = 'SALIDA';
 
 const ENC_TIPOS = {
@@ -2774,6 +3193,10 @@ function renderizarDrawer(emp){
         ro("Para Ant. Promedio ⟵ fórmula",E["PARA ANT. PROMEDIO"])+
         ro("Se Toma en Cuenta ⟵ fórmula",E["SE TOMA EN CUENTA?"])
     )+
+    sec("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
+        ed("ed_jefeDirecto","Jefe Directo (ID INTERNO)",E["JEFE DIRECTO"])+
+        ed("ed_correoAcceso","Correo Acceso (corporativo)",E["CORREO ACCESO"],"email")
+    )+
     (url && url.indexOf("http") === 0
         // ── Con expediente: mostrar link + botón subir docs ──
         ? '<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4">'
@@ -2862,6 +3285,8 @@ async function guardarCambiosEditor(){
             "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15')?.value||undefined,
             "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45')?.value||undefined,
             "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360')?.value||undefined,
+            "JEFE DIRECTO":            document.getElementById('ed_jefeDirecto')?.value||undefined,
+            "CORREO ACCESO":           document.getElementById('ed_correoAcceso')?.value||undefined,
             ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
             ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
         }

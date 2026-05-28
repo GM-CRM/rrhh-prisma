@@ -34,6 +34,27 @@
   /* Stepper */
   #stepper-contenido input:focus,#stepper-contenido select:focus,#stepper-contenido textarea:focus{outline:none}
   .field-error{border-color:#f87171!important;box-shadow:0 0 0 2px rgba(248,113,113,.25)!important}
+
+  /* ── Organigrama ── */
+  .org-tree{ display:flex; flex-direction:column; gap:0; }
+  .org-node{ position:relative; padding-left:28px; }
+  .org-node:before{ content:''; position:absolute; left:12px; top:0; bottom:50%;
+    border-left:2px solid #ddd6fe; border-bottom:2px solid #ddd6fe; border-radius:0 0 0 8px; width:16px; }
+  .org-node:first-child:before{ display:none; }
+  .org-node:last-child:before{ bottom:auto; height:32px; }
+  .org-card{ display:flex; align-items:center; gap:10px; padding:10px 14px;
+    background:#fff; border:1.5px solid #ede9fe; border-radius:12px;
+    margin:4px 0; cursor:pointer; transition:all .2s;
+    box-shadow:0 1px 4px rgba(124,58,237,.06); }
+  .org-card:hover{ border-color:#7c3aed; box-shadow:0 4px 14px rgba(124,58,237,.15); transform:translateY(-1px); }
+  .org-avatar{ width:36px; height:36px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; color:#fff; font-weight:700; font-size:.82rem; flex-shrink:0; }
+  .org-nombre{ font-size:.85rem; font-weight:700; color:#0d1b3e; margin:0; line-height:1.2; }
+  .org-puesto{ font-size:.72rem; color:#64748b; margin:2px 0 0; }
+  .org-empresa{ font-size:.7rem; color:#a78bfa; margin:1px 0 0; font-weight:600; }
+  .org-count{ background:#7c3aed; color:#fff; font-size:.65rem; font-weight:800;
+    border-radius:99px; padding:1px 7px; flex-shrink:0; margin-left:auto; }
+  .org-children{ margin-top:2px; margin-left:0; border-left:2px solid #ede9fe; padding-left:0; }
 </style>
   <style>
     /* Drawer */
@@ -281,6 +302,11 @@ if ('serviceWorker' in navigator) {
     <button onclick="activarNav(this);showModule('basedatos');cargarDatosTabla();"
       class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
       <i class="fas fa-id-card w-4 text-slate-400 group-hover:text-purple-400 transition"></i><span class="font-medium">Expedientes</span>
+    </button>
+    <button onclick="activarNav(this);showModule('personas');cargarModuloPersonas();"
+      class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
+      <i class="fas fa-people-group w-4 text-slate-400 group-hover:text-sky-400 transition"></i>
+      <span class="font-medium">Personas</span>
     </button>
     <button onclick="activarNav(this);showModule('encuestas');cargarModuloEncuestas();"
       class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
@@ -644,7 +670,37 @@ if ('serviceWorker' in navigator) {
   </section>
 
   <!-- ══ DIRECTORIO ═══════════════════════════════════════════ -->
-  <!-- MÓDULO: Encuestas -->
+  <!-- MÓDULO: Personas -->
+<section id="module-personas" class="module-section">
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+    <!-- Tabs -->
+    <div class="border-b border-slate-100 px-4 pt-4">
+      <div class="flex gap-1 overflow-x-auto pb-0">
+        <button onclick="activarTabPersonas('directorio',this)" data-tab="directorio"
+          class="per-tab active flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-violet-600 text-violet-700 bg-violet-50 transition">
+          <i class="fas fa-id-badge mr-1.5"></i>Directorio
+        </button>
+        <button onclick="activarTabPersonas('organigrama',this)" data-tab="organigrama"
+          class="per-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-sitemap mr-1.5"></i>Organigrama
+        </button>
+        <button onclick="activarTabPersonas('informes',this)" data-tab="informes"
+          class="per-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-chart-pie mr-1.5"></i>Informes
+        </button>
+        <button onclick="activarTabPersonas('admin',this)" data-tab="admin"
+          class="per-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-cog mr-1.5"></i>Administración
+        </button>
+      </div>
+    </div>
+    <div id="personas-contenido" class="p-5 min-h-[500px]">
+      <p class="text-sm text-slate-400 text-center py-12">Selecciona una sección.</p>
+    </div>
+  </div>
+</section>
+
+<!-- MÓDULO: Encuestas -->
 <section id="module-encuestas" class="module-section">
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
     <!-- Tabs -->
@@ -897,6 +953,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=50.0"></script>
+<script src="main.js?v=51.0"></script>
 </body>
 </html>
