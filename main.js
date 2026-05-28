@@ -1414,22 +1414,120 @@ async function cambiarPasswordPerfil(){
 
 function abrirModalNuevoUsuario(){
     Swal.fire({
-        title:'Nuevo Usuario',
-        html:'<div class="text-left space-y-3">'
-            +'<input id="swal-nombre" class="swal2-input" placeholder="Nombre completo">'
-            +'<input id="swal-email" class="swal2-input" type="email" placeholder="correo@gmnet.mx">'
-            +'<input id="swal-pass" class="swal2-input" type="password" placeholder="Contraseña">'
-            +'<input id="swal-tel" class="swal2-input" placeholder="Teléfono">'
-            +'<select id="swal-rol" class="swal2-input"><option value="Auxiliar">Auxiliar</option><option value="Administrador">Administrador</option></select>'
-            +'<input id="swal-empresas" class="swal2-input" placeholder="Empresas (coma) o vacío = todas">'
+        title:'Nuevo Usuario RRHH',
+        html:'<div class="text-left" style="display:grid;gap:8px;">'
+            +'<div style="position:relative;">'
+            +'<input id="swal-nombre" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="Nombre completo del usuario">'
+            +'<button type="button" id="btn-buscar-idint" onclick="buscarIDInternoAuto()" '
+            +'style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:#7c3aed;border:none;color:#fff;border-radius:6px;padding:4px 10px;font-size:.72rem;cursor:pointer;white-space:nowrap;">'
+            +'<i class="fas fa-search"></i> Buscar empleado</button>'
+            +'</div>'
+            // Resultado de búsqueda
+            +'<div id="idint-resultado" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#166534;"></div>'
+            // Campo ID INTERNO (oculto/readonly después de buscar)
+            +'<input id="swal-idint" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="ID INTERNO (se llena automático o escribe el ID)">'
+            +'<input id="swal-email" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" type="email" placeholder="correo@gmnet.mx">'
+            +'<input id="swal-pass" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" type="password" placeholder="Contraseña inicial">'
+            +'<input id="swal-tel" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="Teléfono">'
+            +'<select id="swal-rol" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;">'
+            +'<option value="Auxiliar">Auxiliar</option>'
+            +'<option value="Administrador">Administrador</option>'
+            +'</select>'
+            +'<input id="swal-empresas" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="Empresas separadas por coma (vacío = todas)">'
             +'</div>',
-        confirmButtonText:'Crear usuario',confirmButtonColor:'#7c3aed',showCancelButton:true,cancelButtonText:'Cancelar',
-        preConfirm:async function(){
-            const r=await enviarPeticion('crear_usuario',{token:getToken(),nombre:document.getElementById('swal-nombre').value,email:document.getElementById('swal-email').value,password:document.getElementById('swal-pass').value,telefono:document.getElementById('swal-tel').value,rol:document.getElementById('swal-rol').value,empresas:document.getElementById('swal-empresas').value});
+        confirmButtonText:'Crear usuario',
+        confirmButtonColor:'#7c3aed',
+        showCancelButton:true,
+        cancelButtonText:'Cancelar',
+        preConfirm: async function(){
+            const nombre   = document.getElementById('swal-nombre').value.trim();
+            const email    = document.getElementById('swal-email').value.trim();
+            const password = document.getElementById('swal-pass').value.trim();
+            const idInterno= document.getElementById('swal-idint').value.trim();
+            if(!nombre||!email||!password){
+                Swal.showValidationMessage('Nombre, email y contraseña son requeridos.');
+                return false;
+            }
+            const r = await enviarPeticion('crear_usuario',{
+                token:getToken(), nombre, email, password,
+                telefono:   document.getElementById('swal-tel').value.trim(),
+                rol:        document.getElementById('swal-rol').value,
+                empresas:   document.getElementById('swal-empresas').value.trim(),
+                idInterno:  idInterno
+            });
             if(r.status!=='success') Swal.showValidationMessage(r.message);
             return r;
         }
-    }).then(function(res){if(res.isConfirmed){mostrarToast('success','Usuario creado','Acceso creado correctamente.');cargarTablaUsuarios();}});
+    }).then(function(res){
+        if(res.isConfirmed){
+            mostrarToast('success','Usuario creado','Acceso creado y email de bienvenida enviado.');
+            cargarTablaUsuarios();
+        }
+    });
+}
+
+// ── Buscar ID INTERNO automáticamente por nombre ──────────────
+async function buscarIDInternoAuto() {
+    const nombre = (document.getElementById('swal-nombre')?.value||'').trim();
+    if(nombre.length < 3){
+        mostrarToast('warning','Nombre muy corto','Escribe al menos 3 caracteres del nombre.');
+        return;
+    }
+    const btn = document.getElementById('btn-buscar-idint');
+    if(btn){ btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>'; btn.disabled=true; }
+
+    try {
+        const r = await enviarPeticion('buscar_usuario_por_nombre',{ nombre });
+        if(r.status==='success' && r.candidatos && r.candidatos.length){
+            const mejor = r.candidatos[0];
+            // Autocompletar ID
+            const idField = document.getElementById('swal-idint');
+            if(idField) idField.value = mejor.idInterno;
+            // Mostrar resultado
+            const res = document.getElementById('idint-resultado');
+            if(res){
+                res.style.display='block';
+                if(r.candidatos.length === 1){
+                    res.innerHTML = '<i class="fas fa-check-circle mr-1"></i>'
+                        +'<strong>'+mejor.nombre+'</strong> — '+mejor.empresa
+                        +' <span style="opacity:.7;">('+mejor.idInterno+')</span>';
+                } else {
+                    // Mostrar selector si hay varios candidatos
+                    res.style.background='#fefce8'; res.style.borderColor='#fde68a'; res.style.color='#92400e';
+                    res.innerHTML = '<p style="margin:0 0 6px;font-weight:700;">Varios resultados — selecciona:</p>'
+                        + r.candidatos.slice(0,5).map(function(c){
+                            return '<label style="display:flex;align-items:center;gap:6px;padding:3px 0;cursor:pointer;">'
+                                +'<input type="radio" name="cand-idint" value="'+c.idInterno+'" '
+                                +'<input type="radio" name="cand-idint" value="'+c.idInterno+'" class="cand-radio">'
+                                +'<span>'+c.nombre+' — '+c.empresa+' <strong>('+c.idInterno+')</strong></span>'
+                                +'</label>';
+                        }).join('');
+                }
+            }
+        } else {
+            const res = document.getElementById('idint-resultado');
+            if(res){
+                res.style.display='block';
+                res.style.background='#fef2f2'; res.style.borderColor='#fecaca'; res.style.color='#b91c1c';
+                res.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>'
+                    +'No se encontró empleado con ese nombre. Puedes escribir el ID manualmente.';
+            }
+        }
+    } catch(e) {
+        console.error('buscarIDInternoAuto:', e);
+    }
+
+    // Event delegation para radio buttons de candidatos
+    setTimeout(function(){
+        var res2=document.getElementById('idint-resultado');
+        if(res2) res2.addEventListener('change',function(e){
+            if(e.target.classList.contains('cand-radio')){
+                var idField=document.getElementById('swal-idint');
+                if(idField) idField.value=e.target.value;
+            }
+        });
+    },100);
+    if(btn){ btn.innerHTML='<i class="fas fa-search"></i> Buscar empleado'; btn.disabled=false; }
 }
 
 async function resetPassword(email){
