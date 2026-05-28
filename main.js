@@ -1622,6 +1622,32 @@ function abrirEditor(idInterno, empresaHint){
     document.getElementById('drawer-overlay').classList.remove('hidden');
 }
 
+
+// ── Activar/reenviar acceso portal desde el drawer ─────────────
+async function activarPortalEmpleado() {
+    if(!empleadoEdicion) return;
+    const idInt  = (empleadoEdicion["ID INTERNO"]||"").toString().trim();
+    const correo = (empleadoEdicion["CORREO ACCESO"]||"").toString().trim();
+    if(!correo){ mostrarToast("warning","Sin correo","Agrega el Correo Acceso corporativo primero."); return; }
+
+    const conf = await Swal.fire({
+        title:"¿Activar acceso al portal?",
+        html:"Se enviará un email de bienvenida a <strong>"+correo+"</strong> con las credenciales de acceso.",
+        icon:"question",
+        showCancelButton:true,
+        confirmButtonText:"Sí, activar",
+        confirmButtonColor:"#1d4ed8",
+        cancelButtonText:"Cancelar"
+    });
+    if(!conf.isConfirmed) return;
+
+    const r = await enviarPeticion("reenviar_acceso_emp",{ token:getToken(), idInterno:idInt });
+    if(r.status==="success"){
+        mostrarToast("success","Portal activado",r.message,5000);
+    } else {
+        mostrarToast("error","Error",r.message);
+    }
+}
 function cerrarEditor(){
     document.getElementById('drawer-editor').classList.add('translate-x-full');
     document.getElementById('drawer-overlay').classList.add('hidden');
@@ -2672,7 +2698,7 @@ async function renderMisEvaluaciones(cont) {
         return;
     }
 
-    const r = await enviarPeticion('listar_mis_eval',{ idEvaluador: idInt });
+    const r = await enviarPeticion('listar_mis_eval',{ idEvaluador: idInt, idUsuario: idInt });
     if(r.status !== 'success'){ cont.innerHTML='<p class="text-red-400 text-center py-8">'+r.message+'</p>'; return; }
 
     const evals = r.evaluaciones || [];
@@ -2687,11 +2713,16 @@ async function renderMisEvaluaciones(cont) {
         return;
     }
 
+    const comoEvaluado = r.comoEvaluado || [];
+    const rolLabel = {
+        jefe:'Evalúas como Jefe', autoevaluacion:'Autoevaluación',
+        par:'Evaluación de Par', subordinado:'Evaluación de Subordinado'
+    };
+
     cont.innerHTML = '<h3 class="text-base font-bold text-slate-800 mb-5">Mis Evaluaciones</h3>'
-    // KPIs
     +'<div class="grid grid-cols-3 gap-3 mb-6">'
     +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
-      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Total</p>'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Por llenar</p>'
       +'<p class="text-2xl font-black text-slate-800 mt-1">'+evals.length+'</p></div>'
     +'<div class="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-sm text-center">'
       +'<p class="text-xs font-bold text-amber-600 uppercase tracking-wide">Pendientes</p>'
@@ -2700,26 +2731,45 @@ async function renderMisEvaluaciones(cont) {
       +'<p class="text-xs font-bold text-emerald-600 uppercase tracking-wide">Completadas</p>'
       +'<p class="text-2xl font-black text-emerald-600 mt-1">'+comp.length+'</p></div>'
     +'</div>'
-    // Lista de evaluaciones
-    +'<div class="space-y-3">'
-    +evals.map(function(ev){
-        const pend = ev.estatus==='Pendiente';
-        const rol  = {jefe:'Como Evaluador',autoevaluacion:'Autoevaluación',par:'Evaluación de Par',subordinado:'Evaluación de Subordinado'}[ev.rolEvaluador]||ev.rolEvaluador;
-        return '<div class="bg-white rounded-2xl border '+(pend?'border-amber-200':'border-slate-100')+' shadow-sm p-5 flex items-center justify-between gap-4">'
-            +'<div class="flex items-center gap-4">'
-            +'<div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style="background:'+(pend?'#f59e0b':'#10b981')+';">'
-            +'<i class="fas fa-'+(pend?'clock':'check')+'"></i></div>'
-            +'<div>'
-            +'<p class="font-bold text-slate-800 text-sm">'+ev.nombreEvaluado+'</p>'
-            +'<p class="text-xs text-slate-400 mt-0.5">'+rol+' · ID Proceso: '+ev.idProceso+'</p>'
-            +(ev.fechaComp?'<p class="text-xs text-emerald-500 mt-0.5">Completada: '+new Date(ev.fechaComp).toLocaleDateString('es-MX')+'</p>':'')
-            +'</div></div>'
-            +'<div class="flex items-center gap-2 flex-shrink-0">'
-            +'<span class="px-2 py-1 rounded-lg text-xs font-bold '+(pend?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700')+'">'+ev.estatus+'</span>'
-            +'<span class="px-2 py-1 rounded-lg text-xs font-bold "+(pend?"bg-amber-100 text-amber-700":"bg-emerald-100 text-emerald-700")+">'+ev.estatus+'</span>'
-            +(pend?'<button data-evid="'+ev.id+'" data-proc="'+ev.idProceso+'" class="eval-form-btn px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition">Evaluar</button>':'')
-    }).join('')
-    +'</div>';
+    // Evaluaciones que debo llenar
+    +(evals.length ? '<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Evaluaciones que debes llenar</p>'
+      +'<div class="space-y-3 mb-6">'
+      +evals.map(function(ev){
+          const isPend = ev.estatus==='Pendiente';
+          const rol = rolLabel[ev.rolEvaluador]||ev.rolEvaluador;
+          return '<div class="bg-white rounded-2xl border '+(isPend?'border-amber-200':'border-slate-100')+' shadow-sm p-5 flex items-center justify-between gap-4">'
+              +'<div class="flex items-center gap-4">'
+              +'<div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style="background:'+(isPend?'#f59e0b':'#10b981')+';">'
+              +'<i class="fas fa-'+(isPend?'clipboard-list':'check-circle')+'"></i></div>'
+              +'<div>'
+              +'<p class="font-bold text-slate-800 text-sm">'+ev.nombreEvaluado+'</p>'
+              +'<p class="text-xs text-violet-600 font-semibold mt-0.5">'+rol+'</p>'
+              +'<p class="text-xs text-slate-400">Proceso: '+ev.idProceso+'</p>'
+              +(ev.fechaComp?'<p class="text-xs text-emerald-500 mt-0.5">Completada: '+new Date(ev.fechaComp).toLocaleDateString('es-MX')+'</p>':'')
+              +'</div></div>'
+              +'<div class="flex items-center gap-2 flex-shrink-0">'
+              +'<span class="px-2 py-1 rounded-lg text-xs font-bold '+(isPend?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700')+'">'+ev.estatus+'</span>'
+              +(isPend?'<button data-evid="'+ev.id+'" data-proc="'+ev.idProceso+'" class="eval-form-btn px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition"><i class="fas fa-pen mr-1"></i>Evaluar</button>':'')
+              +'</div></div>';
+      }).join('')+'</div>'
+    : '')
+    // Quién me está evaluando
+    +(comoEvaluado.length ? '<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Mi proceso de evaluación</p>'
+      +'<div class="space-y-3">'
+      +comoEvaluado.map(function(ev){
+          const isPend=ev.estatus==='Pendiente';
+          const ini=getIniciales(ev.nombreEvaluado)||'?';
+          const col=avatarColor(ev.nombreEvaluado);
+          const rolEv={jefe:'Tu jefe directo',autoevaluacion:'Autoevaluación',par:'Un par',subordinado:'Un subordinado'}[ev.rolEvaluador]||ev.rolEvaluador;
+          return '<div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex items-center gap-4">'
+              +'<div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+col+';">'+ini+'</div>'
+              +'<div class="flex-1">'
+              +'<p class="text-sm font-semibold text-slate-700">'+rolEv+'</p>'
+              +'<p class="text-xs text-slate-400">'+ev.idProceso+'</p></div>'
+              +'<span class="px-2 py-1 rounded-lg text-xs font-bold '+(isPend?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700')+'">'+ev.estatus+'</span>'
+              +'</div>';
+      }).join('')+'</div>'
+    : (evals.length===0 ? '<div class="text-center py-8 text-slate-400"><i class="fas fa-clipboard-check text-2xl mb-2 block text-slate-200"></i><p class="text-sm">No hay evaluaciones activas para tu perfil.</p></div>' : ''));
 }
 
 // ── MI EQUIPO ────────────────────────────────────────────────
@@ -2874,7 +2924,7 @@ async function cargarInformeEval(idProceso) {
         });
         const prom=c>0?(s/c).toFixed(1):'—';
         const col=parseFloat(prom)>=7?'text-emerald-600':parseFloat(prom)>=5?'text-amber-500':'text-red-500';
-        const rolLabel={jefe:'Evaluador',autoevaluacion:'Auto',par:'Par',subordinado:'Sub.'}[ev.rol]||ev.rol;
+        const rolLabel={jefe:'Jefe→Colaborador',autoevaluacion:'Autoevaluación',par:'Par',subordinado:'Subordinado'}[ev.rol]||ev.rol;
         const ini=getIniciales(ev.nombre)||'?';
         const bgCol=avatarColor(ev.nombre);
         return '<tr class="hover:bg-slate-50">'
@@ -4226,7 +4276,21 @@ function renderizarDrawer(emp){
     )+
     sec("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
         ed("ed_jefeDirecto","Jefe Directo (ID INTERNO)",E["JEFE DIRECTO"])+
-        ed("ed_correoAcceso","Correo Acceso (corporativo)",E["CORREO ACCESO"],"email")
+        ed("ed_correoAcceso","Correo Acceso (corporativo)",E["CORREO ACCESO"],"email")+
+        '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">'
+        +(E["CORREO ACCESO"]
+            ? '<div style="display:flex;align-items:center;gap:10px;">'
+              +'<div style="flex:1;">'
+              +'<p style="font-size:.78rem;font-weight:600;color:#64748b;margin:0;">Portal del empleado</p>'
+              +'<p style="font-size:.72rem;color:#94a3b8;margin:2px 0 0;">'+
+                (E["CORREO ACCESO"] ? 'Correo: '+E["CORREO ACCESO"] : 'Sin correo asignado')+
+              '</p></div>'
+              +'<button onclick="activarPortalEmpleado()" '
+              +'style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);border:none;color:#fff;font-size:.75rem;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;">'
+              +'<i class="fas fa-key" style="margin-right:5px;"></i>Activar/Reenviar acceso</button>'
+              +'</div>'
+            : '<p style="font-size:.78rem;color:#94a3b8;">Agrega el <strong>Correo Acceso</strong> para activar el portal del empleado.</p>'
+        )+'</div>'
     )+
     (url && url.indexOf("http") === 0
         // ── Con expediente: mostrar link + botón subir docs ──
