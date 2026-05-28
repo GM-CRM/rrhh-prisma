@@ -2520,6 +2520,799 @@ async function renderAdminPersonas(cont) {
     +'</div>';
 }
 
+
+// ══════════════════════════════════════════════════════════════
+//  MÓDULO EVALUACIONES
+// ══════════════════════════════════════════════════════════════
+let _evalProcesoActual = null;
+
+const EVAL_TIPOS = {
+    desempeno:    { label:'Desempeño',    color:'#7c3aed', bg:'#f5f3ff', icon:'fa-chart-line'    },
+    '360':        { label:'360°',         color:'#2563eb', bg:'#eff6ff', icon:'fa-rotate'        },
+    competencias: { label:'Competencias', color:'#059669', bg:'#f0fdf4', icon:'fa-star-half-alt' }
+};
+
+async function cargarModuloEvaluaciones() {
+    activarTabEval('miseval', document.querySelector('.eval-tab[data-tab="miseval"]'));
+}
+
+function activarTabEval(tab, btnEl) {
+    document.querySelectorAll('.eval-tab').forEach(function(b){
+        b.classList.remove('active','border-violet-600','text-violet-700','bg-violet-50');
+        b.classList.add('border-transparent','text-slate-500');
+    });
+    if(btnEl){
+        btnEl.classList.add('active','border-violet-600','text-violet-700','bg-violet-50');
+        btnEl.classList.remove('border-transparent','text-slate-500');
+    }
+    const cont = document.getElementById('eval-contenido');
+    if(!cont) return;
+    cont.innerHTML = '<div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div>';
+
+    if(tab==='miseval')  renderMisEvaluaciones(cont);
+    else if(tab==='equipo')  renderMiEquipoEval(cont);
+    else if(tab==='informes') renderInformesEval(cont);
+    else if(tab==='admin')   renderAdminEval(cont);
+}
+
+// ── MIS EVALUACIONES ─────────────────────────────────────────
+async function renderMisEvaluaciones(cont) {
+    const idInt = sesionActual?.usuario?.idInterno || '';
+    if(!idInt){
+        cont.innerHTML = '<div class="text-center py-12 text-slate-400">'
+            +'<i class="fas fa-user-slash text-3xl mb-3 block text-slate-200"></i>'
+            +'<p class="font-semibold">Sin ID INTERNO asignado</p>'
+            +'<p class="text-xs mt-1">Configura el ID INTERNO del usuario para ver sus evaluaciones.</p></div>';
+        return;
+    }
+
+    const r = await enviarPeticion('listar_mis_eval',{ idEvaluador: idInt });
+    if(r.status !== 'success'){ cont.innerHTML='<p class="text-red-400 text-center py-8">'+r.message+'</p>'; return; }
+
+    const evals = r.evaluaciones || [];
+    const pend  = evals.filter(function(e){ return e.estatus==='Pendiente'; });
+    const comp  = evals.filter(function(e){ return e.estatus==='Completada'; });
+
+    if(!evals.length){
+        cont.innerHTML = '<div class="text-center py-16 text-slate-400">'
+            +'<i class="fas fa-clipboard-check text-4xl mb-3 block text-slate-200"></i>'
+            +'<p class="font-semibold">Sin evaluaciones asignadas</p>'
+            +'<p class="text-xs mt-1">Cuando el administrador active un proceso, aparecerán aquí.</p></div>';
+        return;
+    }
+
+    cont.innerHTML = '<h3 class="text-base font-bold text-slate-800 mb-5">Mis Evaluaciones</h3>'
+    // KPIs
+    +'<div class="grid grid-cols-3 gap-3 mb-6">'
+    +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Total</p>'
+      +'<p class="text-2xl font-black text-slate-800 mt-1">'+evals.length+'</p></div>'
+    +'<div class="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-amber-600 uppercase tracking-wide">Pendientes</p>'
+      +'<p class="text-2xl font-black text-amber-600 mt-1">'+pend.length+'</p></div>'
+    +'<div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-emerald-600 uppercase tracking-wide">Completadas</p>'
+      +'<p class="text-2xl font-black text-emerald-600 mt-1">'+comp.length+'</p></div>'
+    +'</div>'
+    // Lista de evaluaciones
+    +'<div class="space-y-3">'
+    +evals.map(function(ev){
+        const pend = ev.estatus==='Pendiente';
+        const rol  = {jefe:'Como Evaluador',autoevaluacion:'Autoevaluación',par:'Evaluación de Par',subordinado:'Evaluación de Subordinado'}[ev.rolEvaluador]||ev.rolEvaluador;
+        return '<div class="bg-white rounded-2xl border '+(pend?'border-amber-200':'border-slate-100')+' shadow-sm p-5 flex items-center justify-between gap-4">'
+            +'<div class="flex items-center gap-4">'
+            +'<div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style="background:'+(pend?'#f59e0b':'#10b981')+';">'
+            +'<i class="fas fa-'+(pend?'clock':'check')+'"></i></div>'
+            +'<div>'
+            +'<p class="font-bold text-slate-800 text-sm">'+ev.nombreEvaluado+'</p>'
+            +'<p class="text-xs text-slate-400 mt-0.5">'+rol+' · ID Proceso: '+ev.idProceso+'</p>'
+            +(ev.fechaComp?'<p class="text-xs text-emerald-500 mt-0.5">Completada: '+new Date(ev.fechaComp).toLocaleDateString('es-MX')+'</p>':'')
+            +'</div></div>'
+            +'<div class="flex items-center gap-2 flex-shrink-0">'
+            +'<span class="px-2 py-1 rounded-lg text-xs font-bold '+(pend?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700')+'">'+ev.estatus+'</span>'
+            +'<span class="px-2 py-1 rounded-lg text-xs font-bold "+(pend?"bg-amber-100 text-amber-700":"bg-emerald-100 text-emerald-700")+">'+ev.estatus+'</span>'
+            +(pend?'<button data-evid="'+ev.id+'" data-proc="'+ev.idProceso+'" class="eval-form-btn px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition">Evaluar</button>':'')
+    }).join('')
+    +'</div>';
+}
+
+// ── MI EQUIPO ────────────────────────────────────────────────
+async function renderMiEquipoEval(cont) {
+    const idInt = sesionActual?.usuario?.idInterno || '';
+    const r = await enviarPeticion('listar_equipo_eval',{ idJefe: idInt });
+    if(r.status !== 'success'){ cont.innerHTML='<p class="text-red-400 text-center py-8">'+r.message+'</p>'; return; }
+
+    const equipo = r.equipo || [];
+    if(!equipo.length){
+        cont.innerHTML = '<div class="text-center py-16 text-slate-400">'
+            +'<i class="fas fa-users text-4xl mb-3 block text-slate-200"></i>'
+            +'<p class="font-semibold">Sin evaluaciones de equipo</p>'
+            +'<p class="text-xs mt-1">Cuando exista un proceso activo con colaboradores a tu cargo, aparecerán aquí.</p></div>';
+        return;
+    }
+
+    const pend = equipo.filter(function(e){ return e.estatus==='Pendiente'; }).length;
+    const comp = equipo.filter(function(e){ return e.estatus==='Completada'; }).length;
+    const pct  = equipo.length>0 ? Math.round(comp/equipo.length*100) : 0;
+
+    cont.innerHTML = '<h3 class="text-base font-bold text-slate-800 mb-5">Mi Equipo — Evaluaciones</h3>'
+    // Progreso general
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-5">'
+    +'<div class="flex items-center justify-between mb-2">'
+    +'<p class="text-sm font-bold text-slate-700">Progreso del equipo</p>'
+    +'<span class="text-sm font-black text-violet-600">'+pct+'%</span>'
+    +'</div>'
+    +'<div class="h-3 bg-slate-100 rounded-full overflow-hidden mb-3">'
+    +'<div class="h-full bg-gradient-to-r from-violet-500 to-violet-300 rounded-full transition-all duration-700" style="width:'+pct+'%"></div>'
+    +'</div>'
+    +'<div class="flex gap-4 text-xs text-slate-500">'
+    +'<span><strong class="text-amber-600">'+pend+'</strong> pendientes</span>'
+    +'<span><strong class="text-emerald-600">'+comp+'</strong> completadas</span>'
+    +'<span><strong class="text-slate-700">'+equipo.length+'</strong> total</span>'
+    +'</div></div>'
+    // Lista del equipo
+    +'<div class="space-y-3">'
+    +equipo.map(function(ev){
+        const pend = ev.estatus==='Pendiente';
+        const ini  = getIniciales(ev.nombreEvaluado)||'?';
+        const col  = avatarColor(ev.nombreEvaluado);
+        return '<div class="bg-white rounded-2xl border '+(pend?'border-amber-100':'border-slate-100')+' shadow-sm p-4 flex items-center gap-4">'
+            +'<div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+col+';">'+ini+'</div>'
+            +'<div class="flex-1">'
+            +'<p class="font-bold text-slate-700 text-sm">'+ev.nombreEvaluado+'</p>'
+            +'<p class="text-xs text-slate-400">Proceso: '+ev.idProceso+'</p>'
+            +'</div>'
+            +'<div class="flex items-center gap-2">'
+            +'<span class="px-2 py-1 rounded-lg text-xs font-bold '+(pend?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700')+'">'+ev.estatus+'</span>'
+            +(pend?'<button data-evid="'+ev.id+'" data-proc="'+ev.idProceso+'" class="eval-form-btn px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-lg transition">Evaluar</button>':'')
+            +'</div></div>';
+    }).join('')
+    +'</div>';
+}
+
+// ── INFORMES EVALUACIONES ────────────────────────────────────
+async function renderInformesEval(cont) {
+    const r = await enviarPeticion('listar_procesos_eval',{ token: getToken() });
+    if(r.status !== 'success'){ cont.innerHTML='<p class="text-red-400 text-center py-8">'+r.message+'</p>'; return; }
+
+    const procesos = (r.procesos||[]).filter(function(p){ return p.estatus!=='Borrador'; });
+
+    if(!procesos.length){
+        cont.innerHTML = '<div class="text-center py-16 text-slate-400">'
+            +'<i class="fas fa-chart-bar text-4xl mb-3 block text-slate-200"></i>'
+            +'<p class="font-semibold">Sin procesos activos</p>'
+            +'<p class="text-xs mt-1">Activa un proceso de evaluación para ver sus resultados.</p></div>';
+        return;
+    }
+
+    // Selector de proceso
+    cont.innerHTML = '<h3 class="text-base font-bold text-slate-800 mb-4">Informes de Evaluaciones</h3>'
+    +'<div class="flex gap-2 mb-5">'
+    +'<select id="inf-eval-sel" onchange="cargarInformeEval(this.value)" '
+    +'class="text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500">'
+    +'<option value="">— Selecciona un proceso —</option>'
+    +procesos.map(function(p){
+        return '<option value="'+p.id+'">'+p.nombre+' ('+p.estatus+')</option>';
+    }).join('')
+    +'</select></div>'
+    +'<div id="inf-eval-cont"></div>';
+}
+
+async function cargarInformeEval(idProceso) {
+    if(!idProceso) return;
+    const cont = document.getElementById('inf-eval-cont');
+    if(!cont) return;
+    cont.innerHTML = '<div class="flex justify-center py-8"><i class="fas fa-spinner fa-spin text-violet-400"></i></div>';
+
+    const [rRes, rProc] = await Promise.all([
+        enviarPeticion('resultados_eval',{ idProceso }),
+        enviarPeticion('obtener_proceso_eval',{ id: idProceso })
+    ]);
+
+    if(rRes.status !== 'success'){ cont.innerHTML='<p class="text-red-400">'+rRes.message+'</p>'; return; }
+
+    const tipo   = rProc.proceso?.tipo || 'desempeno';
+    const t      = EVAL_TIPOS[tipo] || EVAL_TIPOS.desempeno;
+    const total  = rRes.total || 0;
+    const comp   = rRes.completadas || 0;
+    const pend   = rRes.pendientes || 0;
+    const pct    = total>0 ? Math.round(comp/total*100) : 0;
+
+    // Calcular promedio general (para escala 1-10)
+    let sumTotal=0, cntTotal=0;
+    (rRes.evaluaciones||[]).filter(function(e){ return e.estatus==='Completada'; }).forEach(function(ev){
+        Object.values(ev.respuestas||{}).forEach(function(v){
+            const n=parseInt(v); if(!isNaN(n)&&n>=1&&n<=10){ sumTotal+=n; cntTotal++; }
+        });
+    });
+    const promG = cntTotal>0 ? (sumTotal/cntTotal).toFixed(1) : '—';
+
+    cont.innerHTML =
+    // KPIs
+    '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">'
+    +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-slate-400 uppercase">Evaluaciones</p>'
+      +'<p class="text-2xl font-black text-slate-800 mt-1">'+total+'</p></div>'
+    +'<div class="bg-emerald-50 rounded-xl p-4 border border-emerald-200 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-emerald-600 uppercase">Completadas</p>'
+      +'<p class="text-2xl font-black text-emerald-600 mt-1">'+comp+'</p></div>'
+    +'<div class="bg-amber-50 rounded-xl p-4 border border-amber-200 shadow-sm text-center">'
+      +'<p class="text-xs font-bold text-amber-600 uppercase">Pendientes</p>'
+      +'<p class="text-2xl font-black text-amber-600 mt-1">'+pend+'</p></div>'
+    +'<div class="bg-white rounded-xl p-4 border shadow-sm text-center" style="border-color:'+t.color+'30">'
+      +'<p class="text-xs font-bold uppercase" style="color:'+t.color+'">Promedio</p>'
+      +'<p class="text-2xl font-black mt-1" style="color:'+t.color+'">'+promG+(promG!=='—'?'<span class="text-sm font-normal text-slate-400">/10</span>':'')+'</p></div>'
+    +'</div>'
+    // Barra de progreso
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">'
+    +'<div class="flex justify-between mb-2"><p class="text-sm font-bold text-slate-700">Progreso global</p><span class="text-sm font-black" style="color:'+t.color+'">'+pct+'%</span></div>'
+    +'<div class="h-4 bg-slate-100 rounded-full overflow-hidden">'
+    +'<div class="h-full rounded-full transition-all duration-700" style="width:'+pct+'%;background:'+t.color+';"></div>'
+    +'</div></div>'
+    // Tabla de evaluados
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">'
+    +'<div class="px-5 py-3.5 border-b border-slate-100">'
+    +'<p class="text-sm font-bold text-slate-700">Detalle por Colaborador</p></div>'
+    +'<div class="overflow-x-auto"><table class="w-full text-sm">'
+    +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">'
+    +'<tr><th class="px-4 py-2.5 text-left">Colaborador</th>'
+    +'<th class="px-4 py-2.5 text-center">Rol</th>'
+    +'<th class="px-4 py-2.5 text-center">Estatus</th>'
+    +'<th class="px-4 py-2.5 text-center">Promedio</th>'
+    +'<th class="px-4 py-2.5 text-center">Fecha</th></tr></thead>'
+    +'<tbody class="divide-y divide-slate-50">'
+    +(rRes.evaluaciones||[]).map(function(ev){
+        let s=0,c=0;
+        Object.values(ev.respuestas||{}).forEach(function(v){
+            const n=parseInt(v); if(!isNaN(n)&&n>=1&&n<=10){s+=n;c++;}
+        });
+        const prom=c>0?(s/c).toFixed(1):'—';
+        const col=parseFloat(prom)>=7?'text-emerald-600':parseFloat(prom)>=5?'text-amber-500':'text-red-500';
+        const rolLabel={jefe:'Evaluador',autoevaluacion:'Auto',par:'Par',subordinado:'Sub.'}[ev.rol]||ev.rol;
+        const ini=getIniciales(ev.nombre)||'?';
+        const bgCol=avatarColor(ev.nombre);
+        return '<tr class="hover:bg-slate-50">'
+            +'<td class="px-4 py-2.5"><div class="flex items-center gap-2">'
+            +'<div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+bgCol+';">'+ini+'</div>'
+            +'<span class="font-medium text-slate-700 text-xs">'+ev.nombre+'</span></div></td>'
+            +'<td class="px-4 py-2.5 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600">'+rolLabel+'</span></td>'
+            +'<td class="px-4 py-2.5 text-center"><span class="px-2 py-0.5 rounded-full text-xs font-bold '+(ev.estatus==='Completada'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700')+'">'+ev.estatus+'</span></td>'
+            +'<td class="px-4 py-2.5 text-center font-bold text-sm '+col+'">'+prom+(prom!=='—'?'/10':'')+'</td>'
+            +'<td class="px-4 py-2.5 text-center text-xs text-slate-400">'+(ev.fechaComp?new Date(ev.fechaComp).toLocaleDateString('es-MX'):'—')+'</td>'
+            +'</tr>';
+    }).join('')
+    +'</tbody></table></div></div>';
+}
+
+// ── ADMINISTRACIÓN ───────────────────────────────────────────
+async function renderAdminEval(cont) {
+    const r = await enviarPeticion('listar_procesos_eval',{ token: getToken() });
+    const procesos = r.status==='success' ? (r.procesos||[]) : [];
+
+    cont.innerHTML =
+    '<div class="flex items-center justify-between mb-5">'
+    +'<h3 class="text-base font-bold text-slate-800">Procesos de Evaluación</h3>'
+    +'<button onclick="abrirCrearProceso()" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm">'
+    +'<i class="fas fa-plus"></i> Nuevo proceso</button>'
+    +'</div>'
+    // Filtros de tipo
+    +'<div class="flex gap-2 mb-4 flex-wrap">'
+    +['Todos','Borrador','Activo','Cerrado'].map(function(est){
+        return '<button data-est="'+est+'" class="proc-filter-btn text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 transition">'+est+'</button>';
+            +est+'</button>';
+    }).join('')
+    +'</div>'
+    // Lista de procesos
+    +'<div id="lista-procesos-eval" class="space-y-3">'
+    +renderListaProcesos(procesos)
+    +'</div>';
+
+    window._procesosEval = procesos;
+    // Event delegation para filtros de proceso
+    setTimeout(function(){
+        var wrap=document.getElementById('eval-contenido');
+        if(wrap){
+            wrap.addEventListener('click',function(e){
+                var fb=e.target.closest('.proc-filter-btn');
+                if(fb) filtrarProcesosEval(fb, fb.dataset.est||'Todos');
+                var pb=e.target.closest('.proc-act-btn');
+                if(pb){
+                    var pid=pb.dataset.pid, act=pb.dataset.action;
+                    if(act==='editar')    editarProcesoEval(pid);
+                    if(act==='activar')   activarProcesoEval(pid);
+                    if(act==='resultados') verResultadosEval(pid);
+                    if(act==='cerrar')    confirmarCerrarProceso(pid);
+                }
+                var eb=e.target.closest('.eval-form-btn');
+                if(eb) abrirFormularioEval(eb.dataset.evid, eb.dataset.proc);
+            });
+        }
+    },100);
+    // Event delegation para botones Evaluar
+    setTimeout(function(){
+        var c=document.getElementById('eval-contenido');
+        if(c) c.addEventListener('click',function(e){
+            var btn=e.target.closest('.eval-form-btn');
+            if(btn) abrirFormularioEval(btn.dataset.evid, btn.dataset.proc);
+        });
+    },100);
+}
+
+function renderListaProcesos(procesos) {
+    if(!procesos.length){
+        return '<div class="text-center py-12 text-slate-400">'
+            +'<i class="fas fa-clipboard text-3xl mb-2 block text-slate-200"></i>'
+            +'<p class="text-sm">Sin procesos. Crea el primero con "Nuevo proceso".</p></div>';
+    }
+    return procesos.map(function(p){
+        const t = EVAL_TIPOS[p.tipo] || EVAL_TIPOS.desempeno;
+        const statCol = p.estatus==='Activo'?'bg-emerald-100 text-emerald-700'
+            :p.estatus==='Cerrado'?'bg-slate-100 text-slate-500'
+            :'bg-amber-100 text-amber-700';
+        return '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:border-violet-200 transition">'
+            +'<div class="flex items-start gap-4">'
+            +'<div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:'+t.bg+';color:'+t.color+';">'
+            +'<i class="fas '+t.icon+'"></i></div>'
+            +'<div class="flex-1 min-w-0">'
+            +'<div class="flex items-center gap-2 mb-1 flex-wrap">'
+            +'<p class="font-bold text-slate-800 text-sm">'+p.nombre+'</p>'
+            +'<span class="px-2 py-0.5 rounded-full text-xs font-bold" style="background:'+t.bg+';color:'+t.color+';">'+t.label+'</span>'
+            +'<span class="px-2 py-0.5 rounded-full text-xs font-bold '+statCol+'">'+p.estatus+'</span>'
+            +'</div>'
+            +'<p class="text-xs text-slate-400">'
+            +(p.empresa||'Todas las empresas')
+            +(p.fechaIni?' · '+p.fechaIni:'')
+            +(p.fechaFin?' → '+p.fechaFin:'')
+            +'</p>'
+            +'</div>'
+            +'<div class="flex gap-2 flex-shrink-0">'
+            +(p.estatus==='Borrador'
+                ?'<button data-pid="'+p.id+'" data-action="editar" class="proc-act-btn w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-100 text-slate-500 hover:text-blue-600 transition flex items-center justify-center"><i class="fas fa-pen text-xs pointer-events-none"></i></button>'
+                +'<button data-pid="'+p.id+'" data-action="activar" class="proc-act-btn w-8 h-8 rounded-lg bg-slate-100 hover:bg-emerald-100 text-slate-500 hover:text-emerald-600 transition flex items-center justify-center"><i class="fas fa-play text-xs pointer-events-none"></i></button>'
+                :'')
+            +(p.estatus==='Activo'
+                ?'<button data-pid="'+p.id+'" data-action="resultados" class="proc-act-btn w-8 h-8 rounded-lg bg-slate-100 hover:bg-violet-100 text-slate-500 hover:text-violet-600 transition flex items-center justify-center"><i class="fas fa-chart-bar text-xs pointer-events-none"></i></button>'
+                +'<button data-pid="'+p.id+'" data-action="cerrar" class="proc-act-btn w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-500 transition flex items-center justify-center"><i class="fas fa-lock text-xs pointer-events-none"></i></button>'
+                :'')
+            +'</div></div></div>';
+    }).join('');
+}
+
+function filtrarProcesosEval(btn, estatus) {
+    document.querySelectorAll('.proc-filter-btn').forEach(function(b){
+        b.classList.remove('bg-violet-600','text-white','border-violet-600');
+        b.classList.add('border-slate-200','text-slate-500');
+    });
+    btn.classList.add('bg-violet-600','text-white','border-violet-600');
+    btn.classList.remove('border-slate-200','text-slate-500');
+    const todos = window._procesosEval || [];
+    const filt  = estatus==='Todos' ? todos : todos.filter(function(p){ return p.estatus===estatus; });
+    const lista = document.getElementById('lista-procesos-eval');
+    if(lista) lista.innerHTML = renderListaProcesos(filt);
+}
+
+// ── Crear proceso ─────────────────────────────────────────────
+function abrirCrearProceso() {
+    Swal.fire({
+        title:'Nuevo proceso de evaluación',
+        html:
+        '<div style="text-align:left;">'
+        +'<label style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#64748b;display:block;margin-bottom:4px;">Nombre</label>'
+        +'<input id="np-nombre" class="swal2-input" style="margin:0 0 12px;width:100%;box-sizing:border-box;" placeholder="Ej. Evaluación Desempeño Q1 2025">'
+        +'<label style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#64748b;display:block;margin-bottom:4px;">Tipo de evaluación</label>'
+        +'<select id="np-tipo" class="swal2-select" style="margin:0 0 12px;width:100%;box-sizing:border-box;">'
+        +'<option value="desempeno">Desempeño (1-10)</option>'
+        +'<option value="360">360° (1-10)</option>'
+        +'<option value="competencias">Competencias</option>'
+        +'</select>'
+        +'<label style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#64748b;display:block;margin-bottom:4px;">Empresa (vacío = todas)</label>'
+        +'<input id="np-empresa" class="swal2-input" style="margin:0 0 12px;width:100%;box-sizing:border-box;" placeholder="Dejar vacío para todas">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+        +'<div><label style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#64748b;display:block;margin-bottom:4px;">Fecha inicio</label>'
+        +'<input id="np-ini" type="date" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;"></div>'
+        +'<div><label style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#64748b;display:block;margin-bottom:4px;">Fecha cierre</label>'
+        +'<input id="np-fin" type="date" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;"></div>'
+        +'</div></div>',
+        showCancelButton:true,
+        confirmButtonText:'Crear proceso',
+        confirmButtonColor:'#7c3aed',
+        cancelButtonText:'Cancelar',
+        preConfirm: async function(){
+            const nombre  = document.getElementById('np-nombre').value.trim();
+            const tipo    = document.getElementById('np-tipo').value;
+            const empresa = document.getElementById('np-empresa').value.trim();
+            const fechaIni= document.getElementById('np-ini').value;
+            const fechaFin= document.getElementById('np-fin').value;
+            if(!nombre){ Swal.showValidationMessage('El nombre es requerido'); return false; }
+            const r = await enviarPeticion('crear_proceso_eval',{ token:getToken(), nombre, tipo, empresa, fechaIni, fechaFin });
+            if(r.status!=='success'){ Swal.showValidationMessage(r.message); return false; }
+            return r;
+        }
+    }).then(function(result){
+        if(result.isConfirmed){
+            mostrarToast('success','Proceso creado','Se creó correctamente. Ahora puedes editar las preguntas y activarlo.',5000);
+            renderAdminEval(document.getElementById('eval-contenido'));
+        }
+    });
+}
+
+// ── Editar proceso (preguntas) ────────────────────────────────
+async function editarProcesoEval(id) {
+    const r = await enviarPeticion('obtener_proceso_eval',{ id });
+    if(r.status!=='success'){ mostrarToast('error','Error',r.message); return; }
+    _evalProcesoActual = r.proceso;
+    abrirEditorEval(r.proceso);
+}
+
+function abrirEditorEval(proceso) {
+    let overlay = document.getElementById('editor-eval-overlay');
+    if(!overlay){
+        overlay = document.createElement('div');
+        overlay.id = 'editor-eval-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;background:#f8f7ff;overflow:hidden;';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+
+    const est   = proceso.estructura || {};
+    const bloqs = est.bloques || [];
+    const tipo  = proceso.tipo;
+    const t     = EVAL_TIPOS[tipo] || EVAL_TIPOS.desempeno;
+    const totalPregs = bloqs.reduce(function(s,b){ return s+(b.preguntas||[]).length; },0);
+
+    overlay.innerHTML =
+    // Header
+    '<div style="background:#0d1b3e;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">'
+    +'<div style="display:flex;align-items:center;gap:12px;">'
+    +'<button onclick="cerrarEditorEval()" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;">'
+    +'<i class="fas fa-arrow-left"></i></button>'
+    +'<div><p style="font-weight:800;font-size:1rem;margin:0;">'+proceso.nombre+'</p>'
+    +'<p style="font-size:.7rem;color:rgba(255,255,255,.5);margin:0;">'+bloqs.length+' bloques · '+totalPregs+' preguntas · '+t.label+'</p>'
+    +'</div></div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button onclick="agregarBloqueEval()" style="background:rgba(124,58,237,.3);border:1px solid rgba(124,58,237,.5);color:#c4b5fd;padding:8px 16px;border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;">'
+    +'<i class="fas fa-plus mr-1"></i> Bloque</button>'
+    +'<button onclick="guardarEditorEval()" id="btn-guardar-eval" style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#fff;padding:8px 20px;border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;">'
+    +'<i class="fas fa-save mr-1"></i> Guardar</button>'
+    +'</div></div>'
+    // Área scrollable
+    +'<div id="eval-editor-bloques" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;">'
+    +renderBloquesEditorEval()
+    +'</div>';
+}
+
+function renderBloquesEditorEval() {
+    const bloqs = (_evalProcesoActual?.estructura?.bloques)||[];
+    const tipo  = _evalProcesoActual?.tipo || 'desempeno';
+
+    if(!bloqs.length){
+        return '<div style="text-align:center;padding:48px;color:#94a3b8;">'
+            +'<i class="fas fa-layer-group" style="font-size:3rem;margin-bottom:12px;display:block;"></i>'
+            +'<p>Sin bloques. Haz clic en <strong>+ Bloque</strong> para comenzar.</p></div>';
+    }
+
+    return bloqs.map(function(bloque, bi){
+        const nPregs = (bloque.preguntas||[]).length;
+        return '<div style="background:#fff;border-radius:14px;border:1.5px solid #e2e8f0;box-shadow:0 2px 8px rgba(0,0,0,.04);">'
+        // Header bloque
+        +'<div style="background:linear-gradient(135deg,#f8f7ff,#f0ebff);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e9e3ff;border-radius:14px 14px 0 0;">'
+        +'<div style="display:flex;align-items:center;gap:10px;flex:1;">'
+        +'<input type="text" value="'+(bloque.titulo||'').replace(/"/g,'&quot;')+'" '
+        +'oninput="_evalProcesoActual.estructura.bloques['+bi+'].titulo=this.value" '
+        +'style="flex:1;border:1.5px solid #ddd6fe;border-radius:8px;padding:6px 10px;font-weight:700;font-size:.9rem;">'
+        +'<span style="font-size:.75rem;color:#8b5cf6;font-weight:600;">'+nPregs+' preg.</span>'
+        +'</div>'
+        +'<div style="display:flex;gap:6px;margin-left:10px;">'
+        +(bi>0?'<button onclick="moverBloqueEval('+bi+',-1)" style="'+btnIconStyle('slate')+'" title="Subir"><i class="fas fa-chevron-up"></i></button>':'')
+        +(bi<bloqs.length-1?'<button onclick="moverBloqueEval('+bi+',1)" style="'+btnIconStyle('slate')+'" title="Bajar"><i class="fas fa-chevron-down"></i></button>':'')
+        +'<button onclick="agregarPregEval('+bi+')" style="'+btnIconStyle('violet')+'" title="Agregar pregunta"><i class="fas fa-plus"></i></button>'
+        +'<button onclick="eliminarBloqueEval('+bi+')" style="'+btnIconStyle('red')+'" title="Eliminar bloque"><i class="fas fa-trash"></i></button>'
+        +'</div></div>'
+        // Preguntas
+        +'<div style="padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px;">'
+        +((bloque.preguntas||[]).length===0
+            ?'<div style="text-align:center;padding:20px;color:#94a3b8;font-size:.85rem;border:1.5px dashed #e2e8f0;border-radius:10px;">Sin preguntas — haz clic en <strong style="color:#7c3aed;">+</strong> para agregar.</div>'
+            :(bloque.preguntas||[]).map(function(preg,pi){ return renderPregEditorEval(bi,pi,preg,tipo); }).join('')
+        )
+        +'</div></div>';
+    }).join('');
+}
+
+function renderPregEditorEval(bi, pi, preg, tipo) {
+    var tipos = tipo==='competencias'
+        ? [{val:'competencia',label:'Competencia'},{val:'abierta',label:'Comentario'}]
+        : [{val:'escala10',label:'Escala 1-10'},{val:'abierta',label:'Respuesta abierta'}];
+
+    var tipoSel = '<select onchange="cambiarTipoPregEval('+bi+','+pi+',this.value)" '
+        +'style="border:1.5px solid #e2e8f0;border-radius:7px;padding:4px 8px;font-size:.75rem;color:#475569;background:#fff;">';
+    tipos.forEach(function(t){ tipoSel += '<option value="'+t.val+'"'+(preg.tipo===t.val?' selected':'')+'>'+t.label+'</option>'; });
+    tipoSel += '</select>';
+
+    var html = '<div style="border:1.5px solid #f1f5f9;border-radius:10px;padding:12px;background:#fafafa;">';
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+    html += '<span style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;font-size:.65rem;font-weight:800;border-radius:6px;padding:2px 7px;">'+(pi+1)+'</span>';
+    html += tipoSel;
+    html += '<div style="flex:1;"></div>';
+    html += (pi>0?'<button onclick="moverPregEval('+bi+','+pi+',-1)" style="'+btnIconStyle('slate')+'" title="Subir"><i class="fas fa-chevron-up"></i></button>':'');
+    html += (pi<((_evalProcesoActual?.estructura?.bloques[bi]?.preguntas)||[]).length-1
+        ?'<button onclick="moverPregEval('+bi+','+pi+',1)" style="'+btnIconStyle('slate')+'" title="Bajar"><i class="fas fa-chevron-down"></i></button>':'');
+    html += '<button onclick="eliminarPregEval('+bi+','+pi+')" style="'+btnIconStyle('red')+'"><i class="fas fa-trash text-xs"></i></button>';
+    html += '</div>';
+    html += '<textarea oninput="_evalProcesoActual.estructura.bloques['+bi+'].preguntas['+pi+'].texto=this.value" '
+        +'style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.88rem;resize:vertical;min-height:52px;font-family:inherit;" '
+        +'placeholder="Escribe la pregunta o competencia...">'+(preg.texto||'')+'</textarea>';
+    html += '</div>';
+    return html;
+}
+
+// ── Acciones del editor ───────────────────────────────────────
+function agregarBloqueEval() {
+    if(!_evalProcesoActual) return;
+    if(!_evalProcesoActual.estructura) _evalProcesoActual.estructura = {bloques:[]};
+    _evalProcesoActual.estructura.bloques.push({titulo:'Nuevo bloque',preguntas:[]});
+    actualizarEditorEval();
+}
+function eliminarBloqueEval(bi) {
+    if(!confirm('¿Eliminar este bloque y sus preguntas?')) return;
+    _evalProcesoActual.estructura.bloques.splice(bi,1);
+    actualizarEditorEval();
+}
+function moverBloqueEval(bi,dir) {
+    var b=_evalProcesoActual.estructura.bloques; var t=bi+dir;
+    if(t<0||t>=b.length) return;
+    var tmp=b[bi]; b[bi]=b[t]; b[t]=tmp; actualizarEditorEval();
+}
+function agregarPregEval(bi) {
+    var tipo=_evalProcesoActual.tipo==='competencias'?'competencia':'escala10';
+    _evalProcesoActual.estructura.bloques[bi].preguntas.push({tipo:tipo,texto:''});
+    actualizarEditorEval();
+}
+function eliminarPregEval(bi,pi) {
+    _evalProcesoActual.estructura.bloques[bi].preguntas.splice(pi,1);
+    actualizarEditorEval();
+}
+function moverPregEval(bi,pi,dir) {
+    var p=_evalProcesoActual.estructura.bloques[bi].preguntas; var t=pi+dir;
+    if(t<0||t>=p.length) return;
+    var tmp=p[pi]; p[pi]=p[t]; p[t]=tmp; actualizarEditorEval();
+}
+function cambiarTipoPregEval(bi,pi,tipo) {
+    _evalProcesoActual.estructura.bloques[bi].preguntas[pi].tipo=tipo;
+    actualizarEditorEval();
+}
+function actualizarEditorEval() {
+    var c=document.getElementById('eval-editor-bloques');
+    if(c) c.innerHTML=renderBloquesEditorEval();
+}
+async function guardarEditorEval() {
+    var btn=document.getElementById('btn-guardar-eval');
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i> Guardando...';}
+    var r=await enviarPeticion('actualizar_proceso_eval',{
+        token:getToken(), id:_evalProcesoActual.id,
+        estructura:_evalProcesoActual.estructura
+    });
+    if(r.status==='success'){
+        mostrarToast('success','Guardado','Proceso actualizado correctamente.');
+        cerrarEditorEval();
+        renderAdminEval(document.getElementById('eval-contenido'));
+    } else { mostrarToast('error','Error',r.message); }
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-save mr-1"></i> Guardar';}
+}
+function cerrarEditorEval() {
+    var o=document.getElementById('editor-eval-overlay');
+    if(o) o.style.display='none';
+}
+
+// ── Activar proceso ──────────────────────────────────────────
+async function activarProcesoEval(id) {
+    const conf = await Swal.fire({
+        title:'¿Activar el proceso?',
+        text:'Se generarán evaluaciones automáticamente basándose en los Jefes Directos asignados.',
+        icon:'question',
+        showCancelButton:true,
+        confirmButtonText:'Sí, activar',
+        confirmButtonColor:'#059669',
+        cancelButtonText:'Cancelar'
+    });
+    if(!conf.isConfirmed) return;
+
+    const r = await enviarPeticion('activar_proceso_eval',{ token:getToken(), id });
+    if(r.status==='success'){
+        mostrarToast('success','Proceso activado',r.message,6000);
+        renderAdminEval(document.getElementById('eval-contenido'));
+    } else { mostrarToast('error','Error',r.message); }
+}
+
+async function confirmarCerrarProceso(id) {
+    const conf = await Swal.fire({
+        title:'¿Cerrar el proceso?',
+        text:'Ya no se podrán llenar más evaluaciones.',
+        icon:'warning',
+        showCancelButton:true,
+        confirmButtonText:'Cerrar proceso',
+        confirmButtonColor:'#ef4444',
+        cancelButtonText:'Cancelar'
+    });
+    if(!conf.isConfirmed) return;
+    const r = await enviarPeticion('cerrar_proceso_eval',{ token:getToken(), id });
+    if(r.status==='success'){
+        mostrarToast('success','Proceso cerrado','');
+        renderAdminEval(document.getElementById('eval-contenido'));
+    }
+}
+
+function verResultadosEval(id) {
+    const sel = document.getElementById('inf-eval-sel');
+    activarTabEval('informes', document.querySelector('.eval-tab[data-tab="informes"]'));
+    setTimeout(function(){
+        const s=document.getElementById('inf-eval-sel');
+        if(s){ s.value=id; cargarInformeEval(id); }
+    },500);
+}
+
+// ── Formulario de evaluación ─────────────────────────────────
+async function abrirFormularioEval(idEval, idProceso) {
+    const r = await enviarPeticion('obtener_proceso_eval',{ id: idProceso });
+    if(r.status!=='success'){ mostrarToast('error','Error',r.message); return; }
+
+    const proceso = r.proceso;
+    const est     = proceso.estructura || {};
+    const tipo    = proceso.tipo;
+
+    let overlay = document.getElementById('form-eval-overlay');
+    if(!overlay){
+        overlay = document.createElement('div');
+        overlay.id = 'form-eval-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;background:#f8f7ff;overflow:hidden;';
+        document.body.appendChild(overlay);
+    }
+    overlay.style.display='flex';
+    overlay.innerHTML = renderFormularioEval(proceso, idEval);
+    // Event delegation para opciones de evaluación y envío
+    overlay.addEventListener('click', function(e){
+        var sb=e.target.closest('.eval-submit-btn');
+        if(sb) enviarEvaluacion(sb.dataset.ideval, parseInt(sb.dataset.total));
+        var opt = e.target.closest('.eval-opt');
+        if(opt){ selEvalOpt(opt, opt.dataset.q, parseInt(opt.dataset.v), opt.dataset.col); }
+        var opc = e.target.closest('.eval-opt-comp');
+        if(opc){ selEvalComp(opc, opc.dataset.q, parseInt(opc.dataset.v), opc.dataset.col); }
+    });
+}
+
+function renderFormularioEval(proceso, idEval) {
+    const est   = proceso.estructura || {};
+    const tipo  = proceso.tipo;
+    const bloqs = est.bloques || [];
+    let gq = 0;
+    let pregsHTML = '';
+
+    bloqs.forEach(function(bloque, bi){
+        pregsHTML += '<div style="background:#fff;border-radius:14px;border:1.5px solid #ede9fe;padding:20px;margin-bottom:16px;">'
+            +'<p style="font-size:.95rem;font-weight:800;color:#0d1b3e;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid #ede9fe;">'
+            +'<span style="font-size:1.2rem;margin-right:8px;">'+(bi+1)+'.</span>'+bloque.titulo+'</p>';
+
+        (bloque.preguntas||[]).forEach(function(preg,pi){
+            gq++;
+            pregsHTML += '<div style="margin-bottom:20px;">'
+                +'<p style="font-size:.85rem;color:#475569;margin:0 0 10px;"><strong style="color:#7c3aed;">'+gq+'.</strong> '+preg.texto+'</p>';
+
+            if(preg.tipo==='escala10'){
+                // Grid de botones 1-10
+                pregsHTML += '<div style="display:grid;grid-template-columns:repeat(10,1fr);gap:4px;" id="grid-'+gq+'">';
+                for(var v=1;v<=10;v++){
+                    var col=v<=3?'#ef4444':v<=5?'#f59e0b':v<=7?'#3b82f6':'#10b981';
+                    pregsHTML += '<label style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">'
+                        +'<input type="radio" name="eq'+gq+'" value="'+v+'" style="display:none;" onchange="onRespEval('+gq+')">'
+                        +'<span class="eval-opt" data-q="'+gq+'" data-v="'+v+'" data-col="'+col+'" '
+                        +'style="width:100%;min-width:24px;aspect-ratio:1;border-radius:8px;border:2px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#94a3b8;cursor:pointer;transition:all .15s;">'+v+'</span>'
+                        +'</label>';
+                }
+                pregsHTML += '</div>'
+                    +'<div style="display:flex;justify-content:space-between;margin-top:4px;">'
+                    +'<span style="font-size:.65rem;color:#ef4444;">Muy bajo</span>'
+                    +'<span style="font-size:.65rem;color:#10b981;">Excelente</span></div>';
+            } else if(preg.tipo==='competencia'){
+                const opts=est.opcionesCompetencia||[
+                    {valor:1,etiqueta:'No desarrollada'},{valor:2,etiqueta:'En desarrollo'},
+                    {valor:3,etiqueta:'Desarrollada'},{valor:4,etiqueta:'Sobresaliente'}
+                ];
+                pregsHTML += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;" id="grid-'+gq+'">';
+                opts.forEach(function(op){
+                    var col=op.valor===1?'#ef4444':op.valor===2?'#f59e0b':op.valor===3?'#3b82f6':'#10b981';
+                    pregsHTML += '<label style="cursor:pointer;">'
+                        +'<input type="radio" name="eq'+gq+'" value="'+op.valor+'" style="display:none;" onchange="onRespEval('+gq+')">'
+                        +'<span class="eval-opt-comp" data-q="'+gq+'" data-v="'+op.valor+'" data-col="'+col+'" '
+                        +'style="display:block;padding:8px 12px;border-radius:10px;border:2px solid #e2e8f0;font-size:.8rem;font-weight:600;color:#64748b;cursor:pointer;transition:all .15s;">'+op.etiqueta+'</span>'
+                        +'</label>';
+                });
+                pregsHTML += '</div>';
+            } else {
+                pregsHTML += '<textarea name="eq'+gq+'" id="ta-'+gq+'" oninput="onRespEval('+gq+')" '
+                    +'style="width:100%;border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;font-size:.88rem;resize:vertical;min-height:80px;font-family:inherit;" '
+                    +'placeholder="Escribe tu respuesta..."></textarea>';
+            }
+
+            pregsHTML += '</div>';
+        });
+        pregsHTML += '</div>';
+    });
+
+    return '<div style="background:#0d1b3e;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">'
+        +'<div style="display:flex;align-items:center;gap:12px;">'
+        +'<button onclick="cerrarFormularioEval()" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;">'
+        +'<i class="fas fa-arrow-left"></i></button>'
+        +'<div><p style="font-weight:800;font-size:1rem;margin:0;">'+proceso.nombre+'</p>'
+        +'<p style="font-size:.7rem;color:rgba(255,255,255,.5);margin:0;" id="form-eval-progreso">0 de '+gq+' respondidas</p>'
+        +'</div></div>'
+        +'<button id="btn-enviar-eval" data-ideval="'+idEval+'" data-total="'+gq+'" class="eval-submit-btn" '
+        +'style="background:linear-gradient(135deg,#7c3aed,#a855f7);border:none;color:#fff;padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;">'
+        +'<i class="fas fa-paper-plane mr-1"></i> Enviar</button>'
+        +'<i class="fas fa-paper-plane mr-1"></i> Enviar</button>'
+        +'</div>'
+        +'<div style="flex:1;overflow-y:auto;padding:20px;max-width:720px;margin:0 auto;width:100%;">'
+        +pregsHTML
+        +'</div>';
+}
+
+let _evalRespuestas = {};
+function selEvalOpt(el, qn, v, col) {
+    document.querySelectorAll('.eval-opt[data-q="'+qn+'"]').forEach(function(opt){
+        opt.style.borderColor='#e2e8f0'; opt.style.background=''; opt.style.color='#94a3b8';
+    });
+    el.style.borderColor=col; el.style.background=col+'20'; el.style.color=col;
+    _evalRespuestas['q'+qn]=v; onRespEval(qn);
+}
+function selEvalComp(el, qn, v, col) {
+    document.querySelectorAll('.eval-opt-comp[data-q="'+qn+'"]').forEach(function(opt){
+        opt.style.borderColor='#e2e8f0'; opt.style.background=''; opt.style.color='#64748b';
+    });
+    el.style.borderColor=col; el.style.background=col+'15'; el.style.color=col;
+    _evalRespuestas['q'+qn]=v; onRespEval(qn);
+}
+function onRespEval(qn) {
+    const ta=document.getElementById('ta-'+qn);
+    if(ta) _evalRespuestas['q'+qn]=ta.value;
+    const total=parseInt(document.getElementById('form-eval-progreso')?.textContent?.split('de')[1])||0;
+    const resp=Object.keys(_evalRespuestas).filter(function(k){ return _evalRespuestas[k]!==undefined&&_evalRespuestas[k]!==''; }).length;
+    const el=document.getElementById('form-eval-progreso');
+    if(el) el.textContent=resp+' de '+total+' respondidas';
+}
+
+async function enviarEvaluacion(idEval, totalPregs) {
+    _evalRespuestas={};
+    // Recopilar textareas
+    document.querySelectorAll('[name^="eq"]').forEach(function(inp){
+        if(inp.type==='radio'&&inp.checked) _evalRespuestas['q'+inp.name.replace('eq','')]=inp.value;
+        if(inp.tagName==='TEXTAREA'&&inp.value.trim()) _evalRespuestas['q'+inp.name.replace('eq','')]=inp.value.trim();
+    });
+    // Incluir selecciones de escala10 y competencias
+    document.querySelectorAll('.eval-opt[style*="border-color"],.eval-opt-comp[style*="border-color"]').forEach(function(el){
+        if(el.dataset.q&&el.dataset.v) _evalRespuestas['q'+el.dataset.q]=parseInt(el.dataset.v);
+    });
+
+    const resp=Object.keys(_evalRespuestas).length;
+    if(resp<Math.ceil(totalPregs*0.7)){
+        if(!confirm('Has respondido '+resp+' de '+totalPregs+' preguntas. ¿Enviar de todas formas?')) return;
+    }
+
+    const btn=document.getElementById('btn-enviar-eval');
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin mr-1"></i> Enviando...';}
+
+    const r=await enviarPeticion('guardar_eval',{token:getToken(),idEval,respuestas:_evalRespuestas});
+    if(r.status==='success'){
+        cerrarFormularioEval();
+        mostrarToast('success','Evaluación enviada','Tu evaluación fue registrada correctamente.',5000);
+        cargarModuloEvaluaciones();
+    } else { mostrarToast('error','Error',r.message); }
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-paper-plane mr-1"></i> Enviar';}
+}
+
+function cerrarFormularioEval() {
+    const o=document.getElementById('form-eval-overlay');
+    if(o) o.style.display='none';
+    _evalRespuestas={};
+}
+
 let encTabActual = 'SALIDA';
 
 const ENC_TIPOS = {

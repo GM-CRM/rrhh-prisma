@@ -347,6 +347,11 @@ if ('serviceWorker' in navigator) {
       <i class="fas fa-people-group w-4 text-slate-400 group-hover:text-sky-400 transition"></i>
       <span class="font-medium">Personas</span>
     </button>
+    <button onclick="activarNav(this);showModule('evaluaciones');cargarModuloEvaluaciones();"
+      class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
+      <i class="fas fa-star w-4 text-slate-400 group-hover:text-amber-400 transition"></i>
+      <span class="font-medium">Evaluaciones</span>
+    </button>
     <button onclick="activarNav(this);showModule('encuestas');cargarModuloEncuestas();"
       class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition text-left text-sm group">
       <i class="fas fa-clipboard-list w-4 text-slate-400 group-hover:text-emerald-400 transition"></i>
@@ -739,6 +744,35 @@ if ('serviceWorker' in navigator) {
   </div>
 </section>
 
+<!-- MÓDULO: Evaluaciones -->
+<section id="module-evaluaciones" class="module-section">
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+    <div class="border-b border-slate-100 px-4 pt-4">
+      <div class="flex gap-1 overflow-x-auto pb-0">
+        <button onclick="activarTabEval('miseval',this)" data-tab="miseval"
+          class="eval-tab active flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-violet-600 text-violet-700 bg-violet-50 transition">
+          <i class="fas fa-clipboard-check mr-1.5"></i>Mis Evaluaciones
+        </button>
+        <button onclick="activarTabEval('equipo',this)" data-tab="equipo"
+          class="eval-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-users mr-1.5"></i>Mi Equipo
+        </button>
+        <button onclick="activarTabEval('informes',this)" data-tab="informes"
+          class="eval-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-chart-bar mr-1.5"></i>Informes
+        </button>
+        <button onclick="activarTabEval('admin',this)" data-tab="admin"
+          class="eval-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
+          <i class="fas fa-cog mr-1.5"></i>Administración
+        </button>
+      </div>
+    </div>
+    <div id="eval-contenido" class="p-5 min-h-[500px]">
+      <p class="text-sm text-slate-400 text-center py-12">Selecciona una sección.</p>
+    </div>
+  </div>
+</section>
+
 <!-- MÓDULO: Encuestas -->
 <section id="module-encuestas" class="module-section">
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
@@ -992,6 +1026,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=55.0"></script>
+<script src="main.js?v=56.0"></script>
 </body>
 </html>
