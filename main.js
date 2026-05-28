@@ -2380,29 +2380,32 @@ function renderNodosOrg(nodos, empFiltro) {
               +(todos.length-conJefe.length)+' aparecen como raíces sin jefe.</div>'
             : '';
 
-    wrap.innerHTML = avisoHtml + '<div class="org-tree">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
+    // Si hay más de 20 raíces, usar vista de lista más compacta
+    const claseArbol = nodos.length > 20 ? 'org-tree lista-plana' : 'org-tree';
+    wrap.innerHTML = avisoHtml + '<div class="' + claseArbol + '">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
 }
 
 function renderNodoHtml(nodos, nivel, empFiltro) {
     return nodos.map(function(e){
-        const ini   = getIniciales(e.nombre)||'?';
+        const ini   = getIniciales(e.nombre) || '?';
         const color = avatarColor(e.nombre);
         const hijos = (e.children||[]).filter(function(c){
             return !empFiltro || c.empresa === empFiltro;
         });
         const tieneHijos = hijos.length > 0;
-        return '<div class="org-node" style="--nivel:'+nivel+';">'
-            +'<div class="org-card" data-id="'+e.idInterno+'" title="'+e.nombre+'">'+
-            +'<div class="org-avatar" style="background:'+color+';">'+ini+'</div>'
-            +'<div class="org-info">'
-            +'<p class="org-nombre">'+e.nombre+'</p>'
-            +'<p class="org-puesto">'+e.puesto+'</p>'
-            +(nivel===0?'<p class="org-empresa">'+e.empresa+'</p>':'')
-            +'</div>'
-            +(tieneHijos?'<span class="org-count">'+hijos.length+'</span>':'')
-            +'</div>'
-            +(tieneHijos?'<div class="org-children">'+renderNodoHtml(hijos,nivel+1,empFiltro)+'</div>':'')
-            +'</div>';
+        var html = '<div class="org-node" style="--nivel:' + nivel + ';"><';
+        html += 'div class="org-card" data-id="' + e.idInterno + '" title="' + e.nombre + '">';
+        html += '<div class="org-avatar" style="background:' + color + ';">' + ini + '</div>';
+        html += '<div class="org-info">';
+        html += '<p class="org-nombre">' + e.nombre + '</p>';
+        html += '<p class="org-puesto">' + e.puesto + '</p>';
+        if(nivel === 0) html += '<p class="org-empresa">' + e.empresa + '</p>';
+        html += '</div>';
+        if(tieneHijos) html += '<span class="org-count">' + hijos.length + '</span>';
+        html += '</div>'; // cierra org-card
+        if(tieneHijos) html += '<div class="org-children">' + renderNodoHtml(hijos, nivel+1, empFiltro) + '</div>';
+        html += '</div>'; // cierra org-node
+        return html;
     }).join('');
 }
 
