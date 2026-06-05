@@ -1,3 +1,4 @@
+
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -293,43 +294,39 @@ function evaluarAlertas(datos){
         const nom2 = emp['NOMBRE DEL TRABAJADOR'] || 'Empleado';
         const pNom = nom2.split(' ')[0];
 
-        // Cumpleaños
-        // parseFechaFlexible maneja tanto serial numérico (35228) como texto ("11/06/1996" o "1996-06-11")
+        // Cumpleaños — usar getUTC* para evitar desfase de timezone México (UTC-6)
         const fNac = parseFechaFlexible(emp['FECHA DE NACIMIENTO']);
         if(fNac && !isNaN(fNac)){
-            const fm=fNac.getMonth()+1, fd=fNac.getDate();
-            const edad=hoyYear-fNac.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
-            // Fecha del próximo cumpleaños en el año actual (o siguiente si ya pasó)
-            var fC=new Date(hoyYear,fm-1,fd);
-            if(fC < new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) {
-                fC = new Date(hoyYear+1,fm-1,fd);
-            }
-            const dC=Math.round((fC - new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) / 86400000);
+            const fm=fNac.getUTCMonth()+1, fd=fNac.getUTCDate();
+            const edad=hoyYear-fNac.getUTCFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+            // Próximo cumpleaños (UTC puro para evitar conversión local)
+            var fC=new Date(Date.UTC(hoyYear,fm-1,fd));
+            var hoyUTC=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
+            if(fC < hoyUTC) fC = new Date(Date.UTC(hoyYear+1,fm-1,fd));
+            const dC=Math.round((fC - hoyUTC) / 86400000);
             const clC='cumple_'+id2+'_'+hoyYear;
             if(!alertasVistas[clC] && dC<=7){
                 agregarNotificacion('cumple',
                     dC===0?'🎂 ¡Hoy cumpleaños! — '+pNom:'🎂 Cumpleaños en '+dC+' día(s) — '+pNom,
-                    nom2+(dC===0?' cumple '+edad+' años hoy. ¡Felicítale!':', cumple '+edad+' años el '+fd+'/'+fm+'.'),
+                    nom2+(dC===0?' cumple '+edad+' años hoy. ¡Felicítale!':', cumple '+edad+' años el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.'),
                     id2, true);
                 alertasVistas[clC]='1'; nuevas++;
             }
         }
 
-        // Aniversario laboral
-        // parseFechaFlexible maneja tanto serial numérico como texto formateado
+        // Aniversario laboral — usar getUTC* igualmente
         const fIng2 = parseFechaFlexible(emp['FECHA DE INGRESO']);
         if(fIng2 && !isNaN(fIng2)){
-            const fm=fIng2.getMonth()+1, fd=fIng2.getDate();
-            const anos=hoyYear-fIng2.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+            const fm=fIng2.getUTCMonth()+1, fd=fIng2.getUTCDate();
+            const anos=hoyYear-fIng2.getUTCFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
             if(anos>0){
-                var fA=new Date(hoyYear,fm-1,fd);
-                if(fA < new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) {
-                    fA = new Date(hoyYear+1,fm-1,fd);
-                }
-                const dA=Math.round((fA - new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) / 86400000);
+                var hoyUTC2=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
+                var fA=new Date(Date.UTC(hoyYear,fm-1,fd));
+                if(fA < hoyUTC2) fA = new Date(Date.UTC(hoyYear+1,fm-1,fd));
+                const dA=Math.round((fA - hoyUTC2) / 86400000);
                 const clA = 'aniv_'+id2+'_'+hoyYear;
                 var tA = dA===0 ? 'Hoy' : 'En '+dA+' día(s)';
-                var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+fd+'/'+fm+'.');
+                var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.');
                 var titA = '🏆 Aniversario ' + tA + ' — ' + pNom;
                 if(!alertasVistas[clA] && dA<=7){ agregarNotificacion('aniversario', titA, mA, id2, true); alertasVistas[clA]='1'; nuevas++; }
             }
@@ -4379,7 +4376,30 @@ function renderizarDrawer(emp){
         ed("ed_parBenef","Parentesco",E["PARENTESCO DEL BENEFICIARIO"])+
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     )+
+    // ── Sección Datos de Baja ─────────────────────────────────
+    // Visible siempre: permite registrar/editar fecha de baja y finiquito
+    // sin necesidad de pasar por el módulo de Baja de Personal
+    '<div class="mb-5">'
+    +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+    +'<i class="fas fa-user-minus text-red-400"></i>'
+    +'Baja / Finiquito'
+    +(E["ESTATUS"]==="Baja"
+        ? ' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
+        : ' <span class="ml-auto text-xs text-slate-400 font-normal normal-case">Completar solo si el empleado causó baja</span>')
+    +'</p>'
+    +'<div class="grid grid-cols-2 gap-3">'
+    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
+    +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
+    +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+    +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Renuncia","Terminación","Mutuo Acuerdo","Jubilación","Fallecimiento","Abandono","Fin de Contrato","Otro"])
+    +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Renuncia Voluntaria","Terminación de Contrato","Mutuo Acuerdo","Bajo Rendimiento","Reestructuración","Jubilación","Fallecimiento","Oferta Económica Mejor","Cambio de Residencia","Problemas Personales","Otro"])+'</div>'
+    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
+    +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
+    +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+    +'</div></div>'+
     '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+
+
     +'<div class="grid grid-cols-2 gap-3">'
     +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
     +ro("Inicio 1er Contrato",ff(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
@@ -4516,6 +4536,11 @@ async function guardarCambiosEditor(){
             "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360')?.value||undefined,
             "JEFE DIRECTO":            document.getElementById('ed_jefeDirecto')?.value||undefined,
             "CORREO ACCESO":           document.getElementById('ed_correoAcceso')?.value||undefined,
+            // Campos de baja — se envían solo si tienen valor
+            "FECHA DE BAJA":           document.getElementById('ed_fechaBaja')?.value||undefined,
+            "TIPO DE SALIDA":          document.getElementById('ed_tipoSalida')?.value||undefined,
+            "MOTIVO DE SALIDA":        document.getElementById('ed_motivoBaja')?.value||undefined,
+            "MONTO DE FINIQUITO":      document.getElementById('ed_finiquito')?.value||undefined,
             ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
             ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
         }
