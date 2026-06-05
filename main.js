@@ -295,13 +295,17 @@ function evaluarAlertas(datos){
         const pNom = nom2.split(' ')[0];
 
         // Cumpleaños
-        const fnRaw = parseFloat(emp['FECHA DE NACIMIENTO']||'0');
-        if(fnRaw > 10000){
-            const fNac = new Date((fnRaw-25569)*86400*1000);
+        // parseFechaFlexible maneja tanto serial numérico (35228) como texto ("11/06/1996" o "1996-06-11")
+        const fNac = parseFechaFlexible(emp['FECHA DE NACIMIENTO']);
+        if(fNac && !isNaN(fNac)){
             const fm=fNac.getMonth()+1, fd=fNac.getDate();
             const edad=hoyYear-fNac.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
-            var fC=new Date(hoyYear,fm-1,fd); if(fC<hoyFull) fC=new Date(hoyYear+1,fm-1,fd);
-            const dC=Math.round((fC-hoyFull)/86400000);
+            // Fecha del próximo cumpleaños en el año actual (o siguiente si ya pasó)
+            var fC=new Date(hoyYear,fm-1,fd);
+            if(fC < new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) {
+                fC = new Date(hoyYear+1,fm-1,fd);
+            }
+            const dC=Math.round((fC - new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) / 86400000);
             const clC='cumple_'+id2+'_'+hoyYear;
             if(!alertasVistas[clC] && dC<=7){
                 agregarNotificacion('cumple',
@@ -313,17 +317,19 @@ function evaluarAlertas(datos){
         }
 
         // Aniversario laboral
-        const fiRaw = parseFloat(emp['FECHA DE INGRESO']||'0');
-        if(fiRaw > 10000){
-            const fIng = new Date((fiRaw-25569)*86400*1000);
-            const fm=fIng.getMonth()+1, fd=fIng.getDate();
-            const anos=hoyYear-fIng.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+        // parseFechaFlexible maneja tanto serial numérico como texto formateado
+        const fIng2 = parseFechaFlexible(emp['FECHA DE INGRESO']);
+        if(fIng2 && !isNaN(fIng2)){
+            const fm=fIng2.getMonth()+1, fd=fIng2.getDate();
+            const anos=hoyYear-fIng2.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
             if(anos>0){
-                var fA=new Date(hoyYear,fm-1,fd); if(fA<hoyFull) fA=new Date(hoyYear+1,fm-1,fd);
-                const dA=Math.round((fA-hoyFull)/86400000);
-                var tA,mA;
+                var fA=new Date(hoyYear,fm-1,fd);
+                if(fA < new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) {
+                    fA = new Date(hoyYear+1,fm-1,fd);
+                }
+                const dA=Math.round((fA - new Date(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate())) / 86400000);
                 const clA = 'aniv_'+id2+'_'+hoyYear;
-                var tA = dA===0 ? 'Hoy' : 'En '+dA+' dias';
+                var tA = dA===0 ? 'Hoy' : 'En '+dA+' día(s)';
                 var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+fd+'/'+fm+'.');
                 var titA = '🏆 Aniversario ' + tA + ' — ' + pNom;
                 if(!alertasVistas[clA] && dA<=7){ agregarNotificacion('aniversario', titA, mA, id2, true); alertasVistas[clA]='1'; nuevas++; }
@@ -390,11 +396,19 @@ function actualizarListaEmpresas() {
 // ─── PARSERS ─────────────────────────────────────────────────
 function parsearFecha(val){
     if(!val)return"";var s=val.toString().trim();
+    // Ya está en formato YYYY-MM-DD
     if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+    // Texto DD/MM/YYYY o DD-MM-YYYY (formato México de Sheets)
     var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
     if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    // Serial numérico de Sheets → usar UTC para no desplazar por timezone
     var n=parseFloat(s);
-    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d.toISOString().slice(0,10);}
+    if(!isNaN(n)&&n>10000&&n<100000){
+        var dUTC=new Date((n-25569)*86400*1000);
+        if(!isNaN(dUTC))return dUTC.getUTCFullYear()+'-'+
+            String(dUTC.getUTCMonth()+1).padStart(2,'0')+'-'+
+            String(dUTC.getUTCDate()).padStart(2,'0');
+    }
     var d2=new Date(s);return isNaN(d2)?"":d2.toISOString().slice(0,10);
 }
 function parsearMonto(val){
@@ -404,11 +418,21 @@ function parsearMonto(val){
 function parseFechaFlexible(val){
     if(!val)return null;var s=val.toString().trim();if(!s||s==="0")return null;
     var n=parseFloat(s);
-    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d;}
+    // Serial numérico de Sheets (ej: 35228 = 12/06/1996)
+    // IMPORTANTE: usar Date.UTC para evitar desfase de timezone (México UTC-6 correría 1 día)
+    if(!isNaN(n)&&n>10000&&n<100000){
+        var dUTC=new Date((n-25569)*86400*1000);
+        if(!isNaN(dUTC)){
+            // Construir fecha con componentes UTC para que no se desplace por timezone local
+            return new Date(Date.UTC(dUTC.getUTCFullYear(), dUTC.getUTCMonth(), dUTC.getUTCDate()));
+        }
+    }
+    // Texto DD/MM/YYYY o DD-MM-YYYY (formato que devuelve getDisplayValues de Sheets en México)
     var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+    if(m)return new Date(Date.UTC(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1])));
+    // Texto YYYY-MM-DD (ISO)
     var m2=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(m2)return new Date(parseInt(m2[1]),parseInt(m2[2])-1,parseInt(m2[3]));
+    if(m2)return new Date(Date.UTC(parseInt(m2[1]),parseInt(m2[2])-1,parseInt(m2[3])));
     var d=new Date(s);return isNaN(d)?null:d;
 }
 function parsearMontoSheet(val){
@@ -560,7 +584,7 @@ const PASOS=[
         {id:"numeroEmpleado",     label:"No. de Empleado",       type:"number",req:true, col:2,autonum:true},
         {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
         {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
-        {id:"empresa",            label:"Empresa",                type:"select",req:true, col:2,options:empresas},
+        {id:"empresa",            label:"Empresa",                type:"select-dynamic",req:true, col:2,optionsFn:function(){ return empresas; }},
         {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
         {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
         {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
@@ -786,6 +810,14 @@ function renderizarCampo(c){
             + '<datalist id="'+listId+'">'
             + (c.listId==='list-departamentos' ? catalogoDeptos : catalogoPuestos).map(function(o){return '<option value="'+o+'">';}).join('')
             + '</datalist>';
+    } else if(c.type==='select-dynamic'){
+        // Select cuyas opciones se leen en tiempo de render desde una función
+        // Siempre refleja la lista actualizada de empresas del cacheGlobal
+        var opsDyn = typeof c.optionsFn === 'function' ? c.optionsFn() : (c.options||[]);
+        inp = '<select id="alta_'+c.id+'" '+(c.req?'required':'')+' class="'+cls+' cursor-pointer">'
+            + '<option value="">Seleccione...</option>'
+            + opsDyn.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('')
+            + '</select>';
     } else if(c.type==='select'){
         inp=`<select id="alta_${c.id}" ${c.req?'required':''} ${c.readonly?'title="Calculado automáticamente"':''} class="${cls} ${c.readonly?'bg-slate-50 cursor-default':'cursor-pointer'}"><option value="">Seleccione...</option>${(c.options||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
     }else if(c.type==='textarea'){
@@ -4240,8 +4272,10 @@ function renderizarDrawer(emp){
     };
     const ff = function(v){
         if(!v||v==="0"||v==="") return "—";
-        var n=parseFloat(v);
-        if(!isNaN(n)&&n>10000){var d=new Date((n-25569)*86400*1000);return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});}
+        // Usar parseFechaFlexible que maneja: serial numérico (35228),
+        // texto DD/MM/YYYY ("11/06/1996"), texto YYYY-MM-DD ("1996-06-11")
+        var d = parseFechaFlexible(v);
+        if(d && !isNaN(d)) return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
         return v.toString();
     };
     const E = emp;
