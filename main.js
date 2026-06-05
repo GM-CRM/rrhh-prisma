@@ -160,6 +160,47 @@ function renderizarNotificaciones(){
             +empBtn
             +'</div></div></div>';
     }).join('');
+
+    // Event delegation: manejar clic en "Ver empleado →"
+    lista.addEventListener('click', function(e){
+        const btn = e.target.closest('.notif-emp-btn');
+        if(!btn) return;
+        const empId = btn.dataset.empid;
+        if(!empId) return;
+
+        // Cerrar el panel de notificaciones
+        const panel = document.getElementById('notif-panel');
+        if(panel) panel.classList.add('hidden');
+
+        // Buscar el empleado en cache por ID INTERNO o NO. EMPLEADO
+        const emp = cacheGlobal.find(function(e){
+            return (e['ID INTERNO']||'').toString().trim() === empId ||
+                   (e['NO. EMPLEADO']||'').toString().trim() === empId;
+        });
+
+        if(emp){
+            // Si el módulo expedientes no está activo, activarlo primero
+            const modBase = document.getElementById('module-basedatos');
+            if(modBase && !modBase.classList.contains('active')){
+                showModule('basedatos');
+                // Esperar a que cargue la tabla antes de abrir el drawer
+                setTimeout(function(){
+                    abrirEditor(
+                        (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString().trim(),
+                        (emp['EMPRESA']||'').trim()
+                    );
+                }, 300);
+            } else {
+                abrirEditor(
+                    (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString().trim(),
+                    (emp['EMPRESA']||'').trim()
+                );
+            }
+        } else {
+            mostrarToast('warning', 'Empleado no encontrado',
+                'No se encontró el registro #'+empId+' en la base de datos. Sincroniza e intenta de nuevo.');
+        }
+    }, { once: true }); // once:true para evitar listeners duplicados al re-abrir el panel
 }
 
 function tiempoRelativo(iso){
