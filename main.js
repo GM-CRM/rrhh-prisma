@@ -344,8 +344,7 @@ function evaluarAlertas(datos){
 // Catálogo de empresas cargado desde la hoja EMPRESAS del Sheet
 // Cada entrada: { id, nombre, grupo }
 let catalogoEmpresas = [];
-// Array simple de nombres (retrocompatibilidad)
-let empresas = ["Newspot Mexico","Centro De Telecomunicaciones Y Publicidad De Mexico","Global Media","Editora Mexicana","Cable Master","Fember Press","Infomonitor","Rtv Comunicacion","Radio Expresion Cultural"];
+let empresas = [];
 
 // Carga el catálogo EMPRESAS desde el backend y actualiza los controles
 async function cargarCatalogoEmpresas() {
@@ -373,18 +372,15 @@ function listaGrupos() {
 }
 
 function actualizarListaEmpresas() {
-    if (!cacheGlobal || !cacheGlobal.length) return;
-    // Si el catálogo ya cargó, usarlo; si no, inferir de la BD
-    if (catalogoEmpresas.length === 0) {
+    // Si el catálogo aún no cargó, inferir de la BD como semilla
+    if (catalogoEmpresas.length === 0 && cacheGlobal && cacheGlobal.length) {
         const nuevas = [...new Set(
-            cacheGlobal
-                .map(e => (e["EMPRESA"] || "").trim())
-                .filter(e => e.length > 0)
+            cacheGlobal.map(e => (e["EMPRESA"] || "").trim()).filter(e => e.length > 0)
         )].sort();
         if (nuevas.length > 0) empresas = nuevas;
     }
 
-    // Actualizar todos los selects de empresa en el DOM
+    // Actualizar selects de empresa en el DOM
     const selectsEmpresa = [
         document.getElementById("filtroEmpresaGlobal"),
         document.getElementById("filtro-empresa"),
@@ -397,8 +393,7 @@ function actualizarListaEmpresas() {
         if (primeraOpcion) sel.appendChild(primeraOpcion);
         empresas.forEach(function(emp) {
             const opt = document.createElement("option");
-            opt.value = emp;
-            opt.textContent = emp;
+            opt.value = emp; opt.textContent = emp;
             sel.appendChild(opt);
         });
         if (valActual) sel.value = valActual;
@@ -413,7 +408,7 @@ function actualizarListaEmpresas() {
         if (vg && vg !== "ALL") selGrupo.value = vg;
     }
 
-    // Actualizar datalists de empresa en el formulario de alta
+    // Datalist empresa en formulario de alta
     const listEmpAlta = document.getElementById("alta_empresa");
     if (listEmpAlta && listEmpAlta.tagName === "SELECT") {
         const v = listEmpAlta.value;
@@ -422,7 +417,7 @@ function actualizarListaEmpresas() {
         if (v) listEmpAlta.value = v;
     }
 
-    // Actualizar filtro del expediente (HTML estático en index.html)
+    // Filtro del expediente
     const filtroEmpExp = document.getElementById("filtro-empresa");
     if (filtroEmpExp) {
         const v = filtroEmpExp.value;
@@ -431,7 +426,6 @@ function actualizarListaEmpresas() {
         if (v) filtroEmpExp.value = v;
     }
 }
-
 
 // ─── PARSERS ─────────────────────────────────────────────────
 function parsearFecha(val){
@@ -800,7 +794,7 @@ function renderizarPasoActual(){
                     const gc = grupoDeEmpresa(this.value);
                     altaData.grupoComercial = gc;
                     const elGC = document.getElementById("alta_grupoComercial");
-                    if(elGC){ elGC.value = gc; }
+                    if(elGC) elGC.value = gc;
                 }, { once: false });
             }
         }, 200); // esperar a que el DOM esté listo
@@ -1773,7 +1767,7 @@ function cerrarEditor(){
     empleadoEdicion=null;
 }
 
-// Helper: formatea un Date que fue construido con Date.UTC sin desfase de timezone
+// Helper: formatea fechas construidas con Date.UTC sin desfase de timezone
 function fmtUTC(d, opts){
     if(!d||isNaN(d))return'—';
     return d.toLocaleDateString('es-MX', Object.assign({timeZone:'UTC'}, opts||{day:'2-digit',month:'2-digit',year:'numeric'}));
@@ -4316,14 +4310,14 @@ function renderizarDrawer(emp){
               +opts.map(function(o){return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';}).join('')
               +'</select></div>';
     };
-    // Select con lista dinámica (ej: empresas del catálogo)
-    const edsec = function(id2,label,val,type,opciones){
+    // Select dinámico con opciones de lista (ej: empresas del catálogo)
+    const edsec = function(id2,label,val,opciones){
         const optsHtml = (opciones||[]).map(function(o){
             return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';
         }).join('');
         return '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</label>'
               +'<select id="'+id2+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer" '
-              +'onchange="(function(v){var gc=grupoDeEmpresa(v);var el=document.getElementById(\'ed_grupoComercial\');if(el)el.value=gc;})(this.value)">'
+              +'onchange="var gc=grupoDeEmpresa(this.value);var egc=document.getElementById(\"ed_grupoComercial\");if(egc)egc.value=gc;">'
               +'<option value="">Seleccione...</option>'+optsHtml
               +'</select></div>';
     };
@@ -4348,10 +4342,10 @@ function renderizarDrawer(emp){
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
         ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
         ro("Antigüedad ⟵ fórmula Sheet",E["ANTIGÜEDAD"])+
-        edsec("ed_empresa","Empresa",E["EMPRESA"],"text",empresas)+
+        edsec("ed_empresa","Empresa",E["EMPRESA"],empresas)+
         ('<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Grupo Comercial <span class="text-blue-400 font-normal normal-case">⟵ automático</span></label>'
         +'<input type="text" id="ed_grupoComercial" readonly tabindex="-1" value="'+(E["GRUPO COMERCIAL"]||'')+'" '
-        +'class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 text-slate-400 cursor-default"></div>')+
+        +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-400 cursor-default"></div>')+
         ed("ed_puesto","Puesto",E["PUESTO"])+
         ed("ed_depto","Departamento",E["DEPARTAMENTO"])+
         ed("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"])+
@@ -4681,7 +4675,7 @@ async function obtenerDatos(forzar){
 async function forzarActualizacion(){
     cacheGlobal=[];
     datosFiltrados=[];
-    await cargarCatalogoEmpresas(); // recargar catálogo de empresas
+    await cargarCatalogoEmpresas();
     const datos=await obtenerDatos(true);
     actualizarListaEmpresas(); // actualizar lista de empresas dinámicamente
     poblarCatalogos(); // actualizar catálogos de departamentos y puestos
@@ -4942,7 +4936,7 @@ async function cargarDashboard(){
     const filtroMes  = (document.getElementById('filtroMesGlobal')?.value)||'ALL';
     const filtroAnio = (document.getElementById('filtroAnioGlobal')?.value)||'ALL';
 
-    // Poblar selector de años dinámicamente (detectar años en la BD)
+    // Poblar selector de años dinámicamente con los años en la BD
     const selAnio = document.getElementById('filtroAnioGlobal');
     if(selAnio){
         const aniosSet=new Set();
@@ -4958,23 +4952,21 @@ async function cargarDashboard(){
             anios.map(a=>'<option value="'+a+'"'+(a.toString()===vActual?' selected':'')+'>'+a+'</option>').join('');
     }
 
-    // Aplicar filtros — empresa tiene prioridad; si hay grupo, filtra por grupo ignorando empresa "Todas"
+    // Aplicar filtros combinados
     const D=todos.filter(r=>{
         const emp=(r["EMPRESA"]||"").trim();
         const grp=(r["GRUPO COMERCIAL"]||grupoDeEmpresa(emp)||"").trim();
-        const fIng=parseFechaFlexible(r["FECHA DE INGRESO"]);
-        const fBaja=parseFechaFlexible(r["FECHA DE BAJA"]);
-        const anyDate=fIng||fBaja;
-
         if(filtroEmp!=='ALL' && emp!==filtroEmp) return false;
         if(filtroGrupo!=='ALL' && grp!==filtroGrupo) return false;
-        if((filtroMes!=='ALL'||filtroAnio!=='ALL') && anyDate){
+        if(filtroMes!=='ALL'||filtroAnio!=='ALL'){
+            const fIng=parseFechaFlexible(r["FECHA DE INGRESO"]);
+            const fBaja=parseFechaFlexible(r["FECHA DE BAJA"]);
+            const anyDate=fIng||fBaja;
+            if(!anyDate) return false;
             const mesRow=String(anyDate.getUTCMonth()+1).padStart(2,'0');
             const anioRow=String(anyDate.getUTCFullYear());
             if(filtroMes!=='ALL' && mesRow!==filtroMes) return false;
             if(filtroAnio!=='ALL' && anioRow!==filtroAnio) return false;
-        } else if((filtroMes!=='ALL'||filtroAnio!=='ALL') && !anyDate){
-            return false;
         }
         return true;
     });
@@ -5188,7 +5180,7 @@ async function initApp(){
     pasoActual=0;altaData={};
     actualizarBadgeNotifs();
     renderizarStepper();
-    await cargarCatalogoEmpresas(); // Cargar catálogo EMPRESAS desde Sheet
+    await cargarCatalogoEmpresas();
     const datos=await cargarDashboard();
     actualizarListaEmpresas();
     poblarCatalogos();
