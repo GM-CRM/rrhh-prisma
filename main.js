@@ -1,4 +1,3 @@
-
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -4952,31 +4951,50 @@ async function cargarDashboard(){
             anios.map(a=>'<option value="'+a+'"'+(a.toString()===vActual?' selected':'')+'>'+a+'</option>').join('');
     }
 
-    // Aplicar filtros combinados
+    // ── Filtros de empresa y grupo (aplican a todos los registros) ──────────
+    // El filtro de grupo usa primero la columna GRUPO COMERCIAL de la BD;
+    // si está vacía, intenta resolverlo desde el catálogo (fallback).
+    const hayFiltroEmp   = filtroEmp   !== 'ALL';
+    const hayFiltroGrupo = filtroGrupo !== 'ALL';
+    const hayFiltroMes   = filtroMes   !== 'ALL';
+    const hayFiltroAnio  = filtroAnio  !== 'ALL';
+
+    // D: empleados que pasan el filtro de empresa/grupo
+    // Los filtros de mes/año NO excluyen registros del array D — se aplican
+    // internamente en los contadores que lo necesitan (tendencia, finiquitos).
+    // Esto garantiza que KPIs de plantilla activa, géneros y rangos de edad
+    // siempre reflejen el estado real de la empresa/grupo seleccionada.
     const D=todos.filter(r=>{
         const emp=(r["EMPRESA"]||"").trim();
-        const grp=(r["GRUPO COMERCIAL"]||grupoDeEmpresa(emp)||"").trim();
-        if(filtroEmp!=='ALL' && emp!==filtroEmp) return false;
-        if(filtroGrupo!=='ALL' && grp!==filtroGrupo) return false;
-        if(filtroMes!=='ALL'||filtroAnio!=='ALL'){
-            const fIng=parseFechaFlexible(r["FECHA DE INGRESO"]);
-            const fBaja=parseFechaFlexible(r["FECHA DE BAJA"]);
-            const anyDate=fIng||fBaja;
-            if(!anyDate) return false;
-            const mesRow=String(anyDate.getUTCMonth()+1).padStart(2,'0');
-            const anioRow=String(anyDate.getUTCFullYear());
-            if(filtroMes!=='ALL' && mesRow!==filtroMes) return false;
-            if(filtroAnio!=='ALL' && anioRow!==filtroAnio) return false;
-        }
+        // Grupo: leer de la columna BD primero; luego catálogo; luego vacío
+        const grp=(r["GRUPO COMERCIAL"]||"").trim() || grupoDeEmpresa(emp);
+        if(hayFiltroEmp   && emp!==filtroEmp)   return false;
+        if(hayFiltroGrupo && grp!==filtroGrupo) return false;
         return true;
     });
+
+    // Función auxiliar: ¿una fecha pasa el filtro mes/año activo?
+    const pasaFiltroFecha = function(fDate){
+        if(!fDate) return false;
+        if(hayFiltroMes  && String(fDate.getUTCMonth()+1).padStart(2,'0') !== filtroMes)  return false;
+        if(hayFiltroAnio && String(fDate.getUTCFullYear())                 !== filtroAnio) return false;
+        return true;
+    };
+    // Si hay filtro mes/año activo, ¿un registro lo pasa por ingreso O por baja?
+    const registroPasaFecha = function(r){
+        if(!hayFiltroMes && !hayFiltroAnio) return true;
+        const fI=parseFechaFlexible(r["FECHA DE INGRESO"]);
+        const fB=parseFechaFlexible(r["FECHA DE BAJA"]);
+        return pasaFiltroFecha(fI) || pasaFiltroFecha(fB);
+    };
 
     let activos=0,bajas=0,cEmp={},cGen={"Hombre":0,"Mujer":0},cRango={"<31":0,"31-50":0,"51-65":0,">65":0};
     let cMotivo={},cDepto={},cTend={},finPorMes={},finPorAnio={},totalFin=0,edades=[],ants=[];
 
-    // Construir snapshot de activos por mes: para cada mes ordenado,
-    // contar cuántos empleados estaban activos en ese mes.
-    // Estrategia: acumulativo → sumar altas, restar bajas mes a mes.
+    // Los KPIs de plantilla activa, género, rango de edad y departamento
+    // muestran el estado actual de la empresa/grupo SIN restricción de fecha,
+    // porque un empleado activo puede haber ingresado en cualquier año.
+    // Los contadores de tendencia y finiquitos SÍ respetan el filtro fecha.
     D.forEach(row=>{
         const est=(row["ESTATUS"]||"").trim(),gen=(row["GÉNERO"]||"").trim(),emp=(row["EMPRESA"]||"Sin Empresa").trim();
         const rango=(row["RANGO DE EDAD"]||"").trim(),motivo=(row["MOTIVO DE SALIDA"]||"").trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").trim();
@@ -4992,31 +5010,37 @@ async function cargarDashboard(){
             const an=calcAnt(fIng);if(an!==null)ants.push(an);
             cDepto[depto]=(cDepto[depto]||0)+1;
         }
-        if(est==="Baja"){
+        // Bajas: contar solo si pasan el filtro de fecha (fecha de baja)
+        // Si no hay filtro de fecha, contar todas las bajas de empresa/grupo
+        const fBD_obj = est==="Baja" ? parseFechaFlexible(fBaja) : null;
+        const bajaEnPeriodo = est==="Baja" && (
+            !hayFiltroMes && !hayFiltroAnio
+                ? true
+                : fBD_obj && pasaFiltroFecha(fBD_obj)
+        );
+        if(bajaEnPeriodo){
             bajas++;
             if(motivo)cMotivo[motivo]=(cMotivo[motivo]||0)+1;
             if(fin>0){
                 totalFin+=fin;
-                // Finiquitos por MES (para gráfica mensual)
-                const fBD=parseFechaFlexible(fBaja);
-                if(fBD){
-                    const km=fBD.getFullYear()+'-'+String(fBD.getMonth()+1).padStart(2,'0');
+                if(fBD_obj){
+                    const km=fBD_obj.getUTCFullYear()+'-'+String(fBD_obj.getUTCMonth()+1).padStart(2,'0');
                     finPorMes[km]=(finPorMes[km]||0)+fin;
-                    // Finiquitos por AÑO (para KPI tabla resumen)
-                    const ka=fBD.getFullYear().toString();
+                    const ka=fBD_obj.getUTCFullYear().toString();
                     finPorAnio[ka]=(finPorAnio[ka]||0)+fin;
                 }
             }
         }
+
         if(!cEmp[emp])cEmp[emp]={act:0,baj:0};
         if(est==="Activo")cEmp[emp].act++;
-        if(est==="Baja")cEmp[emp].baj++;
+        if(bajaEnPeriodo)cEmp[emp].baj++;
 
-        // Tendencia mensual de altas y bajas
+        // Tendencia mensual: respetar filtro fecha para altas Y bajas
         const fIngD=parseFechaFlexible(fIng);
-        if(fIngD){const k=fIngD.getFullYear()+'-'+String(fIngD.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].altas++;}
-        const fBD2=parseFechaFlexible(fBaja);
-        if(fBD2){const k=fBD2.getFullYear()+'-'+String(fBD2.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].bajas++;}
+        const ingEnPeriodo=!hayFiltroMes&&!hayFiltroAnio ? !!fIngD : (fIngD && pasaFiltroFecha(fIngD));
+        if(ingEnPeriodo){const k=fIngD.getUTCFullYear()+'-'+String(fIngD.getUTCMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].altas++;}
+        if(bajaEnPeriodo&&fBD_obj){const k=fBD_obj.getUTCFullYear()+'-'+String(fBD_obj.getUTCMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].bajas++;}
     });
 
     // Calcular activos acumulados por mes (snapshot mensual)
