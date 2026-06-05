@@ -251,7 +251,7 @@ function evaluarAlertas(datos){
                 agregarNotificacion('error', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             } else if(dias <= DIAS_ALERTA_CONTRATO){
-                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fv.toLocaleDateString('es-MX')}). Gestiona la renovación.`, id, true);
+                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fmtUTC(fv)}). Gestiona la renovación.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             }
         });
@@ -341,17 +341,48 @@ function evaluarAlertas(datos){
 
 // ─── CATÁLOGOS ───────────────────────────────────────────────
 // Empresas dinámicas — se generan desde el cache del Sheet
-// El array base sirve como semilla si el cache aún no cargó
+// Catálogo de empresas cargado desde la hoja EMPRESAS del Sheet
+// Cada entrada: { id, nombre, grupo }
+let catalogoEmpresas = [];
+// Array simple de nombres (retrocompatibilidad)
 let empresas = ["Newspot Mexico","Centro De Telecomunicaciones Y Publicidad De Mexico","Global Media","Editora Mexicana","Cable Master","Fember Press","Infomonitor","Rtv Comunicacion","Radio Expresion Cultural"];
+
+// Carga el catálogo EMPRESAS desde el backend y actualiza los controles
+async function cargarCatalogoEmpresas() {
+    try {
+        const r = await enviarPeticion("obtener_catalogo_empresas", {});
+        if (r && r.status === "success" && r.empresas && r.empresas.length) {
+            catalogoEmpresas = r.empresas;
+            empresas = catalogoEmpresas.map(e => e.nombre).filter(Boolean).sort();
+        }
+    } catch(ex) { console.warn("[catalogoEmpresas] Error:", ex); }
+    actualizarListaEmpresas();
+}
+
+// Dado un nombre de empresa, devuelve su grupo comercial del catálogo
+function grupoDeEmpresa(nombreEmpresa) {
+    if (!nombreEmpresa) return "";
+    const n = nombreEmpresa.trim().toLowerCase();
+    const found = catalogoEmpresas.find(e => (e.nombre||"").toLowerCase() === n);
+    return found ? (found.grupo || "") : "";
+}
+
+// Devuelve lista única de grupos del catálogo
+function listaGrupos() {
+    return [...new Set(catalogoEmpresas.map(e => e.grupo).filter(Boolean))].sort();
+}
 
 function actualizarListaEmpresas() {
     if (!cacheGlobal || !cacheGlobal.length) return;
-    const nuevas = [...new Set(
-        cacheGlobal
-            .map(e => (e["EMPRESA"] || "").trim())
-            .filter(e => e.length > 0)
-    )].sort();
-    if (nuevas.length > 0) empresas = nuevas;
+    // Si el catálogo ya cargó, usarlo; si no, inferir de la BD
+    if (catalogoEmpresas.length === 0) {
+        const nuevas = [...new Set(
+            cacheGlobal
+                .map(e => (e["EMPRESA"] || "").trim())
+                .filter(e => e.length > 0)
+        )].sort();
+        if (nuevas.length > 0) empresas = nuevas;
+    }
 
     // Actualizar todos los selects de empresa en el DOM
     const selectsEmpresa = [
@@ -361,7 +392,6 @@ function actualizarListaEmpresas() {
     selectsEmpresa.forEach(function(sel) {
         if (!sel) return;
         const valActual = sel.value;
-        // Conservar la opción "Todas" si existe
         const primeraOpcion = sel.options[0];
         sel.innerHTML = "";
         if (primeraOpcion) sel.appendChild(primeraOpcion);
@@ -373,6 +403,15 @@ function actualizarListaEmpresas() {
         });
         if (valActual) sel.value = valActual;
     });
+
+    // Actualizar select de grupo comercial en dashboard
+    const selGrupo = document.getElementById("filtroGrupoGlobal");
+    if (selGrupo) {
+        const vg = selGrupo.value;
+        selGrupo.innerHTML = "<option value='ALL'>Todos los grupos</option>" +
+            listaGrupos().map(g => "<option value='" + g + "'>" + g + "</option>").join("");
+        if (vg && vg !== "ALL") selGrupo.value = vg;
+    }
 
     // Actualizar datalists de empresa en el formulario de alta
     const listEmpAlta = document.getElementById("alta_empresa");
@@ -392,6 +431,7 @@ function actualizarListaEmpresas() {
         if (v) filtroEmpExp.value = v;
     }
 }
+
 
 // ─── PARSERS ─────────────────────────────────────────────────
 function parsearFecha(val){
@@ -585,6 +625,7 @@ const PASOS=[
         {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
         {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
         {id:"empresa",            label:"Empresa",                type:"select-dynamic",req:true, col:2,optionsFn:function(){ return empresas; }},
+        {id:"grupoComercial",     label:"Grupo Comercial",         type:"text",  req:false,col:2,placeholder:"Se llena automáticamente al seleccionar empresa",readonly:true},
         {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
         {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
         {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
@@ -755,6 +796,11 @@ function renderizarPasoActual(){
                     const elNum = document.getElementById("alta_numeroEmpleado");
                     if(elNum){ elNum.value = ""; elNum.placeholder = "Calculando..."; }
                     cargarSiguienteNumero();
+                    // Auto-fill grupo comercial
+                    const gc = grupoDeEmpresa(this.value);
+                    altaData.grupoComercial = gc;
+                    const elGC = document.getElementById("alta_grupoComercial");
+                    if(elGC){ elGC.value = gc; }
                 }, { once: false });
             }
         }, 200); // esperar a que el DOM esté listo
@@ -823,7 +869,7 @@ function renderizarCampo(c){
     }else if(c.type==='textarea'){
         inp=`<textarea id="alta_${c.id}" rows="2" ${ph} class="${cls} resize-none"></textarea>`;
     }else{
-        inp=`<input type="${c.type}" id="alta_${c.id}" ${c.req?'required':''} ${ml} ${ph} class="${cls}">`;
+        inp=`<input type="${c.type}" id="alta_${c.id}" ${c.req?'required':''} ${ml} ${ph} ${c.readonly?'readonly tabindex="-1"':''} class="${cls} ${c.readonly?'bg-slate-50 text-slate-400 cursor-default':''}">`;
     }
     return`<div class="${span}"><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">${c.label} ${req}${nota}</label>${inp}</div>`;
 }
@@ -1138,7 +1184,7 @@ function actualizarBotones(){
 function renderizarResumen(){
     const el=document.getElementById('resumen-alta');if(!el)return;
     const secciones=[
-        {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
+        {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Grupo Comercial',altaData.grupoComercial],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
         {titulo:'Contrato',icono:'fa-file-contract',color:'text-indigo-500',filas:[['Tipo de Contrato',altaData.tipoContrato],['Inicio 1er Contrato',altaData.fechaInicioContrato],['Vencimiento 1er Contrato',altaData.vencimientoPrimerContrato]]},
         {titulo:'Datos Personales',icono:'fa-id-card',color:'text-teal-500',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Estado Civil',altaData.estadoCivil],['Escolaridad',altaData.escolaridad],['Fecha Nac. (detectada)',altaData.fechaNacimiento],['Género (detectado)',altaData.genero],['Nac. (detectada)',altaData.nacionalidad],['Lugar Nac. (detectado)',altaData.lugarNacimiento]]},
     ];
@@ -1727,9 +1773,14 @@ function cerrarEditor(){
     empleadoEdicion=null;
 }
 
+// Helper: formatea un Date que fue construido con Date.UTC sin desfase de timezone
+function fmtUTC(d, opts){
+    if(!d||isNaN(d))return'—';
+    return d.toLocaleDateString('es-MX', Object.assign({timeZone:'UTC'}, opts||{day:'2-digit',month:'2-digit',year:'numeric'}));
+}
 function fmtFechaDisplay(val){
     const d=parseFechaFlexible(val);if(!d)return'—';
-    return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+    return fmtUTC(d,{day:'2-digit',month:'short',year:'numeric'});
 }
 
 function diasRestantes(val){
@@ -4265,6 +4316,17 @@ function renderizarDrawer(emp){
               +opts.map(function(o){return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';}).join('')
               +'</select></div>';
     };
+    // Select con lista dinámica (ej: empresas del catálogo)
+    const edsec = function(id2,label,val,type,opciones){
+        const optsHtml = (opciones||[]).map(function(o){
+            return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';
+        }).join('');
+        return '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</label>'
+              +'<select id="'+id2+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer" '
+              +'onchange="(function(v){var gc=grupoDeEmpresa(v);var el=document.getElementById(\'ed_grupoComercial\');if(el)el.value=gc;})(this.value)">'
+              +'<option value="">Seleccione...</option>'+optsHtml
+              +'</select></div>';
+    };
     const sec = function(titulo,icono,color,html){
         return '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
               +'<i class="fas '+icono+' '+color+'"></i>'+titulo+'</p>'
@@ -4275,7 +4337,7 @@ function renderizarDrawer(emp){
         // Usar parseFechaFlexible que maneja: serial numérico (35228),
         // texto DD/MM/YYYY ("11/06/1996"), texto YYYY-MM-DD ("1996-06-11")
         var d = parseFechaFlexible(v);
-        if(d && !isNaN(d)) return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
+        if(d && !isNaN(d)) return fmtUTC(d,{day:"2-digit",month:"2-digit",year:"numeric"});
         return v.toString();
     };
     const E = emp;
@@ -4286,7 +4348,10 @@ function renderizarDrawer(emp){
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
         ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
         ro("Antigüedad ⟵ fórmula Sheet",E["ANTIGÜEDAD"])+
-        ed("ed_empresa","Empresa",E["EMPRESA"])+
+        edsec("ed_empresa","Empresa",E["EMPRESA"],"text",empresas)+
+        ('<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Grupo Comercial <span class="text-blue-400 font-normal normal-case">⟵ automático</span></label>'
+        +'<input type="text" id="ed_grupoComercial" readonly tabindex="-1" value="'+(E["GRUPO COMERCIAL"]||'')+'" '
+        +'class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 text-slate-400 cursor-default"></div>')+
         ed("ed_puesto","Puesto",E["PUESTO"])+
         ed("ed_depto","Departamento",E["DEPARTAMENTO"])+
         ed("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"])+
@@ -4428,6 +4493,7 @@ async function guardarCambiosEditor(){
         empresa:        empleadoEdicion["EMPRESA"] || "",
         campos:{
             "EMPRESA":                 document.getElementById('ed_empresa')?.value||undefined,
+            "GRUPO COMERCIAL":         document.getElementById('ed_grupoComercial')?.value||undefined,
             "PUESTO":                  document.getElementById('ed_puesto')?.value||undefined,
             "DEPARTAMENTO":            document.getElementById('ed_depto')?.value||undefined,
             "TIPO DE INGRESO":         document.getElementById('ed_tipoIngreso')?.value||undefined,
@@ -4615,6 +4681,7 @@ async function obtenerDatos(forzar){
 async function forzarActualizacion(){
     cacheGlobal=[];
     datosFiltrados=[];
+    await cargarCatalogoEmpresas(); // recargar catálogo de empresas
     const datos=await obtenerDatos(true);
     actualizarListaEmpresas(); // actualizar lista de empresas dinámicamente
     poblarCatalogos(); // actualizar catálogos de departamentos y puestos
@@ -4670,6 +4737,14 @@ function limpiarFiltros() {
         if (el) el.value = '';
     });
     aplicarFiltros();
+}
+
+function limpiarFiltrosDashboard(){
+    ['filtroEmpresaGlobal','filtroGrupoGlobal','filtroMesGlobal','filtroAnioGlobal'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.value='ALL';
+    });
+    cargarDashboard();
 }
 
 function renderizarPagina(pag) {
@@ -4861,8 +4936,49 @@ function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
 
 async function cargarDashboard(){
-    const todos=await obtenerDatos(),filtro=document.getElementById('filtroEmpresaGlobal').value;
-    const D=filtro==="ALL"?todos:todos.filter(r=>(r["EMPRESA"]||"").trim()===filtro);
+    const todos=await obtenerDatos();
+    const filtroEmp  = (document.getElementById('filtroEmpresaGlobal')?.value)||'ALL';
+    const filtroGrupo= (document.getElementById('filtroGrupoGlobal')?.value)||'ALL';
+    const filtroMes  = (document.getElementById('filtroMesGlobal')?.value)||'ALL';
+    const filtroAnio = (document.getElementById('filtroAnioGlobal')?.value)||'ALL';
+
+    // Poblar selector de años dinámicamente (detectar años en la BD)
+    const selAnio = document.getElementById('filtroAnioGlobal');
+    if(selAnio){
+        const aniosSet=new Set();
+        todos.forEach(r=>{
+            const d=parseFechaFlexible(r["FECHA DE INGRESO"]);
+            if(d)aniosSet.add(d.getUTCFullYear());
+            const db=parseFechaFlexible(r["FECHA DE BAJA"]);
+            if(db)aniosSet.add(db.getUTCFullYear());
+        });
+        const anios=[...aniosSet].sort();
+        const vActual=selAnio.value;
+        selAnio.innerHTML='<option value="ALL">Todos</option>'+
+            anios.map(a=>'<option value="'+a+'"'+(a.toString()===vActual?' selected':'')+'>'+a+'</option>').join('');
+    }
+
+    // Aplicar filtros — empresa tiene prioridad; si hay grupo, filtra por grupo ignorando empresa "Todas"
+    const D=todos.filter(r=>{
+        const emp=(r["EMPRESA"]||"").trim();
+        const grp=(r["GRUPO COMERCIAL"]||grupoDeEmpresa(emp)||"").trim();
+        const fIng=parseFechaFlexible(r["FECHA DE INGRESO"]);
+        const fBaja=parseFechaFlexible(r["FECHA DE BAJA"]);
+        const anyDate=fIng||fBaja;
+
+        if(filtroEmp!=='ALL' && emp!==filtroEmp) return false;
+        if(filtroGrupo!=='ALL' && grp!==filtroGrupo) return false;
+        if((filtroMes!=='ALL'||filtroAnio!=='ALL') && anyDate){
+            const mesRow=String(anyDate.getUTCMonth()+1).padStart(2,'0');
+            const anioRow=String(anyDate.getUTCFullYear());
+            if(filtroMes!=='ALL' && mesRow!==filtroMes) return false;
+            if(filtroAnio!=='ALL' && anioRow!==filtroAnio) return false;
+        } else if((filtroMes!=='ALL'||filtroAnio!=='ALL') && !anyDate){
+            return false;
+        }
+        return true;
+    });
+
     let activos=0,bajas=0,cEmp={},cGen={"Hombre":0,"Mujer":0},cRango={"<31":0,"31-50":0,"51-65":0,">65":0};
     let cMotivo={},cDepto={},cTend={},finPorMes={},finPorAnio={},totalFin=0,edades=[],ants=[];
 
@@ -5072,6 +5188,7 @@ async function initApp(){
     pasoActual=0;altaData={};
     actualizarBadgeNotifs();
     renderizarStepper();
+    await cargarCatalogoEmpresas(); // Cargar catálogo EMPRESAS desde Sheet
     const datos=await cargarDashboard();
     actualizarListaEmpresas();
     poblarCatalogos();
