@@ -4376,27 +4376,24 @@ function renderizarDrawer(emp){
         ed("ed_parBenef","Parentesco",E["PARENTESCO DEL BENEFICIARIO"])+
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     )+
-    // ── Sección Datos de Baja ─────────────────────────────────
-    // Visible siempre: permite registrar/editar fecha de baja y finiquito
-    // sin necesidad de pasar por el módulo de Baja de Personal
-    '<div class="mb-5">'
-    +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
-    +'<i class="fas fa-user-minus text-red-400"></i>'
-    +'Baja / Finiquito'
-    +(E["ESTATUS"]==="Baja"
-        ? ' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
-        : ' <span class="ml-auto text-xs text-slate-400 font-normal normal-case">Completar solo si el empleado causó baja</span>')
-    +'</p>'
-    +'<div class="grid grid-cols-2 gap-3">'
-    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
-    +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
-    +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-    +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Renuncia","Terminación","Mutuo Acuerdo","Jubilación","Fallecimiento","Abandono","Fin de Contrato","Otro"])
-    +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Renuncia Voluntaria","Terminación de Contrato","Mutuo Acuerdo","Bajo Rendimiento","Reestructuración","Jubilación","Fallecimiento","Oferta Económica Mejor","Cambio de Residencia","Problemas Personales","Otro"])+'</div>'
-    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
-    +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
-    +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-    +'</div></div>'+
+    // ── Sección Datos de Baja — solo visible si el empleado está en Baja ────
+    (E["ESTATUS"]==="Baja"
+    ? '<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
+      +'<p class="text-xs font-bold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">'
+      +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
+      +' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
+      +'</p>'
+      +'<div class="grid grid-cols-2 gap-3">'
+      +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
+      +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Renuncia","Terminación","Mutuo Acuerdo","Jubilación","Fallecimiento","Abandono","Fin de Contrato","Otro"])
+      +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Renuncia Voluntaria","Terminación de Contrato","Mutuo Acuerdo","Bajo Rendimiento","Reestructuración","Jubilación","Fallecimiento","Oferta Económica Mejor","Cambio de Residencia","Problemas Personales","Otro"])+'</div>'
+      +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
+      +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+      +'</div></div>'
+    : '')+
     '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
 
 
