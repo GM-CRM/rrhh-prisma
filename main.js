@@ -248,7 +248,7 @@ function evaluarAlertas(datos){
             if(alertasVistas[clave] === fv.toISOString().slice(0,10)) return;
 
             if(dias < 0){
-                agregarNotificacion('error', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id, true);
+                agregarNotificacion('contrato', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             } else if(dias <= DIAS_ALERTA_CONTRATO){
                 agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fmtUTC(fv)}). Gestiona la renovación.`, id, true);
@@ -413,13 +413,22 @@ function actualizarListaEmpresas() {
         if (v) listEmpAlta.value = v;
     }
 
-    // Filtro del expediente
+    // Filtro de empresa en expedientes
     const filtroEmpExp = document.getElementById("filtro-empresa");
     if (filtroEmpExp) {
         const v = filtroEmpExp.value;
         filtroEmpExp.innerHTML = "<option value=''>Todas las empresas</option>" +
             empresas.map(e => "<option value='" + e + "'>" + e + "</option>").join("");
         if (v) filtroEmpExp.value = v;
+    }
+
+    // Filtro de grupo en expedientes
+    const filtroGrupoExp = document.getElementById("filtro-grupo");
+    if (filtroGrupoExp) {
+        const vg = filtroGrupoExp.value;
+        filtroGrupoExp.innerHTML = "<option value=''>Todos los grupos</option>" +
+            listaGrupos().map(g => "<option value='" + g + "'>" + g + "</option>").join("");
+        if (vg) filtroGrupoExp.value = vg;
     }
 }
 
@@ -2728,11 +2737,14 @@ async function renderAdminPersonas(cont) {
     const deptos  = [...new Set(data.map(function(e){return e.depto;}).filter(Boolean))].sort();
     const puestos = [...new Set(data.map(function(e){return e.puesto;}).filter(Boolean))].sort();
     const emps    = [...new Set(data.map(function(e){return e.empresa;}).filter(Boolean))].sort();
+    // Grupos comerciales desde el catálogo EMPRESAS (más confiable que la BD)
+    const grupos  = listaGrupos().length ? listaGrupos()
+                  : [...new Set(cacheGlobal.map(r=>(r["GRUPO COMERCIAL"]||"").toString().trim()).filter(Boolean))].sort();
 
     cont.innerHTML =
     '<h3 class="text-base font-bold text-slate-800 mb-5">Administración — Catálogos</h3>'
     +'<p class="text-xs text-slate-400 mb-5">Estos catálogos se generan automáticamente desde los datos del Sheet. Para modificarlos, edita directamente el expediente del colaborador.</p>'
-    +'<div class="grid grid-cols-1 md:grid-cols-3 gap-4">'
+    +'<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">'
     // Departamentos
     +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
     +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-sitemap text-violet-500"></i>Departamentos <span class="text-xs text-slate-400 font-normal ml-auto">'+deptos.length+'</span></p>'
@@ -2762,6 +2774,23 @@ async function renderAdminPersonas(cont) {
         return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
             +'<span class="text-xs text-slate-600">'+e2+'</span>'
             +'<span class="text-xs font-bold text-slate-400">'+cnt+'</span></div>';
+    }).join('')+'</div></div>'
+    // Grupos Comerciales — desde catálogo EMPRESAS
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-layer-group text-amber-500"></i>Grupos Comerciales <span class="text-xs text-slate-400 font-normal ml-auto">'+grupos.length+'</span></p>'
+    +'<div class="space-y-1 max-h-64 overflow-y-auto">'
+    +grupos.map(function(g){
+        const cnt = catalogoEmpresas.filter(function(e){return e.grupo===g;}).length;
+        const cntEmp = cacheGlobal.filter(function(r){
+            const grp = (r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa((r["EMPRESA"]||"").toString().trim());
+            return grp === g;
+        }).length;
+        return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
+            +'<div>'
+            +'<span class="text-xs text-slate-600">'+g+'</span>'
+            +'<span class="text-xs text-slate-400 ml-2">'+cnt+' empresa(s)</span>'
+            +'</div>'
+            +'<span class="text-xs font-bold text-amber-500">'+cntEmp+'</span></div>';
     }).join('')+'</div></div>'
     +'</div>';
 }
@@ -4387,8 +4416,8 @@ function renderizarDrawer(emp){
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
       +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Renuncia","Terminación","Mutuo Acuerdo","Jubilación","Fallecimiento","Abandono","Fin de Contrato","Otro"])
-      +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Renuncia Voluntaria","Terminación de Contrato","Mutuo Acuerdo","Bajo Rendimiento","Reestructuración","Jubilación","Fallecimiento","Oferta Económica Mejor","Cambio de Residencia","Problemas Personales","Otro"])+'</div>'
+      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Renuncia Voluntaria","Terminación","Mutuo Acuerdo","Jubilación","Fallecimiento","Abandono de empleo","Fin de Contrato","Incapacidad permanente","Otro"])
+      +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo","Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio","Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso","Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo","Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones","Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales","Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"])+'</div>'
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
       +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
@@ -4724,22 +4753,26 @@ async function cargarDatosTabla() {
 function aplicarFiltros() {
     const busqueda = (document.getElementById('filtro-busqueda')?.value || '').toLowerCase().trim();
     const empresa  = (document.getElementById('filtro-empresa')?.value  || '').trim();
+    const grupo    = (document.getElementById('filtro-grupo')?.value    || '').trim();
     const estatus  = (document.getElementById('filtro-estatus')?.value  || '').trim();
 
     datosFiltrados = cacheGlobal.filter(emp => {
         const nombre = (emp["NOMBRE DEL TRABAJADOR"] || "").toLowerCase();
         const noEmp  = (emp["NO. EMPLEADO"] || "").toString().toLowerCase();
         const puesto = (emp["PUESTO"] || "").toLowerCase();
+        const empVal = (emp["EMPRESA"] || "").toString().trim();
+        const grpVal = (emp["GRUPO COMERCIAL"] || "").toString().trim() || grupoDeEmpresa(empVal);
         const pasaBusqueda = !busqueda || nombre.includes(busqueda) || noEmp.includes(busqueda) || puesto.includes(busqueda);
-        const pasaEmpresa  = !empresa  || (emp["EMPRESA"] || "").trim() === empresa;
-        const pasaEstatus  = !estatus  || (emp["ESTATUS"]  || "").trim() === estatus;
-        return pasaBusqueda && pasaEmpresa && pasaEstatus;
+        const pasaEmpresa  = !empresa  || empVal === empresa;
+        const pasaGrupo    = !grupo    || grpVal === grupo;
+        const pasaEstatus  = !estatus  || (emp["ESTATUS"] || "").toString().trim() === estatus;
+        return pasaBusqueda && pasaEmpresa && pasaGrupo && pasaEstatus;
     });
 
     paginaActual = 1;
     renderizarPagina(1);
 
-    const hayFiltros  = busqueda || empresa || estatus;
+    const hayFiltros  = busqueda || empresa || grupo || estatus;
     const btnLimpiar  = document.getElementById('btn-limpiar-filtros');
     const contador    = document.getElementById('contador-filtros');
     if (btnLimpiar) btnLimpiar.classList.toggle('hidden', !hayFiltros);
@@ -4747,7 +4780,7 @@ function aplicarFiltros() {
 }
 
 function limpiarFiltros() {
-    ['filtro-busqueda','filtro-empresa','filtro-estatus'].forEach(id => {
+    ['filtro-busqueda','filtro-empresa','filtro-grupo','filtro-estatus'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -5097,8 +5130,25 @@ async function cargarDashboard(){
     });
 
     // Calcular activos acumulados por mes (snapshot mensual)
+    // El acumulado inicial = empleados activos (o que ingresaron) ANTES del primer mes visible
+    // Esto evita que la línea de activos empiece en 0 al filtrar por año
     const mesesOrdenados=Object.keys(cTend).sort();
-    let acumActivos=0;
+    let acumActivos = 0;
+    if(mesesOrdenados.length > 0){
+        const primerMes = mesesOrdenados[0]; // ej: "2026-01"
+        // Contar del conjunto D (filtrado por empresa/grupo) los que ya estaban activos antes
+        acumActivos = D.filter(r=>{
+            const fI = parseFechaFlexible(r["FECHA DE INGRESO"]);
+            const fB = parseFechaFlexible(r["FECHA DE BAJA"]);
+            if(!fI) return false;
+            const kIng = fI.getUTCFullYear()+'-'+String(fI.getUTCMonth()+1).padStart(2,'0');
+            if(kIng >= primerMes) return false; // ingresó en o después del primer mes → no contar
+            // Estaba activo antes: si no tiene baja, o la baja es en o después del primer mes
+            if(!fB) return true;
+            const kBaja = fB.getUTCFullYear()+'-'+String(fB.getUTCMonth()+1).padStart(2,'0');
+            return kBaja >= primerMes;
+        }).length;
+    }
     mesesOrdenados.forEach(k=>{
         acumActivos+=cTend[k].altas;
         acumActivos-=cTend[k].bajas;

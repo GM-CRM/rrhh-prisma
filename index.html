@@ -853,7 +853,7 @@ if ('serviceWorker' in navigator) {
         </div>
 
         <!-- Filtros -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
           <!-- Buscador -->
           <div class="md:col-span-2 relative">
             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
@@ -861,16 +861,15 @@ if ('serviceWorker' in navigator) {
               oninput="aplicarFiltros()"
               class="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
           </div>
+          <!-- Filtro grupo comercial -->
+          <select id="filtro-grupo" onchange="aplicarFiltros()"
+            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-violet-500 transition cursor-pointer">
+            <option value="">Todos los grupos</option>
+          </select>
           <!-- Filtro empresa -->
           <select id="filtro-empresa" onchange="aplicarFiltros()"
             class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
             <option value="">Todas las empresas</option>
-            <option>Newspot Mexico</option>
-            <option>Centro De Telecomunicaciones Y Publicidad De Mexico</option>
-            <option>Global Media</option><option>Editora Mexicana</option>
-            <option>Cable Master</option><option>Fember Press</option>
-            <option>Infomonitor</option><option>Rtv Comunicacion</option>
-            <option>Radio Expresion Cultural</option>
           </select>
           <!-- Filtro estatus -->
           <select id="filtro-estatus" onchange="aplicarFiltros()"
@@ -1026,6 +1025,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=63.0"></script>
+<script src="main.js?v=64.0"></script>
 </body>
 </html>
