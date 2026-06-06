@@ -1,4 +1,3 @@
-
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -257,7 +256,7 @@ function evaluarAlertas(datos){
         });
 
         // ── Entrevistas de 15 días ────────────────────────────
-        const ent15 = (emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"").trim();
+        const ent15 = (emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"").toString().trim();
         const fIng  = parseFechaFlexible(emp["FECHA DE INGRESO"]);
         if(fIng && (ent15 === "" || ent15 === "Pendiente")){
             const diasIngreso = Math.round((hoy - fIng) / 86400000);
@@ -269,7 +268,7 @@ function evaluarAlertas(datos){
         }
 
         // ── Entrevistas de 45 días ────────────────────────────
-        const ent45 = (emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"").trim();
+        const ent45 = (emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"").toString().trim();
         if(fIng && (ent45 === "" || ent45 === "Pendiente")){
             const diasIngreso = Math.round((hoy - fIng) / 86400000);
             const clave45 = `ent45_${id}`;
@@ -4945,7 +4944,38 @@ async function subirDocumentosExpediente() {
 // ─── DASHBOARD ────────────────────────────────────────────────
 let charts={};
 const CD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{family:"'Inter',sans-serif",size:11},padding:10,boxWidth:12,boxHeight:12}}}};
+// Helper para mostrar/ocultar mensajes "sin datos" en contenedores de gráficas
+// sin destruir el canvas (lo que causaría null en la siguiente carga)
+function chartSinDatos(canvasId, mensaje){
+    const c = document.getElementById(canvasId);
+    if(!c) return;
+    c.style.display = 'none';
+    const pid = canvasId + '_empty';
+    let p = document.getElementById(pid);
+    if(!p){
+        p = document.createElement('p');
+        p.id = pid;
+        p.className = 'text-xs text-slate-400 text-center pt-12';
+        c.parentNode.insertBefore(p, c.nextSibling);
+    }
+    p.textContent = mensaje;
+    p.style.display = '';
+}
+function chartConDatos(canvasId){
+    const c = document.getElementById(canvasId);
+    if(!c) return;
+    c.style.display = '';
+    const p = document.getElementById(canvasId + '_empty');
+    if(p) p.style.display = 'none';
+}
 function dc(r){if(r)try{r.destroy();}catch(e){}return null;}
+// Crea una Chart.js solo si el canvas existe (evita null.getContext crash al re-filtrar)
+function safeChart(id, config){
+    const el = document.getElementById(id);
+    if(!el) return null;
+    chartConDatos(id);
+    return new Chart(el.getContext('2d'), config);
+}
 function fmtMXN(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(n||0);}
 function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a>=15&&a<=85?a:null;}
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
@@ -4987,9 +5017,9 @@ async function cargarDashboard(){
     // Esto garantiza que KPIs de plantilla activa, géneros y rangos de edad
     // siempre reflejen el estado real de la empresa/grupo seleccionada.
     const D=todos.filter(r=>{
-        const emp=(r["EMPRESA"]||"").trim();
+        const emp=(r["EMPRESA"]||"").toString().trim();
         // Grupo: leer de la columna BD primero; luego catálogo; luego vacío
-        const grp=(r["GRUPO COMERCIAL"]||"").trim() || grupoDeEmpresa(emp);
+        const grp=(r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa(emp);
         if(hayFiltroEmp   && emp!==filtroEmp)   return false;
         if(hayFiltroGrupo && grp!==filtroGrupo) return false;
         return true;
@@ -5018,8 +5048,8 @@ async function cargarDashboard(){
     // porque un empleado activo puede haber ingresado en cualquier año.
     // Los contadores de tendencia y finiquitos SÍ respetan el filtro fecha.
     D.forEach(row=>{
-        const est=(row["ESTATUS"]||"").trim(),gen=(row["GÉNERO"]||"").trim(),emp=(row["EMPRESA"]||"Sin Empresa").trim();
-        const rango=(row["RANGO DE EDAD"]||"").trim(),motivo=(row["MOTIVO DE SALIDA"]||"").trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").trim();
+        const est=(row["ESTATUS"]||"").toString().trim(),gen=(row["GÉNERO"]||"").toString().trim(),emp=(row["EMPRESA"]||"Sin Empresa").toString().trim();
+        const rango=(row["RANGO DE EDAD"]||"").toString().trim(),motivo=(row["MOTIVO DE SALIDA"]||"").toString().trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").toString().trim();
         const fIng=row["FECHA DE INGRESO"]||"",fBaja=row["FECHA DE BAJA"]||"",fNac=row["FECHA DE NACIMIENTO"]||"";
         const fin=parsearMontoSheet(row["MONTO DE FINIQUITO"]);
 
@@ -5111,31 +5141,31 @@ async function cargarDashboard(){
     // ── Gráfica: Empresas ──────────────────────────────────────
     const empL=Object.keys(cEmp).map(e=>e.length>14?e.substring(0,14)+'…':e);
     charts.emp=dc(charts.emp);
-    charts.emp=new Chart(document.getElementById('chartEmpresas').getContext('2d'),{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
+    charts.emp=safeChart('chartEmpresas',{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
 
     // ── Gráfica: Rango de edad ─────────────────────────────────
     charts.rango=dc(charts.rango);
-    charts.rango=new Chart(document.getElementById('chartRangoEdad').getContext('2d'),{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+    charts.rango=safeChart('chartRangoEdad',{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
 
     // ── Gráfica: Motivos de baja ───────────────────────────────
     const mot=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.mot=dc(charts.mot);
     if(mot.length){
-        charts.mot=new Chart(document.getElementById('chartMotivoBaja').getContext('2d'),{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+        charts.mot=safeChart('chartMotivoBaja',{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
     } else {
-        const c=document.getElementById('chartMotivoBaja');if(c)c.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin bajas registradas aún</p>';
+        chartSinDatos('chartMotivoBaja','Sin bajas registradas aún');
     }
 
     // ── Gráfica: Top departamentos ─────────────────────────────
     const dep=Object.entries(cDepto).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.dep=dc(charts.dep);
-    charts.dep=new Chart(document.getElementById('chartDeptos').getContext('2d'),{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    charts.dep=safeChart('chartDeptos',{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
 
     // ── Gráfica: Tendencia mensual — Altas, Bajas y Activos ───
     // Muestra los últimos 24 meses con 3 líneas
     const mesesTend=mesesOrdenados.slice(-24);
     charts.tend=dc(charts.tend);
-    charts.tend=new Chart(document.getElementById('chartTendencia').getContext('2d'),{
+    charts.tend=safeChart('chartTendencia',{
         type:'line',
         data:{
             labels:mesesTend.map(fmtM),
@@ -5153,8 +5183,8 @@ async function cargarDashboard(){
     const mesesFin=Object.keys(finPorMes).sort().slice(-24);
     const finC=document.getElementById('chartFiniquitos');
     charts.fin=dc(charts.fin);
-    if(mesesFin.length){
-        charts.fin=new Chart(finC.getContext('2d'),{
+    if(mesesFin.length && finC){
+        charts.fin=safeChart('chartFiniquitos',{
             type:'bar',
             data:{
                 labels:mesesFin.map(fmtM),
@@ -5177,8 +5207,8 @@ async function cargarDashboard(){
                 }
             }
         });
-    } else if(finC){
-        finC.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin finiquitos registrados aún</p>';
+    } else {
+        chartSinDatos('chartFiniquitos','Sin finiquitos registrados aún');
     }
 
     // ── Tabla causas de baja con % ─────────────────────────────
