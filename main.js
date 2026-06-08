@@ -4223,25 +4223,34 @@ function cerrarEditorEncuesta() {
 
 // ─── FOTO DE PERFIL DEL EMPLEADO ─────────────────────────────
 async function cargarFotoPerfil(folderUrl){
-    var partes = folderUrl.split('/folders/');
-    if(partes.length < 2) return;
-    var folderId = partes[1].split('?')[0].trim();
-    if(!folderId) return;
+    if(!folderUrl) return;
+    // Extraer folderId con regex robusto
+    var mFolder = folderUrl.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if(!mFolder) { console.warn('[cargarFotoPerfil] No se pudo extraer folderId de:', folderUrl); return; }
+    var folderId = mFolder[1];
     try {
         var r = await enviarPeticion('obtener_foto', { folderId: folderId });
+        console.log('[cargarFotoPerfil] Respuesta:', JSON.stringify(r));
         if(r.status === 'success' && r.url) {
             var avatar = document.getElementById('avatar-circulo');
             if(avatar) {
                 var img = document.createElement('img');
                 img.src = r.url;
                 img.className = 'w-full h-full object-cover';
-                img.onerror = function(){ this.parentElement.innerHTML = '<i class="fas fa-user"></i>'; };
+                img.onerror = function(){
+                    console.warn('[cargarFotoPerfil] Error cargando imagen:', r.url);
+                    this.parentElement.innerHTML = '<i class="fas fa-user"></i>';
+                };
                 avatar.innerHTML = '';
                 avatar.appendChild(img);
+            } else {
+                console.warn('[cargarFotoPerfil] No se encontró avatar-circulo en el DOM');
             }
+        } else {
+            console.warn('[cargarFotoPerfil] Sin foto:', r.message);
         }
     } catch(e) {
-        console.warn('No se pudo cargar foto:', e);
+        console.warn('[cargarFotoPerfil] Error:', e);
     }
 }
 
@@ -4257,10 +4266,13 @@ async function subirFotoPerfil(){
         r.onerror = rej;
         r.readAsDataURL(file);
     });
-    const id = (empleadoEdicion["NO. EMPLEADO"]||"").toString();
+    const idInterno  = (empleadoEdicion["ID INTERNO"]||"").toString().trim();
+    const noEmp      = (empleadoEdicion["NO. EMPLEADO"]||"").toString().trim();
+    const idParaNombre = idInterno || noEmp;
     const resp = await enviarPeticion('subir_documento',{
-        numeroEmpleado: id,
-        nombreArchivo: 'foto_perfil_'+id+'.'+file.name.split('.').pop(),
+        idInterno:      idInterno,   // identificador único — columna AY
+        numeroEmpleado: noEmp,       // respaldo por si acaso
+        nombreArchivo: 'foto_perfil_'+idParaNombre+'.'+file.name.split('.').pop(),
         mimeType: file.type,
         data: b64
     });
@@ -4856,7 +4868,7 @@ function renderizarPagina(pag) {
                 + '<td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
                 + '<td class="px-3 py-3"><div class="flex items-center justify-center gap-2">'
                 + '<button onclick="abrirEditor(\'' + (emp['ID INTERNO']||id) + '\',\'' + (emp['EMPRESA']||'').replace(/'/g,'') + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
-                + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
+                + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\',\'' + (emp['ID INTERNO']||'') + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
                 + link
                 + '</div></td></tr>';
         });
@@ -4878,12 +4890,14 @@ function renderizarPagina(pag) {
 }
 
 // ─── SUBIDA DE DOCUMENTOS AL EXPEDIENTE ───────────────────────
-let modalDocsId  = null;
-let modalDocsNom = null;
+let modalDocsId      = null;
+let modalDocsNom     = null;
+let modalDocsIdInt   = null;
 
-function abrirModalDocs(id, nombre) {
-    modalDocsId  = id;
-    modalDocsNom = nombre;
+function abrirModalDocs(id, nombre, idInterno) {
+    modalDocsId    = id;
+    modalDocsNom   = nombre;
+    modalDocsIdInt = idInterno || '';
     const label = document.getElementById('modal-docs-empleado');
     if (label) label.textContent = '#' + id + ' — ' + nombre;
     const input = document.getElementById('modal-archivos');
@@ -4899,7 +4913,7 @@ function abrirModalDocs(id, nombre) {
 function cerrarModalDocs() {
     document.getElementById('modal-docs').classList.add('hidden');
     document.body.style.overflow = '';
-    modalDocsId = null; modalDocsNom = null;
+    modalDocsId = null; modalDocsNom = null; modalDocsIdInt = null;
 }
 
 function manejarDropModal(event) {
@@ -4961,6 +4975,7 @@ async function subirDocumentosExpediente() {
                 r.readAsDataURL(file);
             });
             const resp = await enviarPeticion('subir_documento', {
+                idInterno:      modalDocsIdInt || '',
                 numeroEmpleado: modalDocsId,
                 nombreArchivo:  file.name,
                 mimeType:       file.type || 'application/octet-stream',
