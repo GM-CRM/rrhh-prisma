@@ -31,13 +31,16 @@ const API_URL    = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6
 // ─── UI BÁSICA ───────────────────────────────────────────────
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}
 function activarNav(btn){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('is-active'));btn.classList.add('is-active');}
+let dashboardCargado=false;
+let moduloActivo='';
 function showModule(id){
     document.querySelectorAll('.module-section').forEach(s=>{s.classList.remove('active');s.style.display='none';});
     const t=document.getElementById('module-'+id);if(!t)return;
     t.style.display='block';
     requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('active')));
-    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes',usuarios:'Usuarios',encuestas:'Encuestas'}[id]||id;
+    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes',usuarios:'Usuarios',encuestas:'Encuestas',personas:'Personas',evaluaciones:'Evaluaciones'}[id]||id;
     if(window.innerWidth<768)toggleMenu();
+    moduloActivo=id;
 }
 function mostrarLoader(t){document.getElementById('loader-text').innerText=t||'Procesando...';document.getElementById('global-loader').style.display='flex';}
 function ocultarLoader(){document.getElementById('global-loader').style.display='none';}
@@ -2418,6 +2421,9 @@ function filtrarDirectorio() {
     else renderTablaDirectorio(filt);
 }
 
+// Cache de fotos ya cargadas: folderId → url de thumbnail (evita pedir 2 veces)
+const _fotoCache = {};
+
 function renderGridDirectorio(data) {
     const grid = document.getElementById('dir-grid');
     if(!grid) return;
@@ -2425,27 +2431,28 @@ function renderGridDirectorio(data) {
         grid.innerHTML = '<div class="col-span-4 text-center py-16 text-slate-400"><i class="fas fa-users-slash text-3xl mb-2 block"></i>Sin resultados</div>';
         return;
     }
+
     grid.innerHTML = data.map(function(e){
         const ini   = getIniciales(e.nombre) || '?';
         const color = avatarColor(e.nombre);
         const act   = e.estatus === 'Activo';
         const badge = act ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600';
-        // Foto desde Drive si tiene URL de expediente
-        const fotoHtml = e.urlExp && e.urlExp.startsWith('http')
-            ? '' // intentaremos cargar foto
-            : '';
+        // Extraer folderId de la URL del expediente para carga lazy
+        var folderId = '';
+        if(e.urlExp && e.urlExp.startsWith('http')){
+            var m = e.urlExp.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+            if(m) folderId = m[1];
+        }
         return '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md hover:border-violet-200 transition cursor-pointer dir-card"'
-            +' data-id="'+e.idInterno+'" class="org-card">'
+            +' data-id="'+e.idInterno+'"'
+            +(folderId ? ' data-folder="'+folderId+'"' : '')+'>'
             +'<div class="flex flex-col items-center text-center">'
-            // Avatar
-            +'<div class="w-16 h-16 rounded-full mb-3 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0"'
+            // Avatar — ID único para poder actualizar después
+            +'<div id="dir-av-'+e.idInterno+'" class="dir-avatar w-16 h-16 rounded-full mb-3 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0"'
             +' style="background:'+color+';">'+ini+'</div>'
-            // Nombre
             +'<p class="font-bold text-slate-800 text-sm leading-tight mb-0.5">'+e.nombre+'</p>'
             +'<p class="text-xs text-slate-400 mb-2">'+e.puesto+'</p>'
-            // Badge estatus
             +'<span class="px-2 py-0.5 rounded-full text-xs font-bold mb-3 '+badge+'">'+e.estatus+'</span>'
-            // Info
             +'<div class="w-full text-left space-y-1 border-t border-slate-100 pt-3">'
             +(e.empresa?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-building text-slate-300 w-3"></i>'+e.empresa+'</p>':'')
             +(e.depto?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-sitemap text-slate-300 w-3"></i>'+e.depto+'</p>':'')
@@ -2453,6 +2460,90 @@ function renderGridDirectorio(data) {
             +(e.telefono?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-phone text-slate-300 w-3"></i>'+e.telefono+'</p>':'')
             +'</div></div></div>';
     }).join('');
+
+    // Iniciar carga lazy de fotos con IntersectionObserver
+    iniciarLazyFotos();
+}
+
+// Cola de peticiones para no saturar el backend (máx 3 simultáneas)
+var _fotoQueue = [];
+var _fotoActivas = 0;
+var _fotoMaxActivas = 3;
+
+function iniciarLazyFotos(){
+    // Desconectar observer anterior si existe
+    if(window._dirFotoObserver) window._dirFotoObserver.disconnect();
+
+    window._dirFotoObserver = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(!entry.isIntersecting) return;
+            var card = entry.target;
+            var folderId = card.dataset.folder;
+            var idInterno = card.dataset.id;
+            if(!folderId || card.dataset.fotoSolicitada) return;
+            card.dataset.fotoSolicitada = '1';
+            window._dirFotoObserver.unobserve(card);
+            _fotoQueue.push({ folderId: folderId, idInterno: idInterno });
+            procesarColaFotos();
+        });
+    }, { rootMargin: '100px', threshold: 0.1 });
+
+    document.querySelectorAll('.dir-card[data-folder]').forEach(function(card){
+        var folderId = card.dataset.folder;
+        // Si ya está en caché, aplicar inmediatamente sin pedir al backend
+        if(_fotoCache[folderId]){
+            var av = document.getElementById('dir-av-'+card.dataset.id);
+            if(av) aplicarFotoAvatar(av, _fotoCache[folderId]);
+        } else {
+            window._dirFotoObserver.observe(card);
+        }
+    });
+}
+
+function procesarColaFotos(){
+    while(_fotoActivas < _fotoMaxActivas && _fotoQueue.length > 0){
+        var item = _fotoQueue.shift();
+        _fotoActivas++;
+        cargarFotoDirectorio(item.folderId, item.idInterno).finally(function(){
+            _fotoActivas--;
+            procesarColaFotos();
+        });
+    }
+}
+
+async function cargarFotoDirectorio(folderId, idInterno){
+    // Si ya está en caché de sesión, no volver a pedir
+    if(_fotoCache[folderId] === null) return; // null = confirmado que no tiene foto
+    if(_fotoCache[folderId]) {
+        var av = document.getElementById('dir-av-'+idInterno);
+        if(av) aplicarFotoAvatar(av, _fotoCache[folderId]);
+        return;
+    }
+    try {
+        var r = await enviarPeticion('obtener_foto', { folderId: folderId });
+        if(r && r.status === 'success' && r.url){
+            _fotoCache[folderId] = r.url;
+            var av = document.getElementById('dir-av-'+idInterno);
+            if(av) aplicarFotoAvatar(av, r.url);
+        } else {
+            _fotoCache[folderId] = null; // marcar como "sin foto" para no volver a pedir
+        }
+    } catch(e) {
+        _fotoCache[folderId] = null;
+    }
+}
+
+function aplicarFotoAvatar(avDiv, url){
+    var img = new Image();
+    img.onload = function(){
+        avDiv.innerHTML = '';
+        avDiv.style.background = 'transparent';
+        avDiv.appendChild(img);
+    };
+    img.onerror = function(){ /* mantener iniciales */ };
+    img.src = url;
+    img.className = 'w-full h-full object-cover';
+    img.alt = '';
 }
 
 function renderTablaDirectorio(data) {
@@ -4731,21 +4822,30 @@ async function procesarBaja(event){
 
 // ─── CACHÉ Y DATOS ────────────────────────────────────────────
 let cacheGlobal=[];
+let cacheTimestamp=0;
+const CACHE_TTL=5*60*1000; // 5 minutos — no volver a pedir datos al backend antes de este tiempo
+
 async function obtenerDatos(forzar){
-    if(!forzar&&cacheGlobal.length)return cacheGlobal;
+    const ahora=Date.now();
+    // Usar caché si: no se forzó, hay datos, y no expiró el TTL
+    if(!forzar && cacheGlobal.length && (ahora-cacheTimestamp)<CACHE_TTL) return cacheGlobal;
     mostrarLoader("Sincronizando base de datos...");
     try{
-        const r=await enviarPeticion("exportar_datos",{});ocultarLoader();
+        const r=await enviarPeticion("exportar_datos",{});
+        ocultarLoader();
         if(r.status==="success"){
             cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+            cacheTimestamp=Date.now();
             return cacheGlobal;
         }
-        return[];
-    }catch(e){ocultarLoader();return[];}
+        return cacheGlobal.length?cacheGlobal:[];
+    }catch(e){ocultarLoader();return cacheGlobal.length?cacheGlobal:[];}
 }
 async function forzarActualizacion(){
     cacheGlobal=[];
     datosFiltrados=[];
+    cacheTimestamp=0;
+    dashboardCargado=false;
     await cargarCatalogoEmpresas();
     const datos=await obtenerDatos(true);
     actualizarListaEmpresas(); // actualizar lista de empresas dinámicamente
@@ -4765,8 +4865,9 @@ const FILAS_PAG    = 50;
 let datosFiltrados = [];
 
 async function cargarDatosTabla() {
-    await obtenerDatos();
+    await obtenerDatos(false); // usa caché si está fresco (TTL 5 min)
     datosFiltrados = [...cacheGlobal];
+    actualizarListaEmpresas();
     paginaActual = 1;
     renderizarPagina(1);
 }
@@ -5039,7 +5140,7 @@ function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
 
 async function cargarDashboard(){
-    const todos=await obtenerDatos();
+    const todos=await obtenerDatos(false);
     const filtroEmp  = (document.getElementById('filtroEmpresaGlobal')?.value)||'ALL';
     const filtroGrupo= (document.getElementById('filtroGrupoGlobal')?.value)||'ALL';
     const filtroMes  = (document.getElementById('filtroMesGlobal')?.value)||'ALL';
