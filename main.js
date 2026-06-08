@@ -4847,12 +4847,12 @@ function renderizarPagina(pag) {
             });
 
             tbody.innerHTML += '<tr class="hover:bg-slate-50 border-b border-slate-100 transition">'
-                + '<td class="px-5 py-3.5 font-semibold text-slate-700 text-sm">#' + id + '</td>'
-                + '<td class="px-5 py-3.5 text-sm font-medium">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + '</td>'
-                + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["EMPRESA"] || "—") + '</td>'
-                + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["PUESTO"]  || "—") + '</td>'
-                + '<td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
-                + '<td class="px-5 py-3.5"><div class="flex items-center justify-center gap-3">'
+                + '<td class="px-3 py-3 font-semibold text-slate-700 text-sm whitespace-nowrap">#' + id + '</td>'
+                + '<td class="px-3 py-3 text-sm font-medium" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + '</td>'
+                + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["EMPRESA"] || "—") + '</td>'
+                + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["PUESTO"]  || "—") + '</td>'
+                + '<td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
+                + '<td class="px-3 py-3"><div class="flex items-center justify-center gap-2">'
                 + '<button onclick="abrirEditor(\'' + (emp['ID INTERNO']||id) + '\',\'' + (emp['EMPRESA']||'').replace(/'/g,'') + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
                 + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
                 + link
