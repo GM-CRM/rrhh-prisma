@@ -4416,7 +4416,7 @@ function renderizarDrawer(emp){
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
       +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Renuncia Voluntaria","Terminación","Mutuo Acuerdo","Jubilación","Fallecimiento","Abandono de empleo","Fin de Contrato","Incapacidad permanente","Otro"])
+      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Voluntaria","Involuntaria"])
       +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo","Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio","Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso","Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo","Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones","Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales","Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"])+'</div>'
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
       +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
