@@ -4264,19 +4264,21 @@ async function subirFotoPerfil(){
         mimeType: file.type,
         data: b64
     });
+    console.log('[subirFotoPerfil] Respuesta backend:', JSON.stringify(resp));
     if(resp.status === 'success'){
-        mostrarToast('success','Foto guardada','Foto de perfil actualizada en el expediente.');
-        // Usar la folderUrl devuelta por el backend (puede ser nueva si se creó la carpeta)
+        mostrarToast('success','Foto guardada','Foto subida a Drive. Carpeta: '+(resp.folderUrl||'existente'));
         const folderUrl = resp.folderUrl || (empleadoEdicion["URL EXPEDIENTE"]||"").toString().trim();
         if(folderUrl){
-            // Actualizar en memoria para que futuras subidas usen la URL correcta
             empleadoEdicion["URL EXPEDIENTE"] = folderUrl;
-            // Esperar un momento para que Drive indexe el archivo antes de buscarlo
+            // Actualizar el ícono de carpeta en la tabla
+            const iconoCarpeta = document.querySelector('tr [title="Abrir expediente en Drive"]');
+            if(iconoCarpeta) iconoCarpeta.href = folderUrl;
             await new Promise(r => setTimeout(r, 1500));
             await cargarFotoPerfil(folderUrl);
         }
     } else {
         mostrarToast('error','Error','No se pudo subir la foto: '+resp.message);
+        console.error('[subirFotoPerfil] Error del backend:', resp.message);
     }
     input.value = '';
 }
