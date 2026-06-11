@@ -243,6 +243,9 @@ function evaluarAlertas(datos){
             {label:'1er',ini:'FECHA DE INICIO DEL PRIMER CONTRATO',  ven:'FECHA DE VENCIMIENTO DEL PRIMER CONTRATO'},
             {label:'2do',ini:'FECHA DE INICIO DEL SEGUNDO CONTRATO', ven:'FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO'},
             {label:'3er',ini:'FECHA DE INICIO DEL TERCER CONTRATO',  ven:'FECHA DE VENCIMIENTO DEL TERCER CONTRATO'},
+            {label:'4to',ini:'FECHA DE INICIO DEL CUARTO CONTRATO',   ven:'FECHA DE VENCIMIENTO DEL CUARTO CONTRATO'},
+            {label:'5to',ini:'FECHA DE INICIO DEL QUINTO CONTRATO',   ven:'FECHA DE VENCIMIENTO DEL QUINTO CONTRATO'},
+            {label:'6to',ini:'FECHA DE INICIO DEL SEXTO CONTRATO',    ven:'FECHA DE VENCIMIENTO DEL SEXTO CONTRATO'},
         ].forEach(({label, ven})=>{
             const fv = parseFechaFlexible(emp[ven]);
             if(!fv) return;
@@ -480,7 +483,7 @@ function parseFechaFlexible(val){
 function parsearMontoSheet(val){
     if(!val&&val!==0)return 0;var s=val.toString().replace(/[$\s,]/g,"");var n=parseFloat(s);return isNaN(n)?0:n;
 }
-const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA EVALUACIÓN 360"];
+const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA DE INICIO DEL CUARTO CONTRATO","FECHA DE VENCIMIENTO DEL CUARTO CONTRATO","FECHA DE INICIO DEL QUINTO CONTRATO","FECHA DE VENCIMIENTO DEL QUINTO CONTRATO","FECHA DE INICIO DEL SEXTO CONTRATO","FECHA DE VENCIMIENTO DEL SEXTO CONTRATO","FECHA EVALUACIÓN 360"];
 const CAMPOS_MONTO=["SUELDO MENSUAL","MONTO DE FINIQUITO"];
 function normalizarRegistro(emp){
     var o=Object.assign({},emp);
@@ -636,7 +639,7 @@ const PASOS=[
         {id:"fuenteContratacion", label:"Fuente de Contratación", type:"text",  req:false,col:2,placeholder:"Ej. Referido, OCC, LinkedIn..."},
     ]},
     // PASO 2 — Contrato
-    {id:'paso-contrato',titulo:'Contrato',icono:'fa-file-contract',color:'indigo',descripcion:'Tipo, vigencias y seguimiento de contratos',campos:[
+    {id:'paso-contrato',titulo:'Contrato',icono:'fa-file-contract',color:'indigo',descripcion:'Tipo, vigencias y seguimiento de contratos',accion:{label:'⚡ Calcular fechas automáticamente',fn:'calcularFechasContrato()'},campos:[
         {id:"tipoContrato",              label:"Tipo de Contrato",            type:"select",req:true, col:2,options:["Tiempo Indeterminado","Prueba","Temporal"]},
         {id:"fechaInicioContrato",       label:"Inicio 1er Contrato",         type:"date",  req:false,col:2},
         {id:"vencimientoPrimerContrato", label:"Vencimiento 1er Contrato",    type:"date",  req:false,col:2},
@@ -782,7 +785,8 @@ function renderizarPasoActual(){
         <div class="w-12 h-12 rounded-xl ${cols[paso.color]||'bg-slate-100 text-slate-500'} flex items-center justify-center flex-shrink-0"><i class="fas ${paso.icono} text-xl"></i></div>
         <div><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>`;
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>
+      ${paso.accion ? '<div style=\"margin-top:12px;\"><button onclick=\"'+paso.accion.fn+'\" style=\"display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:.8rem;font-weight:700;padding:9px 18px;border-radius:10px;cursor:pointer;\">'+paso.accion.label+'</button></div>' : ''}\`;
 
     // Autonum — recalcular cuando cambia la empresa
     if(paso.campos.some(c=>c.autonum)){
@@ -837,8 +841,8 @@ function poblarCatalogos(){
 function renderizarCampo(c){
     const cls="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-300";
     const span=c.col===1?'md:col-span-2':'';
-    const ph=c.placeholder?`placeholder="${c.placeholder}"`:'';
-    const ml=c.maxlen?`maxlength="${c.maxlen}"`:'';
+    const ph=c.placeholder?'placeholder="'+c.placeholder+'"':'';
+    const ml=c.maxlen?'maxlength="'+c.maxlen+'"':'';
     const req=c.req?'<span class="text-red-400">*</span>':'';
     const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
     let inp;
@@ -5709,3 +5713,99 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
         }
     });
 }
+// ── Calcular fechas de contratos automáticamente ─────────────
+// Detecta tipo de ingreso: Administrativo = 6 contratos, Operativo = 3
+function calcularFechasContrato() {
+    const fechaIngreso = document.getElementById('alta_fechaIngreso')?.value
+                      || document.getElementById('fechaIngreso')?.value;
+    let ini1 = document.getElementById('alta_fechaInicioContrato')?.value
+             || document.getElementById('fechaInicioContrato')?.value;
+    if (!ini1 && fechaIngreso) ini1 = fechaIngreso;
+    if (!ini1) {
+        mostrarToast('warning','Fecha requerida','Captura la Fecha de Ingreso o el Inicio del 1er Contrato.');
+        return;
+    }
+
+    function addDays(dateStr, days) {
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + days);
+        return d.toISOString().slice(0,10);
+    }
+
+    const tipoIng = (document.getElementById('alta_tipoIngreso')?.value||'').toLowerCase();
+    const numC    = tipoIng.includes('admin') ? 6 : 3;
+
+    const IDS = [
+        ['alta_fechaInicioContrato',  'fechaInicioContrato',  'alta_vencimientoPrimerContrato', 'vencimientoPrimerContrato'],
+        ['alta_iniciSegundoContrato', 'iniciSegundoContrato', 'alta_vencSegundoContrato',       'vencSegundoContrato'],
+        ['alta_iniciTercerContrato',  'iniciTercerContrato',  'alta_vencTercerContrato',        'vencTercerContrato'],
+        ['alta_fechaInicioContrato4', 'fechaInicioContrato4', 'alta_vencimientoContrato4',      'vencimientoContrato4'],
+        ['alta_fechaInicioContrato5', 'fechaInicioContrato5', 'alta_vencimientoContrato5',      'vencimientoContrato5'],
+        ['alta_fechaInicioContrato6', 'fechaInicioContrato6', 'alta_vencimientoContrato6',      'vencimientoContrato6'],
+    ];
+
+    let base = ini1;
+    let msgs = [];
+    for (let i = 0; i < numC; i++) {
+        const ven = addDays(base, 29); // 30 días: día 1 al día 30
+        IDS[i].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = (id.includes('ven')||id.includes('Ven')) ? ven : base;
+        });
+        msgs.push((i+1)+'°: '+base+' → '+ven);
+        base = addDays(base, 30); // siguiente empieza el día 31
+    }
+    mostrarToast('success', numC+' contratos calculados ('+(tipoIng.includes('admin')?'Administrativo':'Operativo')+')',
+        msgs.join(' | '), 8000);
+}
+
+// ── Calcular fechas desde el drawer del expediente ────────────
+function calcularFechasContratoExpediente() {
+    const E = empleadoEdicion || {};
+    const fiRaw = parseFloat(E['FECHA DE INGRESO']||'0');
+    let fechaBase = '';
+    if (fiRaw > 10000) {
+        const d = new Date((fiRaw - 25569) * 86400 * 1000);
+        fechaBase = d.toISOString().slice(0,10);
+    }
+    // Priorizar lo que esté en el campo editable
+    const elIni1 = document.getElementById('ed_ini1contrato');
+    if (elIni1?.value) fechaBase = elIni1.value;
+    if (!fechaBase) {
+        mostrarToast('warning','Sin fecha base','Captura la Fecha de Ingreso o el Inicio del 1er Contrato.');
+        return;
+    }
+
+    function addDays(s, d) {
+        const dt = new Date(s+'T00:00:00');
+        dt.setDate(dt.getDate()+d);
+        return dt.toISOString().slice(0,10);
+    }
+
+    const tipoIng = (E['TIPO DE INGRESO']||'').toLowerCase();
+    const numC    = tipoIng.includes('admin') ? 6 : 3;
+
+    const IDS_EXP = [
+        ['ed_ini1contrato','ed_ven1contrato'],
+        ['ed_ini2contrato','ed_ven2contrato'],
+        ['ed_ini3contrato','ed_ven3contrato'],
+        ['ed_ini4contrato','ed_ven4contrato'],
+        ['ed_ini5contrato','ed_ven5contrato'],
+        ['ed_ini6contrato','ed_ven6contrato'],
+    ];
+
+    let base = fechaBase, msgs = [];
+    for (let i = 0; i < numC; i++) {
+        const ven = addDays(base, 29);
+        const elI = document.getElementById(IDS_EXP[i][0]);
+        const elV = document.getElementById(IDS_EXP[i][1]);
+        if (elI) elI.value = base;
+        if (elV) elV.value = ven;
+        msgs.push((i+1)+'°: '+base+' → '+ven);
+        base = addDays(base, 30);
+    }
+    mostrarToast('success', numC+' contratos calculados ('+(tipoIng.includes('admin')?'Administrativo':'Operativo')+')',
+        msgs.join(' | '), 8000);
+}
+
+
