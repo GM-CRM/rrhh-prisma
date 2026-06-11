@@ -1738,9 +1738,15 @@ function abrirEditor(idInterno, empresaHint){
     if(!emp){ mostrarToast('error','No encontrado','No se encontró el registro #'+idInterno); return; }
     empleadoEdicion = emp;
     const drawer = document.getElementById('drawer-editor');
+    const inner  = document.getElementById('drawer-inner');
     renderizarDrawer(emp);
-    drawer.classList.remove('translate-x-full');
+    // Mostrar modal con animación
     document.getElementById('drawer-overlay').classList.remove('hidden');
+    drawer.classList.remove('hidden');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        inner.classList.remove('opacity-0','scale-95');
+        inner.classList.add('opacity-100','scale-100');
+    }));
 }
 
 
@@ -1770,9 +1776,16 @@ async function activarPortalEmpleado() {
     }
 }
 function cerrarEditor(){
-    document.getElementById('drawer-editor').classList.add('translate-x-full');
+    const drawer = document.getElementById('drawer-editor');
+    const inner  = document.getElementById('drawer-inner');
+    inner.classList.remove('opacity-100','scale-100');
+    inner.classList.add('opacity-0','scale-95');
     document.getElementById('drawer-overlay').classList.add('hidden');
+    setTimeout(()=>{ drawer.classList.add('hidden'); }, 200);
     empleadoEdicion=null;
+    // Ocultar historial para la próxima apertura
+    const hw = document.getElementById('sec-historial-wrapper');
+    if(hw) hw.style.display='none';
 }
 
 // Helper: formatea fechas construidas con Date.UTC sin desfase de timezone
@@ -4458,10 +4471,21 @@ function renderizarDrawer(emp){
               +'<option value="">Seleccione...</option>'+optsHtml
               +'</select></div>';
     };
+    // sec: sección dentro de la columna del modal (ocupa 1 columna del grid externo)
     const sec = function(titulo,icono,color,html){
-        return '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+        return '<div class="mb-5 break-inside-avoid"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
               +'<i class="fas '+icono+' '+color+'"></i>'+titulo+'</p>'
               +'<div class="grid grid-cols-2 gap-3">'+html+'</div></div>';
+    };
+    // secFull: sección a ancho completo (ocupa las 2 columnas del grid externo)
+    const secFull = function(titulo,icono,color,html){
+        return '<div class="md:col-span-2 mb-5 break-inside-avoid"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+              +'<i class="fas '+icono+' '+color+'"></i>'+titulo+'</p>'
+              +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'+html+'</div></div>';
+    };
+    // rawFull: bloque a ancho completo sin título propio
+    const rawFull = function(html){
+        return '<div class="md:col-span-2">'+html+'</div>';
     };
     const ff = function(v){
         if(!v||v==="0"||v==="") return "—";
@@ -4478,11 +4502,12 @@ function renderizarDrawer(emp){
     const esReingreso = idPersonaEd && cacheGlobal.filter(r=>(r["ID_PERSONA"]||"").toString().trim()===idPersonaEd).length > 1;
 
     document.getElementById("drawer-cuerpo").innerHTML =
-    // Badge de reingreso visible en la parte superior
-    (esReingreso ? '<div class="mb-4 flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5">'
+    // ── Fila completa: Banner reingreso ──────────────────────────
+    (esReingreso ? rawFull('<div class="mb-4 flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5">'
         +'<i class="fas fa-rotate text-violet-500 text-sm"></i>'
         +'<div><p class="text-xs font-bold text-violet-700">Reingreso detectado</p>'
-        +'<p class="text-xs text-violet-500">Esta persona tiene períodos anteriores registrados. Consulta el historial al final del expediente.</p></div></div>' : '')
+        +'<p class="text-xs text-violet-500">Esta persona tiene períodos anteriores registrados. Consulta el historial al final del expediente.</p></div></div>') : '')
+    // ── Columna izquierda ─────────────────────────────────────────
     +sec("Datos Laborales","fa-briefcase","text-blue-500",
         ro("No. Empleado",E["NO. EMPLEADO"])+
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
@@ -4526,28 +4551,26 @@ function renderizarDrawer(emp){
         ed("ed_parBenef","Parentesco",E["PARENTESCO DEL BENEFICIARIO"])+
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     )+
-    // ── Sección Datos de Baja — solo visible si el empleado está en Baja ────
-    (E["ESTATUS"]==="Baja"
-    ? '<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
+    // ── Fila completa: Baja / Finiquito ─────────────────────────
+    +(E["ESTATUS"]==="Baja"
+    ? rawFull('<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
       +'<p class="text-xs font-bold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">'
       +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
       +' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
       +'</p>'
-      +'<div class="grid grid-cols-2 gap-3">'
+      +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
       +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
       +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Voluntaria","Involuntaria"])
-      +'<div class="col-span-2">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo","Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio","Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso","Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo","Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones","Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales","Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"])+'</div>'
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
       +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +'</div></div>'
+      +'<div class="md:col-span-4">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo","Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio","Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso","Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo","Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones","Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales","Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"])+'</div>'
+      +'</div></div>')
     : '')+
-    '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
-
-
-    +'<div class="grid grid-cols-2 gap-3">'
+    rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
     +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
     +ro("Inicio 1er Contrato",ff(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
     +ro("Vence 1er Contrato",ff(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
@@ -4558,23 +4581,23 @@ function renderizarDrawer(emp){
     +'</div>'
     +'<div class="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3">'
     +'<p class="text-xs font-bold text-blue-800 mb-2"><i class="fas fa-plus-circle mr-1 text-blue-500"></i>Nuevo contrato</p>'
-    +'<div class="grid grid-cols-2 gap-2">'
+    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-2">'
     +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Inicio</label>'
     +'<input type="date" id="ed_iniContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
     +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Vencimiento</label>'
     +'<input type="date" id="ed_venContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
-    +'</div></div></div>'+
+    +'</div></div></div>')+
     sec("Seguimiento","fa-clipboard-list","text-amber-500",
         sel("ed_ent15","Entrevista 15 Días",E["ENTREVISTA DE AJUSTE 15 DÍAS"],["","Pendiente","Sí","No"])+
         sel("ed_ent45","Entrevista 45 Días",E["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"],["","Pendiente","Sí","No"])+
         '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Evaluación 360°</label>'
         +'<input type="date" id="ed_eval360" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
     )+
-    sec("Calculado por el Sheet","fa-function","text-slate-400",
+    secFull("Calculado por el Sheet","fa-function","text-slate-400",
         ro("Para Ant. Promedio ⟵ fórmula",E["PARA ANT. PROMEDIO"])+
         ro("Se Toma en Cuenta ⟵ fórmula",E["SE TOMA EN CUENTA?"])
     )+
-    sec("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
+    secFull("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
         ed("ed_jefeDirecto","Jefe Directo (ID INTERNO)",E["JEFE DIRECTO"])+
         ed("ed_correoAcceso","Correo Acceso (corporativo)",E["CORREO ACCESO"],"email")+
         '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">'
@@ -4592,7 +4615,7 @@ function renderizarDrawer(emp){
             : '<p style="font-size:.78rem;color:#94a3b8;">Agrega el <strong>Correo Acceso</strong> para activar el portal del empleado.</p>'
         )+'</div>'
     )+
-    (url && url.indexOf("http") === 0
+    rawFull((url && url.indexOf("http") === 0
         // ── Con expediente: mostrar link + botón subir docs ──
         ? '<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4">'
           + '<div class="flex items-center gap-3">'
@@ -4620,7 +4643,7 @@ function renderizarDrawer(emp){
           + '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente'
           + '</button>'
           + '</div>'
-    );
+    ));
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
     if(eval360val){const el=document.getElementById("ed_eval360");if(el)el.value=parsearFecha(eval360val);}
