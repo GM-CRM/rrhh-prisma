@@ -4474,9 +4474,16 @@ function renderizarDrawer(emp){
     const E = emp;
 
     const idPersonaEd = (E["ID_PERSONA"] || "").toString().trim();
+    // Detectar si es reingreso buscando en cacheGlobal otros registros con mismo ID_PERSONA
+    const esReingreso = idPersonaEd && cacheGlobal.filter(r=>(r["ID_PERSONA"]||"").toString().trim()===idPersonaEd).length > 1;
 
     document.getElementById("drawer-cuerpo").innerHTML =
-    sec("Datos Laborales","fa-briefcase","text-blue-500",
+    // Badge de reingreso visible en la parte superior
+    (esReingreso ? '<div class="mb-4 flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5">'
+        +'<i class="fas fa-rotate text-violet-500 text-sm"></i>'
+        +'<div><p class="text-xs font-bold text-violet-700">Reingreso detectado</p>'
+        +'<p class="text-xs text-violet-500">Esta persona tiene períodos anteriores registrados. Consulta el historial al final del expediente.</p></div></div>' : '')
+    +sec("Datos Laborales","fa-briefcase","text-blue-500",
         ro("No. Empleado",E["NO. EMPLEADO"])+
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
         ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
@@ -4847,7 +4854,20 @@ async function obtenerDatos(forzar){
         const r=await enviarPeticion("exportar_datos",{});
         ocultarLoader();
         if(r.status==="success"){
-            cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+            const todos=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+            // Deduplicar por ID_PERSONA: conservar el registro con fecha de ingreso más reciente
+            // Los registros sin ID_PERSONA se conservan todos
+            const mapaPersona={};
+            const sinIdPersona=[];
+            todos.forEach(function(e){
+                const idP=(e["ID_PERSONA"]||"").toString().trim();
+                if(!idP){ sinIdPersona.push(e); return; }
+                const fIng=parseFloat(e["FECHA DE INGRESO"])||0;
+                if(!mapaPersona[idP] || fIng > (parseFloat(mapaPersona[idP]["FECHA DE INGRESO"])||0)){
+                    mapaPersona[idP]=e;
+                }
+            });
+            cacheGlobal=[...Object.values(mapaPersona),...sinIdPersona];
             cacheTimestamp=Date.now();
             return cacheGlobal;
         }
@@ -4962,6 +4982,11 @@ function renderizarPagina(pag) {
                   + '<i class="fas fa-folder text-sm"></i></span>';
             const id    = (emp["NO. EMPLEADO"] || "").toString();
             const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").replace(/'/g, "\'");
+            // Badge reingreso — tiene historial si ID_PERSONA existe
+            const idPer = (emp["ID_PERSONA"]||"").toString().trim();
+            const badgeReingreso = idPer
+                ? ' <span title="Tiene historial de carrera" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-500 ml-0.5" style="flex-shrink:0"><i class="fas fa-rotate" style="font-size:9px"></i></span>'
+                : '';
 
             let alerta = '';
             [emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"],
@@ -4976,7 +5001,7 @@ function renderizarPagina(pag) {
 
             tbody.innerHTML += '<tr class="hover:bg-slate-50 border-b border-slate-100 transition">'
                 + '<td class="px-3 py-3 font-semibold text-slate-700 text-sm whitespace-nowrap">#' + id + '</td>'
-                + '<td class="px-3 py-3 text-sm font-medium" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + '</td>'
+                + '<td class="px-3 py-3 text-sm font-medium" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + badgeReingreso + '</td>'
                 + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["EMPRESA"] || "—") + '</td>'
                 + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["PUESTO"]  || "—") + '</td>'
                 + '<td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
