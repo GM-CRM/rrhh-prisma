@@ -4473,6 +4473,8 @@ function renderizarDrawer(emp){
     };
     const E = emp;
 
+    const idPersonaEd = (E["ID_PERSONA"] || "").toString().trim();
+
     document.getElementById("drawer-cuerpo").innerHTML =
     sec("Datos Laborales","fa-briefcase","text-blue-500",
         ro("No. Empleado",E["NO. EMPLEADO"])+
@@ -4615,6 +4617,17 @@ function renderizarDrawer(emp){
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
     if(eval360val){const el=document.getElementById("ed_eval360");if(el)el.value=parsearFecha(eval360val);}
+
+    // ── Sección Historial de Carrera ──────────────────────────
+    // Solo mostrar si hay ID_PERSONA asignado
+    if(idPersonaEd){
+        const secHistEl = document.getElementById('sec-historial-wrapper');
+        if(secHistEl){
+            secHistEl.style.display = '';
+            // Cargar historial en segundo plano
+            setTimeout(()=>cargarHistorialPersona(idPersonaEd), 300);
+        }
+    }
 }
 
 
@@ -5501,3 +5514,150 @@ async function arrancarApp(){
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', arrancarApp);
 else arrancarApp();
+
+// ════════════════════════════════════════════════════════════
+// HISTORIAL DE CARRERA
+// ════════════════════════════════════════════════════════════
+
+async function cargarHistorialPersona(idPersona) {
+    if (!idPersona) return;
+    const secHist = document.getElementById('sec-historial');
+    if (!secHist) return;
+    secHist.innerHTML = '<div class="text-xs text-slate-400 text-center py-4"><i class="fas fa-spinner fa-spin mr-1"></i>Cargando historial...</div>';
+    try {
+        const r = await enviarPeticion('obtener_historial_persona', { idPersona });
+        if (r.status !== 'success') { secHist.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">Sin historial disponible.</p>'; return; }
+
+        const hist = r.historial || [];
+        const movs = r.movimientos || [];
+
+        if (!hist.length && !movs.length) {
+            secHist.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">Sin historial de carrera registrado.</p>';
+            return;
+        }
+
+        let html = '';
+
+        // Períodos anteriores
+        if (hist.length) {
+            html += '<div class="mb-4">';
+            html += '<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">'
+                  + '<i class="fas fa-clock-rotate-left text-violet-400"></i>Períodos anteriores</p>';
+            html += '<div class="space-y-2">';
+            hist.forEach(function(h) {
+                html += '<div class="bg-slate-50 rounded-xl p-3 border border-slate-100">'
+                    + '<div class="flex items-center justify-between mb-1.5">'
+                    + '<span class="text-xs font-bold text-slate-700">' + (h.empresa||'—') + '</span>'
+                    + '<span class="text-xs text-slate-400">#' + (h.noEmpleado||'—') + '</span>'
+                    + '</div>'
+                    + '<p class="text-xs text-slate-500 mb-1">' + (h.puesto||'—') + ' · ' + (h.departamento||'—') + '</p>'
+                    + '<div class="flex flex-wrap gap-2 text-xs text-slate-400">'
+                    + '<span><i class="fas fa-calendar-plus text-emerald-400 mr-1"></i>' + (h.fechaIngreso||'—') + '</span>'
+                    + '<span><i class="fas fa-calendar-minus text-red-400 mr-1"></i>' + (h.fechaBaja||'—') + '</span>'
+                    + (h.montoFiniquito ? '<span><i class="fas fa-money-bill text-amber-400 mr-1"></i>$' + Number(h.montoFiniquito).toLocaleString('es-MX') + '</span>' : '')
+                    + '</div>'
+                    + (h.motivoSalida ? '<p class="text-xs text-slate-400 mt-1"><i class="fas fa-tag mr-1"></i>' + h.motivoSalida + '</p>' : '')
+                    + '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // Movimientos internos (aumentos, cambios de puesto)
+        if (movs.length) {
+            html += '<div class="mb-2">';
+            html += '<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">'
+                  + '<i class="fas fa-arrow-trend-up text-emerald-400"></i>Movimientos de carrera</p>';
+            html += '<div class="space-y-2">';
+            movs.forEach(function(m) {
+                const iconoTipo = {
+                    'Aumento': 'fa-dollar-sign text-emerald-500',
+                    'Cambio de Puesto': 'fa-user-tie text-blue-500',
+                    'Promoción': 'fa-star text-amber-500',
+                    'Cambio de Empresa': 'fa-building text-violet-500'
+                }[m.tipo] || 'fa-circle-dot text-slate-400';
+                html += '<div class="flex gap-2.5 items-start">'
+                    + '<div class="mt-0.5 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">'
+                    + '<i class="fas ' + iconoTipo + ' text-xs"></i></div>'
+                    + '<div>'
+                    + '<p class="text-xs font-semibold text-slate-700">' + m.tipo + ' <span class="text-slate-400 font-normal">· ' + m.fecha + '</span></p>'
+                    + (m.descripcion ? '<p class="text-xs text-slate-500">' + m.descripcion + '</p>' : '')
+                    + (m.valorAntes && m.valorDespues ? '<p class="text-xs text-slate-400">' + m.valorAntes + ' → <span class="text-emerald-600 font-semibold">' + m.valorDespues + '</span></p>' : '')
+                    + '</div></div>';
+            });
+            html += '</div></div>';
+        }
+
+        secHist.innerHTML = html;
+    } catch(e) {
+        secHist.innerHTML = '<p class="text-xs text-red-400 text-center py-3">Error cargando historial.</p>';
+        console.error('[historial]', e);
+    }
+}
+
+async function registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues) {
+    const usuario = document.getElementById('header-user')?.innerText || '';
+    const r = await enviarPeticion('registrar_movimiento', {
+        idPersona, tipo, descripcion: desc,
+        valorAntes: valAntes, valorDespues: valDespues,
+        registradoPor: usuario
+    });
+    if (r.status === 'success') {
+        mostrarToast('success', 'Movimiento registrado', tipo + ' guardado en el historial.');
+        // Recargar historial
+        await cargarHistorialPersona(idPersona);
+    } else {
+        mostrarToast('error', 'Error', r.message);
+    }
+}
+
+function abrirModalMovimiento(idPersona, nombreEmpleado) {
+    Swal.fire({
+        title: 'Registrar movimiento de carrera',
+        html: `
+            <div style="text-align:left;display:flex;flex-direction:column;gap:10px;margin-top:8px">
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Tipo de movimiento</label>
+                    <select id="mov-tipo" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px">
+                        <option value="">Seleccione...</option>
+                        <option value="Aumento">Aumento de sueldo</option>
+                        <option value="Cambio de Puesto">Cambio de puesto</option>
+                        <option value="Promoción">Promoción</option>
+                        <option value="Cambio de Empresa">Cambio de empresa (intragrupo)</option>
+                        <option value="Cambio de Departamento">Cambio de departamento</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Valor anterior</label>
+                    <input id="mov-antes" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Ej: $9,000 / Auxiliar General">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Valor nuevo</label>
+                    <input id="mov-despues" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Ej: $11,000 / Ejecutivo">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Descripción (opcional)</label>
+                    <input id="mov-desc" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Motivo o comentario">
+                </div>
+            </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar movimiento',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#7c3aed',
+        preConfirm: () => {
+            const tipo = document.getElementById('mov-tipo').value;
+            if (!tipo) { Swal.showValidationMessage('Selecciona el tipo de movimiento'); return false; }
+            return {
+                tipo,
+                desc:       document.getElementById('mov-desc').value,
+                valAntes:   document.getElementById('mov-antes').value,
+                valDespues: document.getElementById('mov-despues').value
+            };
+        }
+    }).then(res => {
+        if (res.isConfirmed && res.value) {
+            const { tipo, desc, valAntes, valDespues } = res.value;
+            registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues);
+        }
+    });
+}
