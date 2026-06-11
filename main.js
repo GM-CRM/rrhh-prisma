@@ -4674,11 +4674,11 @@ async function guardarCambiosEditor(){
             "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360')?.value||undefined,
             "JEFE DIRECTO":            document.getElementById('ed_jefeDirecto')?.value||undefined,
             "CORREO ACCESO":           document.getElementById('ed_correoAcceso')?.value||undefined,
-            // Campos de baja — se envían solo si tienen valor
-            "FECHA DE BAJA":           document.getElementById('ed_fechaBaja')?.value||undefined,
-            "TIPO DE SALIDA":          document.getElementById('ed_tipoSalida')?.value||undefined,
-            "MOTIVO DE SALIDA":        document.getElementById('ed_motivoBaja')?.value||undefined,
-            "MONTO DE FINIQUITO":      document.getElementById('ed_finiquito')?.value||undefined,
+            // Campos de baja — se envían si tienen valor (finiquito permite 0)
+            "FECHA DE BAJA":           document.getElementById('ed_fechaBaja')?.value    || undefined,
+            "TIPO DE SALIDA":          document.getElementById('ed_tipoSalida')?.value   || undefined,
+            "MOTIVO DE SALIDA":        document.getElementById('ed_motivoBaja')?.value   || undefined,
+            "MONTO DE FINIQUITO":      (()=>{ const v=document.getElementById('ed_finiquito')?.value; return (v!==undefined&&v!=='')?v:undefined; })(),
             ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
             ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
         }
