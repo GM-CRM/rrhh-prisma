@@ -841,8 +841,8 @@ function poblarCatalogos(){
 function renderizarCampo(c){
     const cls="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-300";
     const span=c.col===1?'md:col-span-2':'';
-    const ph=c.placeholder?'placeholder="'+c.placeholder+'"':'';
-    const ml=c.maxlen?'maxlength="'+c.maxlen+'"':'';
+    const ph=c.placeholder?`placeholder="${c.placeholder}"`:""||"";
+    const ml=c.maxlen?`maxlength="${c.maxlen}"`:""||"";
     const req=c.req?'<span class="text-red-400">*</span>':'';
     const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
     let inp;
