@@ -4660,9 +4660,57 @@ function renderizarDrawer(emp){
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     );
     var _p6 = (est==="Baja" ? rawFull('<div id="baja-placeholder"></div>') : '');
-    console.log('[NaN debug] p1 ok:', !_p1.includes('NaN'), '| p2:', !_p2.includes('NaN'), '| p3:', !_p3.includes('NaN'), '| p4:', !_p4.includes('NaN'), '| p5:', !_p5.includes('NaN'), '| p6:', !_p6.includes('NaN'));
-
-    console.log('[NaN debug] p1:', typeof _p1, '| p2:', typeof _p2, '| p3:', typeof _p3, '| p4:', typeof _p4, '| p5:', typeof _p5, '| p6:', typeof _p6, '| p7:', typeof _p7, '| p8:', typeof _p8, '| p9:', typeof _p9, '| p10:', typeof _p10, '| p11:', typeof _p11);
+    var _p7 = rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
+    +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
+    +edf("ed_ini1contrato","Inicio 1er Contrato",parsearFecha(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
+    +edf("ed_ven1contrato","Vence 1er Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
+    +edf("ed_ini2contrato","Inicio 2do Contrato",parsearFecha(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]))
+    +edf("ed_ven2contrato","Vence 2do Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]))
+    +edf("ed_ini3contrato","Inicio 3er Contrato",parsearFecha(E["FECHA DE INICIO DEL TERCER CONTRATO"]))
+    +edf("ed_ven3contrato","Vence 3er Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]))
+    +edf("ed_ini4contrato","Inicio 4to Contrato",parsearFecha(E["FECHA DE INICIO DEL CUARTO CONTRATO"]))
+    +edf("ed_ven4contrato","Vence 4to Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL CUARTO CONTRATO"]))
+    +edf("ed_ini5contrato","Inicio 5to Contrato",parsearFecha(E["FECHA DE INICIO DEL QUINTO CONTRATO"]))
+    +edf("ed_ven5contrato","Vence 5to Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL QUINTO CONTRATO"]))
+    +edf("ed_ini6contrato","Inicio 6to Contrato",parsearFecha(E["FECHA DE INICIO DEL SEXTO CONTRATO"]))
+    +edf("ed_ven6contrato","Vence 6to Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL SEXTO CONTRATO"]))
+    +'</div>'
+    +'<div class="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">'
+    +'<p class="text-xs font-bold text-amber-800 mb-2"><i class="fas fa-signature mr-1 text-amber-500"></i>Firma de contrato</p>'
+    +'<div class="flex items-center gap-3 flex-wrap">'
+    +((E["CONTRATO FIRMADO"]||"")==="Sí"
+      ?'<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-full"><i class="fas fa-check-circle"></i>Contrato firmado</span>'
+       +'<button type="button" onclick="subirContratoFirmado(\''+(E["ID INTERNO"]||"")+'\')\" class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2"><i class="fas fa-upload mr-1"></i>Actualizar PDF</button>'
+      :'<button type="button" onclick="subirContratoFirmado(\''+(E["ID INTERNO"]||"")+'\')\" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-upload"></i>Subir contrato firmado</button>'
+       +'<span class="text-xs text-amber-700"><i class="fas fa-exclamation-triangle mr-1"></i>Sin contrato firmado registrado</span>')
+    +'</div>'
+    +((E["URL CONTRATO FIRMADO"]||"")?'<p class="mt-1.5 text-xs text-slate-500"><i class="fas fa-link mr-1"></i><a href="'+(E["URL CONTRATO FIRMADO"]||"")+'" target="_blank" class="underline text-blue-600">Ver documento actual</a></p>':'')
+    +'</div></div>');
+    var _p8 = sec("Seguimiento","fa-clipboard-list","text-amber-500",
+        sel("ed_ent15","Entrevista 15 Días",E["ENTREVISTA DE AJUSTE 15 DÍAS"],["","Pendiente","Sí","No"])+
+        sel("ed_ent45","Entrevista 45 Días",E["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"],["","Pendiente","Sí","No"])+
+        '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Evaluación 360°</label>'
+        +'<input type="date" id="ed_eval360" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
+    );
+    var _p9 = secFull("Calculado por el Sheet","fa-function","text-slate-400",
+        ro("Para Ant. Promedio ⟵ fórmula",(E["PARA ANT. PROMEDIO"]||"").toString())+
+        ro("Se Toma en Cuenta ⟵ fórmula",(E["SE TOMA EN CUENTA?"]||"").toString())
+    );
+    var _p10 = secFull("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
+        ed("ed_jefeDirecto","Jefe Directo (ID INTERNO)",E["JEFE DIRECTO"])+
+        ed("ed_correoAcceso","Correo Acceso (corporativo)",E["CORREO ACCESO"],"email")+
+        '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">'
+        +((E["CORREO ACCESO"]||"")
+            ?'<div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;"><p style="font-size:.78rem;font-weight:600;color:#64748b;margin:0;">Portal del empleado</p><p style="font-size:.72rem;color:#94a3b8;margin:2px 0 0;">Correo: '+(E["CORREO ACCESO"]||"")+'</p></div>'
+             +'<button onclick="activarPortalEmpleado()" style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);border:none;color:#fff;font-size:.75rem;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;"><i class="fas fa-key" style="margin-right:5px;"></i>Activar/Reenviar acceso</button></div>'
+            :'<p style="font-size:.78rem;color:#94a3b8;">Agrega el <strong>Correo Acceso</strong> para activar el portal del empleado.</p>'
+        )+'</div>'
+    );
+    var _p11 = rawFull((url && url.indexOf("http")===0
+        ?'<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4"><div class="flex items-center gap-3"><i class="fas fa-folder-open text-blue-500 text-xl flex-shrink-0"></i><div class="flex-1 min-w-0"><p class="text-sm font-bold text-blue-800">Expediente en Drive</p><p class="text-xs text-blue-600 truncate">'+url+'</p></div><a href="'+url+'" target="_blank" rel="noopener" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0"><i class="fas fa-external-link-alt mr-1"></i>Abrir</a></div></div>'
+        :'<div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4"><div class="flex items-center gap-3 mb-3"><i class="fas fa-folder text-amber-400 text-xl flex-shrink-0"></i><div class="flex-1"><p class="text-sm font-bold text-amber-800">Sin expediente en Drive</p><p class="text-xs text-amber-600">Este empleado no tiene carpeta asignada en Drive.</p></div></div><button onclick="crearExpedienteEnDrive()" class="w-full text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 py-2.5 rounded-xl transition flex items-center justify-center gap-2"><i class="fas fa-folder-plus"></i> Crear carpeta de expediente</button></div>'
+    ));
     document.getElementById("drawer-cuerpo").innerHTML = _p1+_p2+_p3+_p4+_p5+_p6+_p7+_p8+_p9+_p10+_p11;
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
