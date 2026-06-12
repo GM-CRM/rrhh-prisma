@@ -4487,6 +4487,7 @@ function renderizarDrawer(emp){
     const id  = (emp["NO. EMPLEADO"]||"").toString();
     const nom = emp["NOMBRE DEL TRABAJADOR"]||"—";
     const est = (emp["ESTATUS"]||"").toString().trim();
+    console.log('[Drawer] ESTATUS raw:', JSON.stringify(emp["ESTATUS"]), '| est:', JSON.stringify(est), '| es Baja:', est==="Baja");
     const url = (emp["URL EXPEDIENTE"]||"").toString().trim();
     const estColor = est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600";
 
