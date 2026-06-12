@@ -1,4 +1,3 @@
-
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -31,13 +30,16 @@ const API_URL    = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6
 // ─── UI BÁSICA ───────────────────────────────────────────────
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}
 function activarNav(btn){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('is-active'));btn.classList.add('is-active');}
+let dashboardCargado=false;
+let moduloActivo='';
 function showModule(id){
     document.querySelectorAll('.module-section').forEach(s=>{s.classList.remove('active');s.style.display='none';});
     const t=document.getElementById('module-'+id);if(!t)return;
     t.style.display='block';
     requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('active')));
-    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes',usuarios:'Usuarios',encuestas:'Encuestas'}[id]||id;
+    document.getElementById('header-title').innerText={dashboard:'Indicadores',alta:'Alta de Personal',baja:'Baja de Personal',basedatos:'Expedientes',usuarios:'Usuarios',encuestas:'Encuestas',personas:'Personas',evaluaciones:'Evaluaciones'}[id]||id;
     if(window.innerWidth<768)toggleMenu();
+    moduloActivo=id;
 }
 function mostrarLoader(t){document.getElementById('loader-text').innerText=t||'Procesando...';document.getElementById('global-loader').style.display='flex';}
 function ocultarLoader(){document.getElementById('global-loader').style.display='none';}
@@ -160,6 +162,47 @@ function renderizarNotificaciones(){
             +empBtn
             +'</div></div></div>';
     }).join('');
+
+    // Event delegation: manejar clic en "Ver empleado →"
+    lista.addEventListener('click', function(e){
+        const btn = e.target.closest('.notif-emp-btn');
+        if(!btn) return;
+        const empId = btn.dataset.empid;
+        if(!empId) return;
+
+        // Cerrar el panel de notificaciones
+        const panel = document.getElementById('notif-panel');
+        if(panel) panel.classList.add('hidden');
+
+        // Buscar el empleado en cache por ID INTERNO o NO. EMPLEADO
+        const emp = cacheGlobal.find(function(e){
+            return (e['ID INTERNO']||'').toString().trim() === empId ||
+                   (e['NO. EMPLEADO']||'').toString().trim() === empId;
+        });
+
+        if(emp){
+            // Si el módulo expedientes no está activo, activarlo primero
+            const modBase = document.getElementById('module-basedatos');
+            if(modBase && !modBase.classList.contains('active')){
+                showModule('basedatos');
+                // Esperar a que cargue la tabla antes de abrir el drawer
+                setTimeout(function(){
+                    abrirEditor(
+                        (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString().trim(),
+                        (emp['EMPRESA']||'').trim()
+                    );
+                }, 300);
+            } else {
+                abrirEditor(
+                    (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString().trim(),
+                    (emp['EMPRESA']||'').trim()
+                );
+            }
+        } else {
+            mostrarToast('warning', 'Empleado no encontrado',
+                'No se encontró el registro #'+empId+' en la base de datos. Sincroniza e intenta de nuevo.');
+        }
+    }, { once: true }); // once:true para evitar listeners duplicados al re-abrir el panel
 }
 
 function tiempoRelativo(iso){
@@ -199,6 +242,9 @@ function evaluarAlertas(datos){
             {label:'1er',ini:'FECHA DE INICIO DEL PRIMER CONTRATO',  ven:'FECHA DE VENCIMIENTO DEL PRIMER CONTRATO'},
             {label:'2do',ini:'FECHA DE INICIO DEL SEGUNDO CONTRATO', ven:'FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO'},
             {label:'3er',ini:'FECHA DE INICIO DEL TERCER CONTRATO',  ven:'FECHA DE VENCIMIENTO DEL TERCER CONTRATO'},
+            {label:'4to',ini:'FECHA DE INICIO DEL CUARTO CONTRATO',   ven:'FECHA DE VENCIMIENTO DEL CUARTO CONTRATO'},
+            {label:'5to',ini:'FECHA DE INICIO DEL QUINTO CONTRATO',   ven:'FECHA DE VENCIMIENTO DEL QUINTO CONTRATO'},
+            {label:'6to',ini:'FECHA DE INICIO DEL SEXTO CONTRATO',    ven:'FECHA DE VENCIMIENTO DEL SEXTO CONTRATO'},
         ].forEach(({label, ven})=>{
             const fv = parseFechaFlexible(emp[ven]);
             if(!fv) return;
@@ -207,16 +253,16 @@ function evaluarAlertas(datos){
             if(alertasVistas[clave] === fv.toISOString().slice(0,10)) return;
 
             if(dias < 0){
-                agregarNotificacion('error', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id, true);
+                agregarNotificacion('contrato', `Contrato vencido — ${nom}`, `El ${label} contrato venció hace ${Math.abs(dias)} día(s). Requiere renovación o baja.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             } else if(dias <= DIAS_ALERTA_CONTRATO){
-                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fv.toLocaleDateString('es-MX')}). Gestiona la renovación.`, id, true);
+                agregarNotificacion('contrato', `Contrato por vencer — ${nom}`, `El ${label} contrato vence en ${dias} día(s) (${fmtUTC(fv)}). Gestiona la renovación.`, id, true);
                 alertasVistas[clave] = fv.toISOString().slice(0,10); nuevas++;
             }
         });
 
         // ── Entrevistas de 15 días ────────────────────────────
-        const ent15 = (emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"").trim();
+        const ent15 = (emp["ENTREVISTA DE AJUSTE 15 DÍAS"]||"").toString().trim();
         const fIng  = parseFechaFlexible(emp["FECHA DE INGRESO"]);
         if(fIng && (ent15 === "" || ent15 === "Pendiente")){
             const diasIngreso = Math.round((hoy - fIng) / 86400000);
@@ -228,7 +274,7 @@ function evaluarAlertas(datos){
         }
 
         // ── Entrevistas de 45 días ────────────────────────────
-        const ent45 = (emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"").trim();
+        const ent45 = (emp["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"]||"").toString().trim();
         if(fIng && (ent45 === "" || ent45 === "Pendiente")){
             const diasIngreso = Math.round((hoy - fIng) / 86400000);
             const clave45 = `ent45_${id}`;
@@ -253,37 +299,39 @@ function evaluarAlertas(datos){
         const nom2 = emp['NOMBRE DEL TRABAJADOR'] || 'Empleado';
         const pNom = nom2.split(' ')[0];
 
-        // Cumpleaños
-        const fnRaw = parseFloat(emp['FECHA DE NACIMIENTO']||'0');
-        if(fnRaw > 10000){
-            const fNac = new Date((fnRaw-25569)*86400*1000);
-            const fm=fNac.getMonth()+1, fd=fNac.getDate();
-            const edad=hoyYear-fNac.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
-            var fC=new Date(hoyYear,fm-1,fd); if(fC<hoyFull) fC=new Date(hoyYear+1,fm-1,fd);
-            const dC=Math.round((fC-hoyFull)/86400000);
+        // Cumpleaños — usar getUTC* para evitar desfase de timezone México (UTC-6)
+        const fNac = parseFechaFlexible(emp['FECHA DE NACIMIENTO']);
+        if(fNac && !isNaN(fNac)){
+            const fm=fNac.getUTCMonth()+1, fd=fNac.getUTCDate();
+            const edad=hoyYear-fNac.getUTCFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+            // Próximo cumpleaños (UTC puro para evitar conversión local)
+            var fC=new Date(Date.UTC(hoyYear,fm-1,fd));
+            var hoyUTC=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
+            if(fC < hoyUTC) fC = new Date(Date.UTC(hoyYear+1,fm-1,fd));
+            const dC=Math.round((fC - hoyUTC) / 86400000);
             const clC='cumple_'+id2+'_'+hoyYear;
             if(!alertasVistas[clC] && dC<=7){
                 agregarNotificacion('cumple',
                     dC===0?'🎂 ¡Hoy cumpleaños! — '+pNom:'🎂 Cumpleaños en '+dC+' día(s) — '+pNom,
-                    nom2+(dC===0?' cumple '+edad+' años hoy. ¡Felicítale!':', cumple '+edad+' años el '+fd+'/'+fm+'.'),
+                    nom2+(dC===0?' cumple '+edad+' años hoy. ¡Felicítale!':', cumple '+edad+' años el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.'),
                     id2, true);
                 alertasVistas[clC]='1'; nuevas++;
             }
         }
 
-        // Aniversario laboral
-        const fiRaw = parseFloat(emp['FECHA DE INGRESO']||'0');
-        if(fiRaw > 10000){
-            const fIng = new Date((fiRaw-25569)*86400*1000);
-            const fm=fIng.getMonth()+1, fd=fIng.getDate();
-            const anos=hoyYear-fIng.getFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
+        // Aniversario laboral — usar getUTC* igualmente
+        const fIng2 = parseFechaFlexible(emp['FECHA DE INGRESO']);
+        if(fIng2 && !isNaN(fIng2)){
+            const fm=fIng2.getUTCMonth()+1, fd=fIng2.getUTCDate();
+            const anos=hoyYear-fIng2.getUTCFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
             if(anos>0){
-                var fA=new Date(hoyYear,fm-1,fd); if(fA<hoyFull) fA=new Date(hoyYear+1,fm-1,fd);
-                const dA=Math.round((fA-hoyFull)/86400000);
-                var tA,mA;
+                var hoyUTC2=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
+                var fA=new Date(Date.UTC(hoyYear,fm-1,fd));
+                if(fA < hoyUTC2) fA = new Date(Date.UTC(hoyYear+1,fm-1,fd));
+                const dA=Math.round((fA - hoyUTC2) / 86400000);
                 const clA = 'aniv_'+id2+'_'+hoyYear;
-                var tA = dA===0 ? 'Hoy' : 'En '+dA+' dias';
-                var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+fd+'/'+fm+'.');
+                var tA = dA===0 ? 'Hoy' : 'En '+dA+' día(s)';
+                var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.');
                 var titA = '🏆 Aniversario ' + tA + ' — ' + pNom;
                 if(!alertasVistas[clA] && dA<=7){ agregarNotificacion('aniversario', titA, mA, id2, true); alertasVistas[clA]='1'; nuevas++; }
             }
@@ -294,19 +342,46 @@ function evaluarAlertas(datos){
 
 // ─── CATÁLOGOS ───────────────────────────────────────────────
 // Empresas dinámicas — se generan desde el cache del Sheet
-// El array base sirve como semilla si el cache aún no cargó
-let empresas = ["Newspot Mexico","Centro De Telecomunicaciones Y Publicidad De Mexico","Global Media","Editora Mexicana","Cable Master","Fember Press","Infomonitor","Rtv Comunicacion","Radio Expresion Cultural"];
+// Catálogo de empresas cargado desde la hoja EMPRESAS del Sheet
+// Cada entrada: { id, nombre, grupo }
+let catalogoEmpresas = [];
+let empresas = [];
+
+// Carga el catálogo EMPRESAS desde el backend y actualiza los controles
+async function cargarCatalogoEmpresas() {
+    try {
+        const r = await enviarPeticion("obtener_catalogo_empresas", {});
+        if (r && r.status === "success" && r.empresas && r.empresas.length) {
+            catalogoEmpresas = r.empresas;
+            empresas = catalogoEmpresas.map(e => e.nombre).filter(Boolean).sort();
+        }
+    } catch(ex) { console.warn("[catalogoEmpresas] Error:", ex); }
+    actualizarListaEmpresas();
+}
+
+// Dado un nombre de empresa, devuelve su grupo comercial del catálogo
+function grupoDeEmpresa(nombreEmpresa) {
+    if (!nombreEmpresa) return "";
+    const n = nombreEmpresa.trim().toLowerCase();
+    const found = catalogoEmpresas.find(e => (e.nombre||"").toLowerCase() === n);
+    return found ? (found.grupo || "") : "";
+}
+
+// Devuelve lista única de grupos del catálogo
+function listaGrupos() {
+    return [...new Set(catalogoEmpresas.map(e => e.grupo).filter(Boolean))].sort();
+}
 
 function actualizarListaEmpresas() {
-    if (!cacheGlobal || !cacheGlobal.length) return;
-    const nuevas = [...new Set(
-        cacheGlobal
-            .map(e => (e["EMPRESA"] || "").trim())
-            .filter(e => e.length > 0)
-    )].sort();
-    if (nuevas.length > 0) empresas = nuevas;
+    // Si el catálogo aún no cargó, inferir de la BD como semilla
+    if (catalogoEmpresas.length === 0 && cacheGlobal && cacheGlobal.length) {
+        const nuevas = [...new Set(
+            cacheGlobal.map(e => (e["EMPRESA"] || "").trim()).filter(e => e.length > 0)
+        )].sort();
+        if (nuevas.length > 0) empresas = nuevas;
+    }
 
-    // Actualizar todos los selects de empresa en el DOM
+    // Actualizar selects de empresa en el DOM
     const selectsEmpresa = [
         document.getElementById("filtroEmpresaGlobal"),
         document.getElementById("filtro-empresa"),
@@ -314,20 +389,27 @@ function actualizarListaEmpresas() {
     selectsEmpresa.forEach(function(sel) {
         if (!sel) return;
         const valActual = sel.value;
-        // Conservar la opción "Todas" si existe
         const primeraOpcion = sel.options[0];
         sel.innerHTML = "";
         if (primeraOpcion) sel.appendChild(primeraOpcion);
         empresas.forEach(function(emp) {
             const opt = document.createElement("option");
-            opt.value = emp;
-            opt.textContent = emp;
+            opt.value = emp; opt.textContent = emp;
             sel.appendChild(opt);
         });
         if (valActual) sel.value = valActual;
     });
 
-    // Actualizar datalists de empresa en el formulario de alta
+    // Actualizar select de grupo comercial en dashboard
+    const selGrupo = document.getElementById("filtroGrupoGlobal");
+    if (selGrupo) {
+        const vg = selGrupo.value;
+        selGrupo.innerHTML = "<option value='ALL'>Todos los grupos</option>" +
+            listaGrupos().map(g => "<option value='" + g + "'>" + g + "</option>").join("");
+        if (vg && vg !== "ALL") selGrupo.value = vg;
+    }
+
+    // Datalist empresa en formulario de alta
     const listEmpAlta = document.getElementById("alta_empresa");
     if (listEmpAlta && listEmpAlta.tagName === "SELECT") {
         const v = listEmpAlta.value;
@@ -336,7 +418,7 @@ function actualizarListaEmpresas() {
         if (v) listEmpAlta.value = v;
     }
 
-    // Actualizar filtro del expediente (HTML estático en index.html)
+    // Filtro de empresa en expedientes
     const filtroEmpExp = document.getElementById("filtro-empresa");
     if (filtroEmpExp) {
         const v = filtroEmpExp.value;
@@ -344,16 +426,33 @@ function actualizarListaEmpresas() {
             empresas.map(e => "<option value='" + e + "'>" + e + "</option>").join("");
         if (v) filtroEmpExp.value = v;
     }
+
+    // Filtro de grupo en expedientes
+    const filtroGrupoExp = document.getElementById("filtro-grupo");
+    if (filtroGrupoExp) {
+        const vg = filtroGrupoExp.value;
+        filtroGrupoExp.innerHTML = "<option value=''>Todos los grupos</option>" +
+            listaGrupos().map(g => "<option value='" + g + "'>" + g + "</option>").join("");
+        if (vg) filtroGrupoExp.value = vg;
+    }
 }
 
 // ─── PARSERS ─────────────────────────────────────────────────
 function parsearFecha(val){
     if(!val)return"";var s=val.toString().trim();
+    // Ya está en formato YYYY-MM-DD
     if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+    // Texto DD/MM/YYYY o DD-MM-YYYY (formato México de Sheets)
     var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
     if(m)return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    // Serial numérico de Sheets → usar UTC para no desplazar por timezone
     var n=parseFloat(s);
-    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d.toISOString().slice(0,10);}
+    if(!isNaN(n)&&n>10000&&n<100000){
+        var dUTC=new Date((n-25569)*86400*1000);
+        if(!isNaN(dUTC))return dUTC.getUTCFullYear()+'-'+
+            String(dUTC.getUTCMonth()+1).padStart(2,'0')+'-'+
+            String(dUTC.getUTCDate()).padStart(2,'0');
+    }
     var d2=new Date(s);return isNaN(d2)?"":d2.toISOString().slice(0,10);
 }
 function parsearMonto(val){
@@ -363,17 +462,27 @@ function parsearMonto(val){
 function parseFechaFlexible(val){
     if(!val)return null;var s=val.toString().trim();if(!s||s==="0")return null;
     var n=parseFloat(s);
-    if(!isNaN(n)&&n>10000&&n<100000){var d=new Date((n-25569)*86400*1000);if(!isNaN(d))return d;}
+    // Serial numérico de Sheets (ej: 35228 = 12/06/1996)
+    // IMPORTANTE: usar Date.UTC para evitar desfase de timezone (México UTC-6 correría 1 día)
+    if(!isNaN(n)&&n>10000&&n<100000){
+        var dUTC=new Date((n-25569)*86400*1000);
+        if(!isNaN(dUTC)){
+            // Construir fecha con componentes UTC para que no se desplace por timezone local
+            return new Date(Date.UTC(dUTC.getUTCFullYear(), dUTC.getUTCMonth(), dUTC.getUTCDate()));
+        }
+    }
+    // Texto DD/MM/YYYY o DD-MM-YYYY (formato que devuelve getDisplayValues de Sheets en México)
     var m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-    if(m)return new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+    if(m)return new Date(Date.UTC(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1])));
+    // Texto YYYY-MM-DD (ISO)
     var m2=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(m2)return new Date(parseInt(m2[1]),parseInt(m2[2])-1,parseInt(m2[3]));
+    if(m2)return new Date(Date.UTC(parseInt(m2[1]),parseInt(m2[2])-1,parseInt(m2[3])));
     var d=new Date(s);return isNaN(d)?null:d;
 }
 function parsearMontoSheet(val){
     if(!val&&val!==0)return 0;var s=val.toString().replace(/[$\s,]/g,"");var n=parseFloat(s);return isNaN(n)?0:n;
 }
-const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA EVALUACIÓN 360"];
+const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA DE INICIO DEL CUARTO CONTRATO","FECHA DE VENCIMIENTO DEL CUARTO CONTRATO","FECHA DE INICIO DEL QUINTO CONTRATO","FECHA DE VENCIMIENTO DEL QUINTO CONTRATO","FECHA DE INICIO DEL SEXTO CONTRATO","FECHA DE VENCIMIENTO DEL SEXTO CONTRATO","FECHA EVALUACIÓN 360"];
 const CAMPOS_MONTO=["SUELDO MENSUAL","MONTO DE FINIQUITO"];
 function normalizarRegistro(emp){
     var o=Object.assign({},emp);
@@ -519,7 +628,8 @@ const PASOS=[
         {id:"numeroEmpleado",     label:"No. de Empleado",       type:"number",req:true, col:2,autonum:true},
         {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
         {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
-        {id:"empresa",            label:"Empresa",                type:"select",req:true, col:2,options:empresas},
+        {id:"empresa",            label:"Empresa",                type:"select-dynamic",req:true, col:2,optionsFn:function(){ return empresas; }},
+        {id:"grupoComercial",     label:"Grupo Comercial",         type:"text",  req:false,col:2,placeholder:"Se llena automáticamente al seleccionar empresa",readonly:true},
         {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
         {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
         {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
@@ -674,7 +784,8 @@ function renderizarPasoActual(){
         <div class="w-12 h-12 rounded-xl ${cols[paso.color]||'bg-slate-100 text-slate-500'} flex items-center justify-center flex-shrink-0"><i class="fas ${paso.icono} text-xl"></i></div>
         <div><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>`;
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>
+      ${paso.accion ? '<div style=\"margin-top:12px;\"><button onclick=\"'+paso.accion.fn+'\" style=\"display:inline-flex;align-items:center;gap:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:.8rem;font-weight:700;padding:9px 18px;border-radius:10px;cursor:pointer;\">'+paso.accion.label+'</button></div>' : ''}\`;
 
     // Autonum — recalcular cuando cambia la empresa
     if(paso.campos.some(c=>c.autonum)){
@@ -690,6 +801,11 @@ function renderizarPasoActual(){
                     const elNum = document.getElementById("alta_numeroEmpleado");
                     if(elNum){ elNum.value = ""; elNum.placeholder = "Calculando..."; }
                     cargarSiguienteNumero();
+                    // Auto-fill grupo comercial
+                    const gc = grupoDeEmpresa(this.value);
+                    altaData.grupoComercial = gc;
+                    const elGC = document.getElementById("alta_grupoComercial");
+                    if(elGC) elGC.value = gc;
                 }, { once: false });
             }
         }, 200); // esperar a que el DOM esté listo
@@ -724,8 +840,8 @@ function poblarCatalogos(){
 function renderizarCampo(c){
     const cls="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-slate-300";
     const span=c.col===1?'md:col-span-2':'';
-    const ph=c.placeholder?`placeholder="${c.placeholder}"`:'';
-    const ml=c.maxlen?`maxlength="${c.maxlen}"`:'';
+    const ph=c.placeholder?`placeholder="${c.placeholder}"`:""||"";
+    const ml=c.maxlen?`maxlength="${c.maxlen}"`:""||"";
     const req=c.req?'<span class="text-red-400">*</span>':'';
     const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
     let inp;
@@ -745,12 +861,20 @@ function renderizarCampo(c){
             + '<datalist id="'+listId+'">'
             + (c.listId==='list-departamentos' ? catalogoDeptos : catalogoPuestos).map(function(o){return '<option value="'+o+'">';}).join('')
             + '</datalist>';
+    } else if(c.type==='select-dynamic'){
+        // Select cuyas opciones se leen en tiempo de render desde una función
+        // Siempre refleja la lista actualizada de empresas del cacheGlobal
+        var opsDyn = typeof c.optionsFn === 'function' ? c.optionsFn() : (c.options||[]);
+        inp = '<select id="alta_'+c.id+'" '+(c.req?'required':'')+' class="'+cls+' cursor-pointer">'
+            + '<option value="">Seleccione...</option>'
+            + opsDyn.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('')
+            + '</select>';
     } else if(c.type==='select'){
         inp=`<select id="alta_${c.id}" ${c.req?'required':''} ${c.readonly?'title="Calculado automáticamente"':''} class="${cls} ${c.readonly?'bg-slate-50 cursor-default':'cursor-pointer'}"><option value="">Seleccione...</option>${(c.options||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
     }else if(c.type==='textarea'){
         inp=`<textarea id="alta_${c.id}" rows="2" ${ph} class="${cls} resize-none"></textarea>`;
     }else{
-        inp=`<input type="${c.type}" id="alta_${c.id}" ${c.req?'required':''} ${ml} ${ph} class="${cls}">`;
+        inp=`<input type="${c.type}" id="alta_${c.id}" ${c.req?'required':''} ${ml} ${ph} ${c.readonly?'readonly tabindex="-1"':''} class="${cls} ${c.readonly?'bg-slate-50 text-slate-400 cursor-default':''}">`;
     }
     return`<div class="${span}"><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">${c.label} ${req}${nota}</label>${inp}</div>`;
 }
@@ -1065,7 +1189,7 @@ function actualizarBotones(){
 function renderizarResumen(){
     const el=document.getElementById('resumen-alta');if(!el)return;
     const secciones=[
-        {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
+        {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Grupo Comercial',altaData.grupoComercial],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
         {titulo:'Contrato',icono:'fa-file-contract',color:'text-indigo-500',filas:[['Tipo de Contrato',altaData.tipoContrato],['Inicio 1er Contrato',altaData.fechaInicioContrato],['Vencimiento 1er Contrato',altaData.vencimientoPrimerContrato]]},
         {titulo:'Datos Personales',icono:'fa-id-card',color:'text-teal-500',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Estado Civil',altaData.estadoCivil],['Escolaridad',altaData.escolaridad],['Fecha Nac. (detectada)',altaData.fechaNacimiento],['Género (detectado)',altaData.genero],['Nac. (detectada)',altaData.nacionalidad],['Lugar Nac. (detectado)',altaData.lugarNacimiento]]},
     ];
@@ -1617,9 +1741,15 @@ function abrirEditor(idInterno, empresaHint){
     if(!emp){ mostrarToast('error','No encontrado','No se encontró el registro #'+idInterno); return; }
     empleadoEdicion = emp;
     const drawer = document.getElementById('drawer-editor');
+    const inner  = document.getElementById('drawer-inner');
     renderizarDrawer(emp);
-    drawer.classList.remove('translate-x-full');
+    // Mostrar modal con animación
     document.getElementById('drawer-overlay').classList.remove('hidden');
+    drawer.classList.remove('hidden');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        inner.classList.remove('opacity-0','scale-95');
+        inner.classList.add('opacity-100','scale-100');
+    }));
 }
 
 
@@ -1649,14 +1779,26 @@ async function activarPortalEmpleado() {
     }
 }
 function cerrarEditor(){
-    document.getElementById('drawer-editor').classList.add('translate-x-full');
+    const drawer = document.getElementById('drawer-editor');
+    const inner  = document.getElementById('drawer-inner');
+    inner.classList.remove('opacity-100','scale-100');
+    inner.classList.add('opacity-0','scale-95');
     document.getElementById('drawer-overlay').classList.add('hidden');
+    setTimeout(()=>{ drawer.classList.add('hidden'); }, 200);
     empleadoEdicion=null;
+    // Ocultar historial para la próxima apertura
+    const hw = document.getElementById('sec-historial-wrapper');
+    if(hw) hw.style.display='none';
 }
 
+// Helper: formatea fechas construidas con Date.UTC sin desfase de timezone
+function fmtUTC(d, opts){
+    if(!d||isNaN(d))return'—';
+    return d.toLocaleDateString('es-MX', Object.assign({timeZone:'UTC'}, opts||{day:'2-digit',month:'2-digit',year:'numeric'}));
+}
 function fmtFechaDisplay(val){
     const d=parseFechaFlexible(val);if(!d)return'—';
-    return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+    return fmtUTC(d,{day:'2-digit',month:'short',year:'numeric'});
 }
 
 function diasRestantes(val){
@@ -2295,6 +2437,9 @@ function filtrarDirectorio() {
     else renderTablaDirectorio(filt);
 }
 
+// Cache de fotos ya cargadas: folderId → url de thumbnail (evita pedir 2 veces)
+const _fotoCache = {};
+
 function renderGridDirectorio(data) {
     const grid = document.getElementById('dir-grid');
     if(!grid) return;
@@ -2302,27 +2447,28 @@ function renderGridDirectorio(data) {
         grid.innerHTML = '<div class="col-span-4 text-center py-16 text-slate-400"><i class="fas fa-users-slash text-3xl mb-2 block"></i>Sin resultados</div>';
         return;
     }
+
     grid.innerHTML = data.map(function(e){
         const ini   = getIniciales(e.nombre) || '?';
         const color = avatarColor(e.nombre);
         const act   = e.estatus === 'Activo';
         const badge = act ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600';
-        // Foto desde Drive si tiene URL de expediente
-        const fotoHtml = e.urlExp && e.urlExp.startsWith('http')
-            ? '' // intentaremos cargar foto
-            : '';
+        // Extraer folderId de la URL del expediente para carga lazy
+        var folderId = '';
+        if(e.urlExp && e.urlExp.startsWith('http')){
+            var m = e.urlExp.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+            if(m) folderId = m[1];
+        }
         return '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md hover:border-violet-200 transition cursor-pointer dir-card"'
-            +' data-id="'+e.idInterno+'" class="org-card">'
+            +' data-id="'+e.idInterno+'"'
+            +(folderId ? ' data-folder="'+folderId+'"' : '')+'>'
             +'<div class="flex flex-col items-center text-center">'
-            // Avatar
-            +'<div class="w-16 h-16 rounded-full mb-3 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0"'
+            // Avatar — ID único para poder actualizar después
+            +'<div id="dir-av-'+e.idInterno+'" class="dir-avatar w-16 h-16 rounded-full mb-3 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0"'
             +' style="background:'+color+';">'+ini+'</div>'
-            // Nombre
             +'<p class="font-bold text-slate-800 text-sm leading-tight mb-0.5">'+e.nombre+'</p>'
             +'<p class="text-xs text-slate-400 mb-2">'+e.puesto+'</p>'
-            // Badge estatus
             +'<span class="px-2 py-0.5 rounded-full text-xs font-bold mb-3 '+badge+'">'+e.estatus+'</span>'
-            // Info
             +'<div class="w-full text-left space-y-1 border-t border-slate-100 pt-3">'
             +(e.empresa?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-building text-slate-300 w-3"></i>'+e.empresa+'</p>':'')
             +(e.depto?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-sitemap text-slate-300 w-3"></i>'+e.depto+'</p>':'')
@@ -2330,6 +2476,90 @@ function renderGridDirectorio(data) {
             +(e.telefono?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-phone text-slate-300 w-3"></i>'+e.telefono+'</p>':'')
             +'</div></div></div>';
     }).join('');
+
+    // Iniciar carga lazy de fotos con IntersectionObserver
+    iniciarLazyFotos();
+}
+
+// Cola de peticiones para no saturar el backend (máx 3 simultáneas)
+var _fotoQueue = [];
+var _fotoActivas = 0;
+var _fotoMaxActivas = 3;
+
+function iniciarLazyFotos(){
+    // Desconectar observer anterior si existe
+    if(window._dirFotoObserver) window._dirFotoObserver.disconnect();
+
+    window._dirFotoObserver = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+            if(!entry.isIntersecting) return;
+            var card = entry.target;
+            var folderId = card.dataset.folder;
+            var idInterno = card.dataset.id;
+            if(!folderId || card.dataset.fotoSolicitada) return;
+            card.dataset.fotoSolicitada = '1';
+            window._dirFotoObserver.unobserve(card);
+            _fotoQueue.push({ folderId: folderId, idInterno: idInterno });
+            procesarColaFotos();
+        });
+    }, { rootMargin: '100px', threshold: 0.1 });
+
+    document.querySelectorAll('.dir-card[data-folder]').forEach(function(card){
+        var folderId = card.dataset.folder;
+        // Si ya está en caché, aplicar inmediatamente sin pedir al backend
+        if(_fotoCache[folderId]){
+            var av = document.getElementById('dir-av-'+card.dataset.id);
+            if(av) aplicarFotoAvatar(av, _fotoCache[folderId]);
+        } else {
+            window._dirFotoObserver.observe(card);
+        }
+    });
+}
+
+function procesarColaFotos(){
+    while(_fotoActivas < _fotoMaxActivas && _fotoQueue.length > 0){
+        var item = _fotoQueue.shift();
+        _fotoActivas++;
+        cargarFotoDirectorio(item.folderId, item.idInterno).finally(function(){
+            _fotoActivas--;
+            procesarColaFotos();
+        });
+    }
+}
+
+async function cargarFotoDirectorio(folderId, idInterno){
+    // Si ya está en caché de sesión, no volver a pedir
+    if(_fotoCache[folderId] === null) return; // null = confirmado que no tiene foto
+    if(_fotoCache[folderId]) {
+        var av = document.getElementById('dir-av-'+idInterno);
+        if(av) aplicarFotoAvatar(av, _fotoCache[folderId]);
+        return;
+    }
+    try {
+        var r = await enviarPeticion('obtener_foto', { folderId: folderId });
+        if(r && r.status === 'success' && r.url){
+            _fotoCache[folderId] = r.url;
+            var av = document.getElementById('dir-av-'+idInterno);
+            if(av) aplicarFotoAvatar(av, r.url);
+        } else {
+            _fotoCache[folderId] = null; // marcar como "sin foto" para no volver a pedir
+        }
+    } catch(e) {
+        _fotoCache[folderId] = null;
+    }
+}
+
+function aplicarFotoAvatar(avDiv, url){
+    var img = new Image();
+    img.onload = function(){
+        avDiv.innerHTML = '';
+        avDiv.style.background = 'transparent';
+        avDiv.appendChild(img);
+    };
+    img.onerror = function(){ /* mantener iniciales */ };
+    img.src = url;
+    img.className = 'w-full h-full object-cover';
+    img.alt = '';
 }
 
 function renderTablaDirectorio(data) {
@@ -2614,11 +2844,14 @@ async function renderAdminPersonas(cont) {
     const deptos  = [...new Set(data.map(function(e){return e.depto;}).filter(Boolean))].sort();
     const puestos = [...new Set(data.map(function(e){return e.puesto;}).filter(Boolean))].sort();
     const emps    = [...new Set(data.map(function(e){return e.empresa;}).filter(Boolean))].sort();
+    // Grupos comerciales desde el catálogo EMPRESAS (más confiable que la BD)
+    const grupos  = listaGrupos().length ? listaGrupos()
+                  : [...new Set(cacheGlobal.map(r=>(r["GRUPO COMERCIAL"]||"").toString().trim()).filter(Boolean))].sort();
 
     cont.innerHTML =
     '<h3 class="text-base font-bold text-slate-800 mb-5">Administración — Catálogos</h3>'
     +'<p class="text-xs text-slate-400 mb-5">Estos catálogos se generan automáticamente desde los datos del Sheet. Para modificarlos, edita directamente el expediente del colaborador.</p>'
-    +'<div class="grid grid-cols-1 md:grid-cols-3 gap-4">'
+    +'<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">'
     // Departamentos
     +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
     +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-sitemap text-violet-500"></i>Departamentos <span class="text-xs text-slate-400 font-normal ml-auto">'+deptos.length+'</span></p>'
@@ -2648,6 +2881,23 @@ async function renderAdminPersonas(cont) {
         return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
             +'<span class="text-xs text-slate-600">'+e2+'</span>'
             +'<span class="text-xs font-bold text-slate-400">'+cnt+'</span></div>';
+    }).join('')+'</div></div>'
+    // Grupos Comerciales — desde catálogo EMPRESAS
+    +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+    +'<p class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fas fa-layer-group text-amber-500"></i>Grupos Comerciales <span class="text-xs text-slate-400 font-normal ml-auto">'+grupos.length+'</span></p>'
+    +'<div class="space-y-1 max-h-64 overflow-y-auto">'
+    +grupos.map(function(g){
+        const cnt = catalogoEmpresas.filter(function(e){return e.grupo===g;}).length;
+        const cntEmp = cacheGlobal.filter(function(r){
+            const grp = (r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa((r["EMPRESA"]||"").toString().trim());
+            return grp === g;
+        }).length;
+        return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
+            +'<div>'
+            +'<span class="text-xs text-slate-600">'+g+'</span>'
+            +'<span class="text-xs text-slate-400 ml-2">'+cnt+' empresa(s)</span>'
+            +'</div>'
+            +'<span class="text-xs font-bold text-amber-500">'+cntEmp+'</span></div>';
     }).join('')+'</div></div>'
     +'</div>';
 }
@@ -4080,25 +4330,34 @@ function cerrarEditorEncuesta() {
 
 // ─── FOTO DE PERFIL DEL EMPLEADO ─────────────────────────────
 async function cargarFotoPerfil(folderUrl){
-    var partes = folderUrl.split('/folders/');
-    if(partes.length < 2) return;
-    var folderId = partes[1].split('?')[0].trim();
-    if(!folderId) return;
+    if(!folderUrl) return;
+    // Extraer folderId con regex robusto
+    var mFolder = folderUrl.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if(!mFolder) { console.warn('[cargarFotoPerfil] No se pudo extraer folderId de:', folderUrl); return; }
+    var folderId = mFolder[1];
     try {
         var r = await enviarPeticion('obtener_foto', { folderId: folderId });
+        console.log('[cargarFotoPerfil] Respuesta:', JSON.stringify(r));
         if(r.status === 'success' && r.url) {
             var avatar = document.getElementById('avatar-circulo');
             if(avatar) {
                 var img = document.createElement('img');
                 img.src = r.url;
                 img.className = 'w-full h-full object-cover';
-                img.onerror = function(){ this.parentElement.innerHTML = '<i class="fas fa-user"></i>'; };
+                img.onerror = function(){
+                    console.warn('[cargarFotoPerfil] Error cargando imagen:', r.url);
+                    this.parentElement.innerHTML = '<i class="fas fa-user"></i>';
+                };
                 avatar.innerHTML = '';
                 avatar.appendChild(img);
+            } else {
+                console.warn('[cargarFotoPerfil] No se encontró avatar-circulo en el DOM');
             }
+        } else {
+            console.warn('[cargarFotoPerfil] Sin foto:', r.message);
         }
     } catch(e) {
-        console.warn('No se pudo cargar foto:', e);
+        console.warn('[cargarFotoPerfil] Error:', e);
     }
 }
 
@@ -4114,19 +4373,31 @@ async function subirFotoPerfil(){
         r.onerror = rej;
         r.readAsDataURL(file);
     });
-    const id = (empleadoEdicion["NO. EMPLEADO"]||"").toString();
+    const idInterno  = (empleadoEdicion["ID INTERNO"]||"").toString().trim();
+    const noEmp      = (empleadoEdicion["NO. EMPLEADO"]||"").toString().trim();
+    const idParaNombre = idInterno || noEmp;
     const resp = await enviarPeticion('subir_documento',{
-        numeroEmpleado: id,
-        nombreArchivo: 'foto_perfil_'+id+'.'+file.name.split('.').pop(),
+        idInterno:      idInterno,   // identificador único — columna AY
+        numeroEmpleado: noEmp,       // respaldo por si acaso
+        nombreArchivo: 'foto_perfil_'+idParaNombre+'.'+file.name.split('.').pop(),
         mimeType: file.type,
         data: b64
     });
+    console.log('[subirFotoPerfil] Respuesta backend:', JSON.stringify(resp));
     if(resp.status === 'success'){
-        mostrarToast('success','Foto guardada','Foto de perfil actualizada en el expediente.');
-        const url = (empleadoEdicion["URL EXPEDIENTE"]||"").toString().trim();
-        if(url) cargarFotoPerfil(url);
+        mostrarToast('success','Foto guardada','Foto subida a Drive. Carpeta: '+(resp.folderUrl||'existente'));
+        const folderUrl = resp.folderUrl || (empleadoEdicion["URL EXPEDIENTE"]||"").toString().trim();
+        if(folderUrl){
+            empleadoEdicion["URL EXPEDIENTE"] = folderUrl;
+            // Actualizar el ícono de carpeta en la tabla
+            const iconoCarpeta = document.querySelector('tr [title="Abrir expediente en Drive"]');
+            if(iconoCarpeta) iconoCarpeta.href = folderUrl;
+            await new Promise(r => setTimeout(r, 1500));
+            await cargarFotoPerfil(folderUrl);
+        }
     } else {
         mostrarToast('error','Error','No se pudo subir la foto: '+resp.message);
+        console.error('[subirFotoPerfil] Error del backend:', resp.message);
     }
     input.value = '';
 }
@@ -4192,26 +4463,63 @@ function renderizarDrawer(emp){
               +opts.map(function(o){return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';}).join('')
               +'</select></div>';
     };
+    // Select dinámico con opciones de lista (ej: empresas del catálogo)
+    const edsec = function(id2,label,val,opciones){
+        const optsHtml = (opciones||[]).map(function(o){
+            return '<option '+(o===val?'selected':'')+' value="'+o+'">'+o+'</option>';
+        }).join('');
+        return '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</label>'
+              +'<select id="'+id2+'" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer" '
+              +'onchange="var gc=grupoDeEmpresa(this.value);var egc=document.getElementById(\"ed_grupoComercial\");if(egc)egc.value=gc;">'
+              +'<option value="">Seleccione...</option>'+optsHtml
+              +'</select></div>';
+    };
+    // sec: sección dentro de la columna del modal (ocupa 1 columna del grid externo)
     const sec = function(titulo,icono,color,html){
-        return '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+        return '<div class="mb-5 break-inside-avoid"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
               +'<i class="fas '+icono+' '+color+'"></i>'+titulo+'</p>'
               +'<div class="grid grid-cols-2 gap-3">'+html+'</div></div>';
     };
+    // secFull: sección a ancho completo (ocupa las 2 columnas del grid externo)
+    const secFull = function(titulo,icono,color,html){
+        return '<div class="md:col-span-2 mb-5 break-inside-avoid"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+              +'<i class="fas '+icono+' '+color+'"></i>'+titulo+'</p>'
+              +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'+html+'</div></div>';
+    };
+    // rawFull: bloque a ancho completo sin título propio
+    const rawFull = function(html){
+        return '<div class="md:col-span-2">'+html+'</div>';
+    };
     const ff = function(v){
         if(!v||v==="0"||v==="") return "—";
-        var n=parseFloat(v);
-        if(!isNaN(n)&&n>10000){var d=new Date((n-25569)*86400*1000);return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});}
+        // Usar parseFechaFlexible que maneja: serial numérico (35228),
+        // texto DD/MM/YYYY ("11/06/1996"), texto YYYY-MM-DD ("1996-06-11")
+        var d = parseFechaFlexible(v);
+        if(d && !isNaN(d)) return fmtUTC(d,{day:"2-digit",month:"2-digit",year:"numeric"});
         return v.toString();
     };
     const E = emp;
 
+    const idPersonaEd = (E["ID_PERSONA"] || "").toString().trim();
+    // Detectar si es reingreso buscando en cacheGlobal otros registros con mismo ID_PERSONA
+    const esReingreso = idPersonaEd && cacheGlobal.filter(r=>(r["ID_PERSONA"]||"").toString().trim()===idPersonaEd).length > 1;
+
     document.getElementById("drawer-cuerpo").innerHTML =
-    sec("Datos Laborales","fa-briefcase","text-blue-500",
+    // ── Fila completa: Banner reingreso ──────────────────────────
+    (esReingreso ? rawFull('<div class="mb-4 flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2.5">'
+        +'<i class="fas fa-rotate text-violet-500 text-sm"></i>'
+        +'<div><p class="text-xs font-bold text-violet-700">Reingreso detectado</p>'
+        +'<p class="text-xs text-violet-500">Esta persona tiene períodos anteriores registrados. Consulta el historial al final del expediente.</p></div></div>') : '')
+    // ── Columna izquierda ─────────────────────────────────────────
+    +sec("Datos Laborales","fa-briefcase","text-blue-500",
         ro("No. Empleado",E["NO. EMPLEADO"])+
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
         ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
         ro("Antigüedad ⟵ fórmula Sheet",E["ANTIGÜEDAD"])+
-        ed("ed_empresa","Empresa",E["EMPRESA"])+
+        edsec("ed_empresa","Empresa",E["EMPRESA"],empresas)+
+        ('<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Grupo Comercial <span class="text-blue-400 font-normal normal-case">⟵ automático</span></label>'
+        +'<input type="text" id="ed_grupoComercial" readonly tabindex="-1" value="'+(E["GRUPO COMERCIAL"]||'')+'" '
+        +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 text-slate-400 cursor-default"></div>')+
         ed("ed_puesto","Puesto",E["PUESTO"])+
         ed("ed_depto","Departamento",E["DEPARTAMENTO"])+
         ed("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"])+
@@ -4246,39 +4554,53 @@ function renderizarDrawer(emp){
         ed("ed_parBenef","Parentesco",E["PARENTESCO DEL BENEFICIARIO"])+
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     )+
-    '<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
-    +'<div class="grid grid-cols-2 gap-3">'
+    // ── Fila completa: Baja / Finiquito ─────────────────────────
+    +(E["ESTATUS"]==="Baja"
+    ? rawFull('<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
+      +'<p class="text-xs font-bold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">'
+      +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
+      +' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
+      +'</p>'
+      +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
+      +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
+      +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Voluntaria","Involuntaria"])
+      +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
+      +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+      +'<div class="md:col-span-4">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo","Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio","Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso","Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo","Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones","Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales","Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"])+'</div>'
+      +'</div></div>')
+    : '')+
+    rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
     +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
-    +'<div style="margin:8px 0 12px;">'
-    +'<button onclick="calcularFechasContratoExpediente()" '
-    +'style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#fff;font-size:.75rem;font-weight:700;padding:7px 14px;border-radius:9px;cursor:pointer;">'
-    +'⚡ Calcular fechas automáticamente (30 días c/u)</button></div>'
-    +ed("ed_ini1contrato","Inicio 1er Contrato",fmtUTC(E["FECHA DE INICIO DEL PRIMER CONTRATO"]||E["INICIO DEL PRIMER CONTRATO"]),"date")
-    +ed("ed_ven1contrato","Vence 1er Contrato",fmtUTC(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]),"date")
-    +ed("ed_ini2contrato","Inicio 2do Contrato",fmtUTC(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]),"date")
-    +ed("ed_ven2contrato","Vence 2do Contrato",fmtUTC(E["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]),"date")
-    +ed("ed_ini3contrato","Inicio 3er Contrato",fmtUTC(E["FECHA DE INICIO DEL TERCER CONTRATO"]),"date")
-    +ed("ed_ven3contrato","Vence 3er Contrato",fmtUTC(E["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]),"date")
+    +ro("Inicio 1er Contrato",ff(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
+    +ro("Vence 1er Contrato",ff(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
+    +ro("Inicio 2do Contrato",ff(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]))
+    +ro("Vence 2do Contrato",ff(E["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]))
+    +ro("Inicio 3er Contrato",ff(E["FECHA DE INICIO DEL TERCER CONTRATO"]))
+    +ro("Vence 3er Contrato",ff(E["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]))
     +'</div>'
     +'<div class="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3">'
     +'<p class="text-xs font-bold text-blue-800 mb-2"><i class="fas fa-plus-circle mr-1 text-blue-500"></i>Nuevo contrato</p>'
-    +'<div class="grid grid-cols-2 gap-2">'
+    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-2">'
     +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Inicio</label>'
     +'<input type="date" id="ed_iniContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
     +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Vencimiento</label>'
     +'<input type="date" id="ed_venContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
-    +'</div></div></div>'+
+    +'</div></div></div>')+
     sec("Seguimiento","fa-clipboard-list","text-amber-500",
         sel("ed_ent15","Entrevista 15 Días",E["ENTREVISTA DE AJUSTE 15 DÍAS"],["","Pendiente","Sí","No"])+
         sel("ed_ent45","Entrevista 45 Días",E["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"],["","Pendiente","Sí","No"])+
         '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Evaluación 360°</label>'
         +'<input type="date" id="ed_eval360" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
     )+
-    sec("Calculado por el Sheet","fa-function","text-slate-400",
+    secFull("Calculado por el Sheet","fa-function","text-slate-400",
         ro("Para Ant. Promedio ⟵ fórmula",E["PARA ANT. PROMEDIO"])+
         ro("Se Toma en Cuenta ⟵ fórmula",E["SE TOMA EN CUENTA?"])
     )+
-    sec("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
+    secFull("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
         ed("ed_jefeDirecto","Jefe Directo (ID INTERNO)",E["JEFE DIRECTO"])+
         ed("ed_correoAcceso","Correo Acceso (corporativo)",E["CORREO ACCESO"],"email")+
         '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9;">'
@@ -4296,7 +4618,7 @@ function renderizarDrawer(emp){
             : '<p style="font-size:.78rem;color:#94a3b8;">Agrega el <strong>Correo Acceso</strong> para activar el portal del empleado.</p>'
         )+'</div>'
     )+
-    (url && url.indexOf("http") === 0
+    rawFull((url && url.indexOf("http") === 0
         // ── Con expediente: mostrar link + botón subir docs ──
         ? '<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4">'
           + '<div class="flex items-center gap-3">'
@@ -4324,10 +4646,21 @@ function renderizarDrawer(emp){
           + '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente'
           + '</button>'
           + '</div>'
-    );
+    ));
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
     if(eval360val){const el=document.getElementById("ed_eval360");if(el)el.value=parsearFecha(eval360val);}
+
+    // ── Sección Historial de Carrera ──────────────────────────
+    // Solo mostrar si hay ID_PERSONA asignado
+    if(idPersonaEd){
+        const secHistEl = document.getElementById('sec-historial-wrapper');
+        if(secHistEl){
+            secHistEl.style.display = '';
+            // Cargar historial en segundo plano
+            setTimeout(()=>cargarHistorialPersona(idPersonaEd), 300);
+        }
+    }
 }
 
 
@@ -4357,6 +4690,7 @@ async function guardarCambiosEditor(){
         empresa:        empleadoEdicion["EMPRESA"] || "",
         campos:{
             "EMPRESA":                 document.getElementById('ed_empresa')?.value||undefined,
+            "GRUPO COMERCIAL":         document.getElementById('ed_grupoComercial')?.value||undefined,
             "PUESTO":                  document.getElementById('ed_puesto')?.value||undefined,
             "DEPARTAMENTO":            document.getElementById('ed_depto')?.value||undefined,
             "TIPO DE INGRESO":         document.getElementById('ed_tipoIngreso')?.value||undefined,
@@ -4383,15 +4717,14 @@ async function guardarCambiosEditor(){
             "TIPO DE CONTRATO":        document.getElementById('ed_tipoContrato')?.value||undefined,
             "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15')?.value||undefined,
             "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45')?.value||undefined,
-            "FECHA EVALUACIÓN 360":            document.getElementById('ed_eval360')?.value||undefined,
-            "JEFE DIRECTO":                    document.getElementById('ed_jefeDirecto')?.value||undefined,
-            "CORREO ACCESO":                   document.getElementById('ed_correoAcceso')?.value||undefined,
-            "FECHA DE INICIO DEL PRIMER CONTRATO":    document.getElementById('ed_ini1contrato')?.value||undefined,
-            "FECHA DE VENCIMIENTO DEL PRIMER CONTRATO":document.getElementById('ed_ven1contrato')?.value||undefined,
-            "FECHA DE INICIO DEL SEGUNDO CONTRATO":   document.getElementById('ed_ini2contrato')?.value||undefined,
-            "FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO":document.getElementById('ed_ven2contrato')?.value||undefined,
-            "FECHA DE INICIO DEL TERCER CONTRATO":    document.getElementById('ed_ini3contrato')?.value||undefined,
-            "FECHA DE VENCIMIENTO DEL TERCER CONTRATO":document.getElementById('ed_ven3contrato')?.value||undefined,
+            "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360')?.value||undefined,
+            "JEFE DIRECTO":            document.getElementById('ed_jefeDirecto')?.value||undefined,
+            "CORREO ACCESO":           document.getElementById('ed_correoAcceso')?.value||undefined,
+            // Campos de baja — se envían si tienen valor (finiquito permite 0)
+            "FECHA DE BAJA":           document.getElementById('ed_fechaBaja')?.value    || undefined,
+            "TIPO DE SALIDA":          document.getElementById('ed_tipoSalida')?.value   || undefined,
+            "MOTIVO DE SALIDA":        document.getElementById('ed_motivoBaja')?.value   || undefined,
+            "MONTO DE FINIQUITO":      (()=>{ const v=document.getElementById('ed_finiquito')?.value; return (v!==undefined&&v!=='')?v:undefined; })(),
             ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
             ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
         }
@@ -4535,21 +4868,44 @@ async function procesarBaja(event){
 
 // ─── CACHÉ Y DATOS ────────────────────────────────────────────
 let cacheGlobal=[];
+let cacheTimestamp=0;
+const CACHE_TTL=5*60*1000; // 5 minutos — no volver a pedir datos al backend antes de este tiempo
+
 async function obtenerDatos(forzar){
-    if(!forzar&&cacheGlobal.length)return cacheGlobal;
+    const ahora=Date.now();
+    // Usar caché si: no se forzó, hay datos, y no expiró el TTL
+    if(!forzar && cacheGlobal.length && (ahora-cacheTimestamp)<CACHE_TTL) return cacheGlobal;
     mostrarLoader("Sincronizando base de datos...");
     try{
-        const r=await enviarPeticion("exportar_datos",{});ocultarLoader();
+        const r=await enviarPeticion("exportar_datos",{});
+        ocultarLoader();
         if(r.status==="success"){
-            cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+            const todos=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+            // Deduplicar por ID_PERSONA: conservar el registro con fecha de ingreso más reciente
+            // Los registros sin ID_PERSONA se conservan todos
+            const mapaPersona={};
+            const sinIdPersona=[];
+            todos.forEach(function(e){
+                const idP=(e["ID_PERSONA"]||"").toString().trim();
+                if(!idP){ sinIdPersona.push(e); return; }
+                const fIng=parseFloat(e["FECHA DE INGRESO"])||0;
+                if(!mapaPersona[idP] || fIng > (parseFloat(mapaPersona[idP]["FECHA DE INGRESO"])||0)){
+                    mapaPersona[idP]=e;
+                }
+            });
+            cacheGlobal=[...Object.values(mapaPersona),...sinIdPersona];
+            cacheTimestamp=Date.now();
             return cacheGlobal;
         }
-        return[];
-    }catch(e){ocultarLoader();return[];}
+        return cacheGlobal.length?cacheGlobal:[];
+    }catch(e){ocultarLoader();return cacheGlobal.length?cacheGlobal:[];}
 }
 async function forzarActualizacion(){
     cacheGlobal=[];
     datosFiltrados=[];
+    cacheTimestamp=0;
+    dashboardCargado=false;
+    await cargarCatalogoEmpresas();
     const datos=await obtenerDatos(true);
     actualizarListaEmpresas(); // actualizar lista de empresas dinámicamente
     poblarCatalogos(); // actualizar catálogos de departamentos y puestos
@@ -4568,8 +4924,9 @@ const FILAS_PAG    = 50;
 let datosFiltrados = [];
 
 async function cargarDatosTabla() {
-    await obtenerDatos();
+    await obtenerDatos(false); // usa caché si está fresco (TTL 5 min)
     datosFiltrados = [...cacheGlobal];
+    actualizarListaEmpresas();
     paginaActual = 1;
     renderizarPagina(1);
 }
@@ -4577,22 +4934,26 @@ async function cargarDatosTabla() {
 function aplicarFiltros() {
     const busqueda = (document.getElementById('filtro-busqueda')?.value || '').toLowerCase().trim();
     const empresa  = (document.getElementById('filtro-empresa')?.value  || '').trim();
+    const grupo    = (document.getElementById('filtro-grupo')?.value    || '').trim();
     const estatus  = (document.getElementById('filtro-estatus')?.value  || '').trim();
 
     datosFiltrados = cacheGlobal.filter(emp => {
         const nombre = (emp["NOMBRE DEL TRABAJADOR"] || "").toLowerCase();
         const noEmp  = (emp["NO. EMPLEADO"] || "").toString().toLowerCase();
         const puesto = (emp["PUESTO"] || "").toLowerCase();
+        const empVal = (emp["EMPRESA"] || "").toString().trim();
+        const grpVal = (emp["GRUPO COMERCIAL"] || "").toString().trim() || grupoDeEmpresa(empVal);
         const pasaBusqueda = !busqueda || nombre.includes(busqueda) || noEmp.includes(busqueda) || puesto.includes(busqueda);
-        const pasaEmpresa  = !empresa  || (emp["EMPRESA"] || "").trim() === empresa;
-        const pasaEstatus  = !estatus  || (emp["ESTATUS"]  || "").trim() === estatus;
-        return pasaBusqueda && pasaEmpresa && pasaEstatus;
+        const pasaEmpresa  = !empresa  || empVal === empresa;
+        const pasaGrupo    = !grupo    || grpVal === grupo;
+        const pasaEstatus  = !estatus  || (emp["ESTATUS"] || "").toString().trim() === estatus;
+        return pasaBusqueda && pasaEmpresa && pasaGrupo && pasaEstatus;
     });
 
     paginaActual = 1;
     renderizarPagina(1);
 
-    const hayFiltros  = busqueda || empresa || estatus;
+    const hayFiltros  = busqueda || empresa || grupo || estatus;
     const btnLimpiar  = document.getElementById('btn-limpiar-filtros');
     const contador    = document.getElementById('contador-filtros');
     if (btnLimpiar) btnLimpiar.classList.toggle('hidden', !hayFiltros);
@@ -4600,11 +4961,19 @@ function aplicarFiltros() {
 }
 
 function limpiarFiltros() {
-    ['filtro-busqueda','filtro-empresa','filtro-estatus'].forEach(id => {
+    ['filtro-busqueda','filtro-empresa','filtro-grupo','filtro-estatus'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
     aplicarFiltros();
+}
+
+function limpiarFiltrosDashboard(){
+    ['filtroEmpresaGlobal','filtroGrupoGlobal','filtroMesGlobal','filtroAnioGlobal'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) el.value='ALL';
+    });
+    cargarDashboard();
 }
 
 function renderizarPagina(pag) {
@@ -4639,6 +5008,11 @@ function renderizarPagina(pag) {
                   + '<i class="fas fa-folder text-sm"></i></span>';
             const id    = (emp["NO. EMPLEADO"] || "").toString();
             const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").replace(/'/g, "\'");
+            // Badge reingreso — tiene historial si ID_PERSONA existe
+            const idPer = (emp["ID_PERSONA"]||"").toString().trim();
+            const badgeReingreso = idPer
+                ? ' <span title="Tiene historial de carrera" class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-500 ml-0.5" style="flex-shrink:0"><i class="fas fa-rotate" style="font-size:9px"></i></span>'
+                : '';
 
             let alerta = '';
             [emp["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"],
@@ -4652,14 +5026,14 @@ function renderizarPagina(pag) {
             });
 
             tbody.innerHTML += '<tr class="hover:bg-slate-50 border-b border-slate-100 transition">'
-                + '<td class="px-5 py-3.5 font-semibold text-slate-700 text-sm">#' + id + '</td>'
-                + '<td class="px-5 py-3.5 text-sm font-medium">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + '</td>'
-                + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["EMPRESA"] || "—") + '</td>'
-                + '<td class="px-5 py-3.5 text-xs text-slate-500">' + (emp["PUESTO"]  || "—") + '</td>'
-                + '<td class="px-5 py-3.5"><span class="px-2.5 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
-                + '<td class="px-5 py-3.5"><div class="flex items-center justify-center gap-3">'
+                + '<td class="px-3 py-3 font-semibold text-slate-700 text-sm whitespace-nowrap">#' + id + '</td>'
+                + '<td class="px-3 py-3 text-sm font-medium" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + badgeReingreso + '</td>'
+                + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["EMPRESA"] || "—") + '</td>'
+                + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["PUESTO"]  || "—") + '</td>'
+                + '<td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
+                + '<td class="px-3 py-3"><div class="flex items-center justify-center gap-2">'
                 + '<button onclick="abrirEditor(\'' + (emp['ID INTERNO']||id) + '\',\'' + (emp['EMPRESA']||'').replace(/'/g,'') + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
-                + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
+                + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\',\'' + (emp['ID INTERNO']||'') + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
                 + link
                 + '</div></td></tr>';
         });
@@ -4681,12 +5055,14 @@ function renderizarPagina(pag) {
 }
 
 // ─── SUBIDA DE DOCUMENTOS AL EXPEDIENTE ───────────────────────
-let modalDocsId  = null;
-let modalDocsNom = null;
+let modalDocsId      = null;
+let modalDocsNom     = null;
+let modalDocsIdInt   = null;
 
-function abrirModalDocs(id, nombre) {
-    modalDocsId  = id;
-    modalDocsNom = nombre;
+function abrirModalDocs(id, nombre, idInterno) {
+    modalDocsId    = id;
+    modalDocsNom   = nombre;
+    modalDocsIdInt = idInterno || '';
     const label = document.getElementById('modal-docs-empleado');
     if (label) label.textContent = '#' + id + ' — ' + nombre;
     const input = document.getElementById('modal-archivos');
@@ -4702,7 +5078,7 @@ function abrirModalDocs(id, nombre) {
 function cerrarModalDocs() {
     document.getElementById('modal-docs').classList.add('hidden');
     document.body.style.overflow = '';
-    modalDocsId = null; modalDocsNom = null;
+    modalDocsId = null; modalDocsNom = null; modalDocsIdInt = null;
 }
 
 function manejarDropModal(event) {
@@ -4764,6 +5140,7 @@ async function subirDocumentosExpediente() {
                 r.readAsDataURL(file);
             });
             const resp = await enviarPeticion('subir_documento', {
+                idInterno:      modalDocsIdInt || '',
                 numeroEmpleado: modalDocsId,
                 nombreArchivo:  file.name,
                 mimeType:       file.type || 'application/octet-stream',
@@ -4790,23 +5167,112 @@ async function subirDocumentosExpediente() {
 // ─── DASHBOARD ────────────────────────────────────────────────
 let charts={};
 const CD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{family:"'Inter',sans-serif",size:11},padding:10,boxWidth:12,boxHeight:12}}}};
+// Helper para mostrar/ocultar mensajes "sin datos" en contenedores de gráficas
+// sin destruir el canvas (lo que causaría null en la siguiente carga)
+function chartSinDatos(canvasId, mensaje){
+    const c = document.getElementById(canvasId);
+    if(!c) return;
+    c.style.display = 'none';
+    const pid = canvasId + '_empty';
+    let p = document.getElementById(pid);
+    if(!p){
+        p = document.createElement('p');
+        p.id = pid;
+        p.className = 'text-xs text-slate-400 text-center pt-12';
+        c.parentNode.insertBefore(p, c.nextSibling);
+    }
+    p.textContent = mensaje;
+    p.style.display = '';
+}
+function chartConDatos(canvasId){
+    const c = document.getElementById(canvasId);
+    if(!c) return;
+    c.style.display = '';
+    const p = document.getElementById(canvasId + '_empty');
+    if(p) p.style.display = 'none';
+}
 function dc(r){if(r)try{r.destroy();}catch(e){}return null;}
+// Crea una Chart.js solo si el canvas existe (evita null.getContext crash al re-filtrar)
+function safeChart(id, config){
+    const el = document.getElementById(id);
+    if(!el) return null;
+    chartConDatos(id);
+    return new Chart(el.getContext('2d'), config);
+}
 function fmtMXN(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(n||0);}
 function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a>=15&&a<=85?a:null;}
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
 
 async function cargarDashboard(){
-    const todos=await obtenerDatos(),filtro=document.getElementById('filtroEmpresaGlobal').value;
-    const D=filtro==="ALL"?todos:todos.filter(r=>(r["EMPRESA"]||"").trim()===filtro);
+    const todos=await obtenerDatos(false);
+    const filtroEmp  = (document.getElementById('filtroEmpresaGlobal')?.value)||'ALL';
+    const filtroGrupo= (document.getElementById('filtroGrupoGlobal')?.value)||'ALL';
+    const filtroMes  = (document.getElementById('filtroMesGlobal')?.value)||'ALL';
+    const filtroAnio = (document.getElementById('filtroAnioGlobal')?.value)||'ALL';
+
+    // Poblar selector de años dinámicamente con los años en la BD
+    const selAnio = document.getElementById('filtroAnioGlobal');
+    if(selAnio){
+        const aniosSet=new Set();
+        todos.forEach(r=>{
+            const d=parseFechaFlexible(r["FECHA DE INGRESO"]);
+            if(d)aniosSet.add(d.getUTCFullYear());
+            const db=parseFechaFlexible(r["FECHA DE BAJA"]);
+            if(db)aniosSet.add(db.getUTCFullYear());
+        });
+        const anios=[...aniosSet].sort();
+        const vActual=selAnio.value;
+        selAnio.innerHTML='<option value="ALL">Todos</option>'+
+            anios.map(a=>'<option value="'+a+'"'+(a.toString()===vActual?' selected':'')+'>'+a+'</option>').join('');
+    }
+
+    // ── Filtros de empresa y grupo (aplican a todos los registros) ──────────
+    // El filtro de grupo usa primero la columna GRUPO COMERCIAL de la BD;
+    // si está vacía, intenta resolverlo desde el catálogo (fallback).
+    const hayFiltroEmp   = filtroEmp   !== 'ALL';
+    const hayFiltroGrupo = filtroGrupo !== 'ALL';
+    const hayFiltroMes   = filtroMes   !== 'ALL';
+    const hayFiltroAnio  = filtroAnio  !== 'ALL';
+
+    // D: empleados que pasan el filtro de empresa/grupo
+    // Los filtros de mes/año NO excluyen registros del array D — se aplican
+    // internamente en los contadores que lo necesitan (tendencia, finiquitos).
+    // Esto garantiza que KPIs de plantilla activa, géneros y rangos de edad
+    // siempre reflejen el estado real de la empresa/grupo seleccionada.
+    const D=todos.filter(r=>{
+        const emp=(r["EMPRESA"]||"").toString().trim();
+        // Grupo: leer de la columna BD primero; luego catálogo; luego vacío
+        const grp=(r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa(emp);
+        if(hayFiltroEmp   && emp!==filtroEmp)   return false;
+        if(hayFiltroGrupo && grp!==filtroGrupo) return false;
+        return true;
+    });
+
+    // Función auxiliar: ¿una fecha pasa el filtro mes/año activo?
+    const pasaFiltroFecha = function(fDate){
+        if(!fDate) return false;
+        if(hayFiltroMes  && String(fDate.getUTCMonth()+1).padStart(2,'0') !== filtroMes)  return false;
+        if(hayFiltroAnio && String(fDate.getUTCFullYear())                 !== filtroAnio) return false;
+        return true;
+    };
+    // Si hay filtro mes/año activo, ¿un registro lo pasa por ingreso O por baja?
+    const registroPasaFecha = function(r){
+        if(!hayFiltroMes && !hayFiltroAnio) return true;
+        const fI=parseFechaFlexible(r["FECHA DE INGRESO"]);
+        const fB=parseFechaFlexible(r["FECHA DE BAJA"]);
+        return pasaFiltroFecha(fI) || pasaFiltroFecha(fB);
+    };
+
     let activos=0,bajas=0,cEmp={},cGen={"Hombre":0,"Mujer":0},cRango={"<31":0,"31-50":0,"51-65":0,">65":0};
     let cMotivo={},cDepto={},cTend={},finPorMes={},finPorAnio={},totalFin=0,edades=[],ants=[];
 
-    // Construir snapshot de activos por mes: para cada mes ordenado,
-    // contar cuántos empleados estaban activos en ese mes.
-    // Estrategia: acumulativo → sumar altas, restar bajas mes a mes.
+    // Los KPIs de plantilla activa, género, rango de edad y departamento
+    // muestran el estado actual de la empresa/grupo SIN restricción de fecha,
+    // porque un empleado activo puede haber ingresado en cualquier año.
+    // Los contadores de tendencia y finiquitos SÍ respetan el filtro fecha.
     D.forEach(row=>{
-        const est=(row["ESTATUS"]||"").trim(),gen=(row["GÉNERO"]||"").trim(),emp=(row["EMPRESA"]||"Sin Empresa").trim();
-        const rango=(row["RANGO DE EDAD"]||"").trim(),motivo=(row["MOTIVO DE SALIDA"]||"").trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").trim();
+        const est=(row["ESTATUS"]||"").toString().trim(),gen=(row["GÉNERO"]||"").toString().trim(),emp=(row["EMPRESA"]||"Sin Empresa").toString().trim();
+        const rango=(row["RANGO DE EDAD"]||"").toString().trim(),motivo=(row["MOTIVO DE SALIDA"]||"").toString().trim(),depto=(row["DEPARTAMENTO"]||"Sin Departamento").toString().trim();
         const fIng=row["FECHA DE INGRESO"]||"",fBaja=row["FECHA DE BAJA"]||"",fNac=row["FECHA DE NACIMIENTO"]||"";
         const fin=parsearMontoSheet(row["MONTO DE FINIQUITO"]);
 
@@ -4819,36 +5285,59 @@ async function cargarDashboard(){
             const an=calcAnt(fIng);if(an!==null)ants.push(an);
             cDepto[depto]=(cDepto[depto]||0)+1;
         }
-        if(est==="Baja"){
+        // Bajas: contar solo si pasan el filtro de fecha (fecha de baja)
+        // Si no hay filtro de fecha, contar todas las bajas de empresa/grupo
+        const fBD_obj = est==="Baja" ? parseFechaFlexible(fBaja) : null;
+        const bajaEnPeriodo = est==="Baja" && (
+            !hayFiltroMes && !hayFiltroAnio
+                ? true
+                : fBD_obj && pasaFiltroFecha(fBD_obj)
+        );
+        if(bajaEnPeriodo){
             bajas++;
             if(motivo)cMotivo[motivo]=(cMotivo[motivo]||0)+1;
             if(fin>0){
                 totalFin+=fin;
-                // Finiquitos por MES (para gráfica mensual)
-                const fBD=parseFechaFlexible(fBaja);
-                if(fBD){
-                    const km=fBD.getFullYear()+'-'+String(fBD.getMonth()+1).padStart(2,'0');
+                if(fBD_obj){
+                    const km=fBD_obj.getUTCFullYear()+'-'+String(fBD_obj.getUTCMonth()+1).padStart(2,'0');
                     finPorMes[km]=(finPorMes[km]||0)+fin;
-                    // Finiquitos por AÑO (para KPI tabla resumen)
-                    const ka=fBD.getFullYear().toString();
+                    const ka=fBD_obj.getUTCFullYear().toString();
                     finPorAnio[ka]=(finPorAnio[ka]||0)+fin;
                 }
             }
         }
+
         if(!cEmp[emp])cEmp[emp]={act:0,baj:0};
         if(est==="Activo")cEmp[emp].act++;
-        if(est==="Baja")cEmp[emp].baj++;
+        if(bajaEnPeriodo)cEmp[emp].baj++;
 
-        // Tendencia mensual de altas y bajas
+        // Tendencia mensual: respetar filtro fecha para altas Y bajas
         const fIngD=parseFechaFlexible(fIng);
-        if(fIngD){const k=fIngD.getFullYear()+'-'+String(fIngD.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].altas++;}
-        const fBD2=parseFechaFlexible(fBaja);
-        if(fBD2){const k=fBD2.getFullYear()+'-'+String(fBD2.getMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].bajas++;}
+        const ingEnPeriodo=!hayFiltroMes&&!hayFiltroAnio ? !!fIngD : (fIngD && pasaFiltroFecha(fIngD));
+        if(ingEnPeriodo){const k=fIngD.getUTCFullYear()+'-'+String(fIngD.getUTCMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].altas++;}
+        if(bajaEnPeriodo&&fBD_obj){const k=fBD_obj.getUTCFullYear()+'-'+String(fBD_obj.getUTCMonth()+1).padStart(2,'0');if(!cTend[k])cTend[k]={altas:0,bajas:0,activos:0};cTend[k].bajas++;}
     });
 
     // Calcular activos acumulados por mes (snapshot mensual)
+    // El acumulado inicial = empleados activos (o que ingresaron) ANTES del primer mes visible
+    // Esto evita que la línea de activos empiece en 0 al filtrar por año
     const mesesOrdenados=Object.keys(cTend).sort();
-    let acumActivos=0;
+    let acumActivos = 0;
+    if(mesesOrdenados.length > 0){
+        const primerMes = mesesOrdenados[0]; // ej: "2026-01"
+        // Contar del conjunto D (filtrado por empresa/grupo) los que ya estaban activos antes
+        acumActivos = D.filter(r=>{
+            const fI = parseFechaFlexible(r["FECHA DE INGRESO"]);
+            const fB = parseFechaFlexible(r["FECHA DE BAJA"]);
+            if(!fI) return false;
+            const kIng = fI.getUTCFullYear()+'-'+String(fI.getUTCMonth()+1).padStart(2,'0');
+            if(kIng >= primerMes) return false; // ingresó en o después del primer mes → no contar
+            // Estaba activo antes: si no tiene baja, o la baja es en o después del primer mes
+            if(!fB) return true;
+            const kBaja = fB.getUTCFullYear()+'-'+String(fB.getUTCMonth()+1).padStart(2,'0');
+            return kBaja >= primerMes;
+        }).length;
+    }
     mesesOrdenados.forEach(k=>{
         acumActivos+=cTend[k].altas;
         acumActivos-=cTend[k].bajas;
@@ -4892,31 +5381,31 @@ async function cargarDashboard(){
     // ── Gráfica: Empresas ──────────────────────────────────────
     const empL=Object.keys(cEmp).map(e=>e.length>14?e.substring(0,14)+'…':e);
     charts.emp=dc(charts.emp);
-    charts.emp=new Chart(document.getElementById('chartEmpresas').getContext('2d'),{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
+    charts.emp=safeChart('chartEmpresas',{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
 
     // ── Gráfica: Rango de edad ─────────────────────────────────
     charts.rango=dc(charts.rango);
-    charts.rango=new Chart(document.getElementById('chartRangoEdad').getContext('2d'),{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+    charts.rango=safeChart('chartRangoEdad',{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
 
     // ── Gráfica: Motivos de baja ───────────────────────────────
     const mot=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.mot=dc(charts.mot);
     if(mot.length){
-        charts.mot=new Chart(document.getElementById('chartMotivoBaja').getContext('2d'),{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+        charts.mot=safeChart('chartMotivoBaja',{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
     } else {
-        const c=document.getElementById('chartMotivoBaja');if(c)c.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin bajas registradas aún</p>';
+        chartSinDatos('chartMotivoBaja','Sin bajas registradas aún');
     }
 
     // ── Gráfica: Top departamentos ─────────────────────────────
     const dep=Object.entries(cDepto).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.dep=dc(charts.dep);
-    charts.dep=new Chart(document.getElementById('chartDeptos').getContext('2d'),{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    charts.dep=safeChart('chartDeptos',{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
 
     // ── Gráfica: Tendencia mensual — Altas, Bajas y Activos ───
     // Muestra los últimos 24 meses con 3 líneas
     const mesesTend=mesesOrdenados.slice(-24);
     charts.tend=dc(charts.tend);
-    charts.tend=new Chart(document.getElementById('chartTendencia').getContext('2d'),{
+    charts.tend=safeChart('chartTendencia',{
         type:'line',
         data:{
             labels:mesesTend.map(fmtM),
@@ -4934,8 +5423,8 @@ async function cargarDashboard(){
     const mesesFin=Object.keys(finPorMes).sort().slice(-24);
     const finC=document.getElementById('chartFiniquitos');
     charts.fin=dc(charts.fin);
-    if(mesesFin.length){
-        charts.fin=new Chart(finC.getContext('2d'),{
+    if(mesesFin.length && finC){
+        charts.fin=safeChart('chartFiniquitos',{
             type:'bar',
             data:{
                 labels:mesesFin.map(fmtM),
@@ -4958,8 +5447,8 @@ async function cargarDashboard(){
                 }
             }
         });
-    } else if(finC){
-        finC.parentElement.innerHTML='<p class="text-xs text-slate-400 text-center pt-12">Sin finiquitos registrados aún</p>';
+    } else {
+        chartSinDatos('chartFiniquitos','Sin finiquitos registrados aún');
     }
 
     // ── Tabla causas de baja con % ─────────────────────────────
@@ -5007,6 +5496,7 @@ async function initApp(){
     pasoActual=0;altaData={};
     actualizarBadgeNotifs();
     renderizarStepper();
+    await cargarCatalogoEmpresas();
     const datos=await cargarDashboard();
     actualizarListaEmpresas();
     poblarCatalogos();
@@ -5075,127 +5565,244 @@ async function arrancarApp(){
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', arrancarApp);
 else arrancarApp();
-// ── Calcular fechas de contratos automáticamente ─────────────
-function calcularFechasContrato() {
-    // Obtener fecha de ingreso del paso laboral
-    const fechaIngreso = document.getElementById('fechaIngreso')?.value
-                      || document.getElementById('altaFechaIngreso')?.value;
 
-    // O desde el primer contrato si ya está capturado
-    let ini1 = document.getElementById('fechaInicioContrato')?.value;
+// ════════════════════════════════════════════════════════════
+// HISTORIAL DE CARRERA
+// ════════════════════════════════════════════════════════════
 
-    if (!ini1 && !fechaIngreso) {
-        mostrarToast('warning', 'Fecha requerida', 'Captura primero la Fecha de Ingreso o el Inicio del 1er Contrato.');
-        return;
-    }
+async function cargarHistorialPersona(idPersona) {
+    if (!idPersona) return;
+    const secHist = document.getElementById('sec-historial');
+    if (!secHist) return;
+    secHist.innerHTML = '<div class="text-xs text-slate-400 text-center py-4"><i class="fas fa-spinner fa-spin mr-1"></i>Cargando historial...</div>';
+    try {
+        const r = await enviarPeticion('obtener_historial_persona', { idPersona });
+        if (r.status !== 'success') { secHist.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">Sin historial disponible.</p>'; return; }
 
-    // Usar fecha de ingreso como base si no hay inicio de contrato
-    if (!ini1) ini1 = fechaIngreso;
+        const hist = r.historial || [];
+        const movs = r.movimientos || [];
 
-    const d1 = new Date(ini1 + 'T00:00:00');
-    if (isNaN(d1.getTime())) {
-        mostrarToast('error', 'Fecha inválida', 'La fecha de inicio no es válida.');
-        return;
-    }
+        if (!hist.length && !movs.length) {
+            secHist.innerHTML = '<p class="text-xs text-slate-400 text-center py-3">Sin historial de carrera registrado.</p>';
+            return;
+        }
 
-    // Helper: sumar días y formatear como YYYY-MM-DD
-    function addDays(date, days) {
-        const d = new Date(date);
-        d.setDate(d.getDate() + days);
-        return d.toISOString().slice(0, 10);
-    }
+        let html = '';
 
-    // Calcular todas las fechas
-    const ven1  = addDays(d1, 29);         // 1er: 30 días (inicio + 29 = 30 días naturales)
-    const ini2  = addDays(d1, 30);         // 2do inicia al día siguiente del 1er
-    const ven2  = addDays(ini2, 29);       // 2do: 30 días
-    const ini3  = addDays(ini2, 30);       // 3er inicia al día siguiente del 2do
-    const ven3  = addDays(ini3, 29);       // 3er: 30 días
+        // Períodos anteriores
+        if (hist.length) {
+            html += '<div class="mb-4">';
+            html += '<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">'
+                  + '<i class="fas fa-clock-rotate-left text-violet-400"></i>Períodos anteriores</p>';
+            html += '<div class="space-y-2">';
+            hist.forEach(function(h) {
+                html += '<div class="bg-slate-50 rounded-xl p-3 border border-slate-100">'
+                    + '<div class="flex items-center justify-between mb-1.5">'
+                    + '<span class="text-xs font-bold text-slate-700">' + (h.empresa||'—') + '</span>'
+                    + '<span class="text-xs text-slate-400">#' + (h.noEmpleado||'—') + '</span>'
+                    + '</div>'
+                    + '<p class="text-xs text-slate-500 mb-1">' + (h.puesto||'—') + ' · ' + (h.departamento||'—') + '</p>'
+                    + '<div class="flex flex-wrap gap-2 text-xs text-slate-400">'
+                    + '<span><i class="fas fa-calendar-plus text-emerald-400 mr-1"></i>' + (h.fechaIngreso||'—') + '</span>'
+                    + '<span><i class="fas fa-calendar-minus text-red-400 mr-1"></i>' + (h.fechaBaja||'—') + '</span>'
+                    + (h.montoFiniquito ? '<span><i class="fas fa-money-bill text-amber-400 mr-1"></i>$' + Number(h.montoFiniquito).toLocaleString('es-MX') + '</span>' : '')
+                    + '</div>'
+                    + (h.motivoSalida ? '<p class="text-xs text-slate-400 mt-1"><i class="fas fa-tag mr-1"></i>' + h.motivoSalida + '</p>' : '')
+                    + '</div>';
+            });
+            html += '</div></div>';
+        }
 
-    // Llenar los campos
-    const campos = {
-        'fechaInicioContrato':       ini1,
-        'vencimientoPrimerContrato': ven1,
-        'iniciSegundoContrato':      ini2,
-        'vencSegundoContrato':       ven2,
-        'iniciTercerContrato':       ini3,
-        'vencTercerContrato':        ven3
-    };
+        // Movimientos internos (aumentos, cambios de puesto)
+        if (movs.length) {
+            html += '<div class="mb-2">';
+            html += '<p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">'
+                  + '<i class="fas fa-arrow-trend-up text-emerald-400"></i>Movimientos de carrera</p>';
+            html += '<div class="space-y-2">';
+            movs.forEach(function(m) {
+                const iconoTipo = {
+                    'Aumento': 'fa-dollar-sign text-emerald-500',
+                    'Cambio de Puesto': 'fa-user-tie text-blue-500',
+                    'Promoción': 'fa-star text-amber-500',
+                    'Cambio de Empresa': 'fa-building text-violet-500'
+                }[m.tipo] || 'fa-circle-dot text-slate-400';
+                html += '<div class="flex gap-2.5 items-start">'
+                    + '<div class="mt-0.5 w-5 h-5 rounded-full bg-white border border-slate-200 flex items-center justify-center flex-shrink-0">'
+                    + '<i class="fas ' + iconoTipo + ' text-xs"></i></div>'
+                    + '<div>'
+                    + '<p class="text-xs font-semibold text-slate-700">' + m.tipo + ' <span class="text-slate-400 font-normal">· ' + m.fecha + '</span></p>'
+                    + (m.descripcion ? '<p class="text-xs text-slate-500">' + m.descripcion + '</p>' : '')
+                    + (m.valorAntes && m.valorDespues ? '<p class="text-xs text-slate-400">' + m.valorAntes + ' → <span class="text-emerald-600 font-semibold">' + m.valorDespues + '</span></p>' : '')
+                    + '</div></div>';
+            });
+            html += '</div></div>';
+        }
 
-    let llenados = 0;
-    Object.entries(campos).forEach(function([id, val]) {
-        const el = document.getElementById(id);
-        if (el) { el.value = val; llenados++; }
-    });
-
-    if (llenados > 0) {
-        mostrarToast('success', 'Fechas calculadas',
-            '1er: ' + ini1 + ' → ' + ven1 + ' | '
-            + '2do: ' + ini2 + ' → ' + ven2 + ' | '
-            + '3er: ' + ini3 + ' → ' + ven3, 6000);
-    } else {
-        mostrarToast('warning', 'Sin campos', 'No se encontraron los campos de contrato en el formulario.');
+        secHist.innerHTML = html;
+    } catch(e) {
+        secHist.innerHTML = '<p class="text-xs text-red-400 text-center py-3">Error cargando historial.</p>';
+        console.error('[historial]', e);
     }
 }
 
-// También disponible para el drawer de expedientes
-function calcularFechasContratoExpediente() {
-    const E = empleadoEdicion;
-    if (!E) return;
-
-    // Obtener fecha de ingreso del empleado
-    const fiRaw = parseFloat(E['FECHA DE INGRESO']||'0');
-    let fechaBase = '';
-
-    if (fiRaw > 10000) {
-        const d = new Date((fiRaw - 25569) * 86400 * 1000);
-        fechaBase = d.toISOString().slice(0, 10);
+async function registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues) {
+    const usuario = document.getElementById('header-user')?.innerText || '';
+    const r = await enviarPeticion('registrar_movimiento', {
+        idPersona, tipo, descripcion: desc,
+        valorAntes: valAntes, valorDespues: valDespues,
+        registradoPor: usuario
+    });
+    if (r.status === 'success') {
+        mostrarToast('success', 'Movimiento registrado', tipo + ' guardado en el historial.');
+        // Recargar historial
+        await cargarHistorialPersona(idPersona);
+    } else {
+        mostrarToast('error', 'Error', r.message);
     }
+}
 
-    // O el inicio del primer contrato si ya existe
-    const ini1Raw = parseFloat(E['INICIO DEL PRIMER CONTRATO']||E['FECHA DE INICIO DEL PRIMER CONTRATO']||'0');
-    if (ini1Raw > 10000) {
-        const d2 = new Date((ini1Raw - 25569) * 86400 * 1000);
-        fechaBase = d2.toISOString().slice(0, 10);
-    }
-
-    // Usar campo de inicio 1er contrato del drawer si está editado
-    const elIni1 = document.getElementById('ed_ini1contrato');
-    if (elIni1 && elIni1.value) fechaBase = elIni1.value;
-
-    if (!fechaBase) {
-        mostrarToast('warning', 'Sin fecha base', 'Captura la Fecha de Ingreso o el Inicio del 1er Contrato primero.');
+function abrirModalMovimiento(idPersona, nombreEmpleado) {
+    Swal.fire({
+        title: 'Registrar movimiento de carrera',
+        html: `
+            <div style="text-align:left;display:flex;flex-direction:column;gap:10px;margin-top:8px">
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Tipo de movimiento</label>
+                    <select id="mov-tipo" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px">
+                        <option value="">Seleccione...</option>
+                        <option value="Aumento">Aumento de sueldo</option>
+                        <option value="Cambio de Puesto">Cambio de puesto</option>
+                        <option value="Promoción">Promoción</option>
+                        <option value="Cambio de Empresa">Cambio de empresa (intragrupo)</option>
+                        <option value="Cambio de Departamento">Cambio de departamento</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Valor anterior</label>
+                    <input id="mov-antes" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Ej: $9,000 / Auxiliar General">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Valor nuevo</label>
+                    <input id="mov-despues" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Ej: $11,000 / Ejecutivo">
+                </div>
+                <div>
+                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Descripción (opcional)</label>
+                    <input id="mov-desc" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Motivo o comentario">
+                </div>
+            </div>`,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar movimiento',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#7c3aed',
+        preConfirm: () => {
+            const tipo = document.getElementById('mov-tipo').value;
+            if (!tipo) { Swal.showValidationMessage('Selecciona el tipo de movimiento'); return false; }
+            return {
+                tipo,
+                desc:       document.getElementById('mov-desc').value,
+                valAntes:   document.getElementById('mov-antes').value,
+                valDespues: document.getElementById('mov-despues').value
+            };
+        }
+    }).then(res => {
+        if (res.isConfirmed && res.value) {
+            const { tipo, desc, valAntes, valDespues } = res.value;
+            registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues);
+        }
+    });
+}
+// ── Calcular fechas de contratos automáticamente ─────────────
+// Detecta tipo de ingreso: Administrativo = 6 contratos, Operativo = 3
+function calcularFechasContrato() {
+    const fechaIngreso = document.getElementById('alta_fechaIngreso')?.value
+                      || document.getElementById('fechaIngreso')?.value;
+    let ini1 = document.getElementById('alta_fechaInicioContrato')?.value
+             || document.getElementById('fechaInicioContrato')?.value;
+    if (!ini1 && fechaIngreso) ini1 = fechaIngreso;
+    if (!ini1) {
+        mostrarToast('warning','Fecha requerida','Captura la Fecha de Ingreso o el Inicio del 1er Contrato.');
         return;
     }
 
     function addDays(dateStr, days) {
         const d = new Date(dateStr + 'T00:00:00');
         d.setDate(d.getDate() + days);
-        return d.toISOString().slice(0, 10);
+        return d.toISOString().slice(0,10);
     }
 
-    const ven1 = addDays(fechaBase, 29);
-    const ini2 = addDays(fechaBase, 30);
-    const ven2 = addDays(ini2, 29);
-    const ini3 = addDays(ini2, 30);
-    const ven3 = addDays(ini3, 29);
+    const tipoIng = (document.getElementById('alta_tipoIngreso')?.value||'').toLowerCase();
+    const numC    = tipoIng.includes('admin') ? 6 : 3;
 
-    const map = {
-        'ed_ini1contrato': fechaBase,
-        'ed_ven1contrato': ven1,
-        'ed_ini2contrato': ini2,
-        'ed_ven2contrato': ven2,
-        'ed_ini3contrato': ini3,
-        'ed_ven3contrato': ven3,
-    };
+    const IDS = [
+        ['alta_fechaInicioContrato',  'fechaInicioContrato',  'alta_vencimientoPrimerContrato', 'vencimientoPrimerContrato'],
+        ['alta_iniciSegundoContrato', 'iniciSegundoContrato', 'alta_vencSegundoContrato',       'vencSegundoContrato'],
+        ['alta_iniciTercerContrato',  'iniciTercerContrato',  'alta_vencTercerContrato',        'vencTercerContrato'],
+        ['alta_fechaInicioContrato4', 'fechaInicioContrato4', 'alta_vencimientoContrato4',      'vencimientoContrato4'],
+        ['alta_fechaInicioContrato5', 'fechaInicioContrato5', 'alta_vencimientoContrato5',      'vencimientoContrato5'],
+        ['alta_fechaInicioContrato6', 'fechaInicioContrato6', 'alta_vencimientoContrato6',      'vencimientoContrato6'],
+    ];
 
-    Object.entries(map).forEach(function([id, val]) {
-        const el = document.getElementById(id);
-        if (el) el.value = val;
-    });
-
-    mostrarToast('success', 'Fechas calculadas',
-        '1er: '+fechaBase+' → '+ven1+' | 2do: '+ini2+' → '+ven2+' | 3er: '+ini3+' → '+ven3, 6000);
+    let base = ini1;
+    let msgs = [];
+    for (let i = 0; i < numC; i++) {
+        const ven = addDays(base, 29); // 30 días: día 1 al día 30
+        IDS[i].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = (id.includes('ven')||id.includes('Ven')) ? ven : base;
+        });
+        msgs.push((i+1)+'°: '+base+' → '+ven);
+        base = addDays(base, 30); // siguiente empieza el día 31
+    }
+    mostrarToast('success', numC+' contratos calculados ('+(tipoIng.includes('admin')?'Administrativo':'Operativo')+')',
+        msgs.join(' | '), 8000);
 }
 
+// ── Calcular fechas desde el drawer del expediente ────────────
+function calcularFechasContratoExpediente() {
+    const E = empleadoEdicion || {};
+    const fiRaw = parseFloat(E['FECHA DE INGRESO']||'0');
+    let fechaBase = '';
+    if (fiRaw > 10000) {
+        const d = new Date((fiRaw - 25569) * 86400 * 1000);
+        fechaBase = d.toISOString().slice(0,10);
+    }
+    // Priorizar lo que esté en el campo editable
+    const elIni1 = document.getElementById('ed_ini1contrato');
+    if (elIni1?.value) fechaBase = elIni1.value;
+    if (!fechaBase) {
+        mostrarToast('warning','Sin fecha base','Captura la Fecha de Ingreso o el Inicio del 1er Contrato.');
+        return;
+    }
 
+    function addDays(s, d) {
+        const dt = new Date(s+'T00:00:00');
+        dt.setDate(dt.getDate()+d);
+        return dt.toISOString().slice(0,10);
+    }
+
+    const tipoIng = (E['TIPO DE INGRESO']||'').toLowerCase();
+    const numC    = tipoIng.includes('admin') ? 6 : 3;
+
+    const IDS_EXP = [
+        ['ed_ini1contrato','ed_ven1contrato'],
+        ['ed_ini2contrato','ed_ven2contrato'],
+        ['ed_ini3contrato','ed_ven3contrato'],
+        ['ed_ini4contrato','ed_ven4contrato'],
+        ['ed_ini5contrato','ed_ven5contrato'],
+        ['ed_ini6contrato','ed_ven6contrato'],
+    ];
+
+    let base = fechaBase, msgs = [];
+    for (let i = 0; i < numC; i++) {
+        const ven = addDays(base, 29);
+        const elI = document.getElementById(IDS_EXP[i][0]);
+        const elV = document.getElementById(IDS_EXP[i][1]);
+        if (elI) elI.value = base;
+        if (elV) elV.value = ven;
+        msgs.push((i+1)+'°: '+base+' → '+ven);
+        base = addDays(base, 30);
+    }
+    mostrarToast('success', numC+' contratos calculados ('+(tipoIng.includes('admin')?'Administrativo':'Operativo')+')',
+        msgs.join(' | '), 8000);
+}
