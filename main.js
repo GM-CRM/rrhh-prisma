@@ -4486,7 +4486,7 @@ async function subirFotoPerfil(){
 function renderizarDrawer(emp){
     const id  = (emp["NO. EMPLEADO"]||"").toString();
     const nom = emp["NOMBRE DEL TRABAJADOR"]||"—";
-    const est = (emp["ESTATUS"]||"").trim();
+    const est = (emp["ESTATUS"]||"").toString().replace(/\s/g,"");
     const url = (emp["URL EXPEDIENTE"]||"").toString().trim();
     const estColor = est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600";
 
@@ -4663,7 +4663,7 @@ function renderizarDrawer(emp){
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     )+
     // ── Fila completa: Baja / Finiquito ─────────────────────────
-    +(E["ESTATUS"]==="Baja"
+    +(est==="Baja"
     ? rawFull('<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
       +'<p class="text-xs font-bold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">'
       +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
