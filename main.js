@@ -4669,15 +4669,37 @@ function renderizarDrawer(emp){
       +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
       +' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
       +'</p>'
-      +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
+      // Fila 1: Fecha baja | Tipo salida | Finiquito
+      +'<div class="grid grid-cols-1 md:grid-cols-3 gap-3">'
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
       +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +selBaja("ed_tipoSalida","ed_motivoBaja",E["TIPO DE SALIDA"],E["MOTIVO DE SALIDA"])
+      +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Tipo de Salida</label>'
+      +'<select id="ed_tipoSalida" onchange="actualizarMotivosBaja(this.value,\'ed_motivoBaja\',\'ed_motivoBajaOtro\')" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
+      +'<option value="">Selecciona...</option>'
+      +'<option '+(E["TIPO DE SALIDA"]==="Voluntaria"?"selected":"")+'>Voluntaria</option>'
+      +'<option '+(E["TIPO DE SALIDA"]==="Involuntaria"?"selected":"")+'>Involuntaria</option>'
+      +'</select></div>'
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
       +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +'</div></div>')
+      +'</div>'
+      // Fila 2: Motivo (ancho completo) + campo Otro si aplica
+      +'<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">'
+      +'<div class="md:col-span-'+(E["MOTIVO DE SALIDA"]&&E["MOTIVO DE SALIDA"].toLowerCase().startsWith("otro")?"1":"2")+'">'
+      +'<label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Motivo de Salida</label>'
+      +'<select id="ed_motivoBaja" onchange="toggleOtroBaja(this.value,\'ed_motivoBajaOtro\')" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
+      + buildMotivosOpts(E["TIPO DE SALIDA"], E["MOTIVO DE SALIDA"])
+      +'</select></div>'
+      +'<div id="ed_motivoBajaOtro" class="'+(E["MOTIVO DE SALIDA"]&&E["MOTIVO DE SALIDA"].toLowerCase().startsWith("otro")?"":"hidden")+'">'
+      +'<label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Especifica el motivo</label>'
+      +'<input type="text" id="ed_motivoBajaOtroTexto" placeholder="Describe el motivo..." '
+      +'value="'+(E["MOTIVO DE SALIDA"]&&E["MOTIVO DE SALIDA"].startsWith("Otro: ")?E["MOTIVO DE SALIDA"].replace("Otro: ",""):"")+'" '
+      +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+      +'</div>'
+      +'</div>')
     : '')+
     rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
     +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
