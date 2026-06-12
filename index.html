@@ -722,30 +722,23 @@ if ('serviceWorker' in navigator) {
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Tipo de Salida <span class="text-red-500">*</span></label>
-              <select id="baja_tipoSalida" required
+              <select id="baja_tipoSalida" required onchange="actualizarMotivosBaja(this.value,'baja_motivoSalida','baja_motivoOtro')"
                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-red-400 transition">
                 <option value="">Selecciona...</option>
-                <option>Voluntaria</option><option>Involuntaria</option><option>Rescisión</option>
+                <option>Voluntaria</option><option>Involuntaria</option>
               </select>
             </div>
             <div>
               <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Motivo de Salida <span class="text-red-500">*</span></label>
-              <select id="baja_motivoSalida" required
+              <select id="baja_motivoSalida" required onchange="toggleOtroBaja(this.value,'baja_motivoOtro')"
                 class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-red-400 transition">
-                <option value="">Selecciona...</option>
-                <option>4 faltas en el mes</option><option>Abandono de empleo</option>
-                <option>Bajo rendimiento</option><option>Cambio de residencia</option>
-                <option>Carga de trabajo</option><option>Contrario a Cultura Corporativa</option>
-                <option>Despido</option><option>Distancia entre trabajo y domicilio</option>
-                <option>Enfermedad</option><option>Estudios</option><option>Faltas</option>
-                <option>Horario de Trabajo</option><option>Mala relación con compañeros</option>
-                <option>Mala relación con el jefe directo</option>
-                <option>Necesidad de atender a los hijos</option>
-                <option>Oportunidad de desarrollo</option><option>Personales</option>
-                <option>Rescisión de contrato</option><option>Robo</option>
-                <option>Salario y prestaciones</option><option>Término de Contrato</option>
-                <option>Fallecimiento</option><option>Otro</option>
+                <option value="">Selecciona tipo de salida primero...</option>
               </select>
+            </div>
+            <div id="baja_motivoOtro" class="hidden md:col-span-2">
+              <label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">Especifica el motivo <span class="text-red-500">*</span></label>
+              <input type="text" id="baja_motivoOtroTexto" placeholder="Describe el motivo..."
+                class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 focus:ring-2 focus:ring-red-400 transition">
             </div>
           </div>
           <button type="submit"
@@ -1104,6 +1097,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=67.4"></script>
+<script src="main.js?v=67.5"></script>
 </body>
 </html>

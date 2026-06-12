@@ -483,7 +483,7 @@ function parseFechaFlexible(val){
 function parsearMontoSheet(val){
     if(!val&&val!==0)return 0;var s=val.toString().replace(/[$\s,]/g,"");var n=parseFloat(s);return isNaN(n)?0:n;
 }
-const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA EVALUACIÓN 360"];
+const CAMPOS_FECHA=["FECHA DE INGRESO","FECHA DE BAJA","FECHA DE NACIMIENTO","INICIO DEL PRIMER CONTRATO","FECHA DE VENCIMIENTO DEL PRIMER CONTRATO","FECHA DE INICIO DEL SEGUNDO CONTRATO","FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO","FECHA DE INICIO DEL TERCER CONTRATO","FECHA DE VENCIMIENTO DEL TERCER CONTRATO","FECHA DE INICIO DEL CUARTO CONTRATO","FECHA DE VENCIMIENTO DEL CUARTO CONTRATO","FECHA DE INICIO DEL QUINTO CONTRATO","FECHA DE VENCIMIENTO DEL QUINTO CONTRATO","FECHA DE INICIO DEL SEXTO CONTRATO","FECHA DE VENCIMIENTO DEL SEXTO CONTRATO","FECHA EVALUACIÓN 360"];
 const CAMPOS_MONTO=["SUELDO MENSUAL","MONTO DE FINIQUITO"];
 function normalizarRegistro(emp){
     var o=Object.assign({},emp);
@@ -4579,6 +4579,33 @@ function renderizarDrawer(emp){
         if(d && !isNaN(d)) return fmtUTC(d,{day:"2-digit",month:"2-digit",year:"numeric"});
         return v.toString();
     };
+    // edf: input date editable (para contratos)
+    const edf = function(id2,label,val){
+        return '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</label>'
+              +'<input type="date" id="'+id2+'" value="'+(val||"")+'" '
+              +'class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-400 transition"></div>';
+    };
+    // selBaja: select de tipo salida con motivos dinámicos
+    const selBaja = function(idTipo,idMotivo,valTipo,valMotivo){
+        return '<div>'
+            +'<label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Tipo de Salida</label>'
+            +'<select id="'+idTipo+'" onchange="actualizarMotivosBaja(this.value,\''+idMotivo+'\',\'ed_motivoBajaOtro\')" '
+            +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
+            +'<option value="">Selecciona...</option>'
+            +'<option '+(valTipo==="Voluntaria"?"selected":"")+'>Voluntaria</option>'
+            +'<option '+(valTipo==="Involuntaria"?"selected":"")+'>Involuntaria</option>'
+            +'</select></div>'
+            +'<div id="ed_motivoBajaWrap" class="md:col-span-2">'
+            +'<label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Motivo de Salida</label>'
+            +'<select id="'+idMotivo+'" onchange="toggleOtroBaja(this.value,\'ed_motivoBajaOtro\')" '
+            +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
+            + buildMotivosOpts(valTipo, valMotivo)
+            +'</select></div>'
+            +'<div id="ed_motivoBajaOtro" class="'+(valMotivo&&valMotivo.toLowerCase().startsWith("otro")?"md:col-span-2":"md:col-span-2 hidden")+'">'
+            +'<label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Especifica el motivo</label>'
+            +'<input type="text" id="ed_motivoBajaOtroTexto" value="'+(valMotivo&&!MOTIVOS_VOLUNTARIA.concat(MOTIVOS_INVOLUNTARIA).includes(valMotivo)?valMotivo:"")+'" placeholder="Describe el motivo..." '
+            +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>';
+    };
     const E = emp;
 
     const idPersonaEd = (E["ID_PERSONA"] || "").toString().trim();
@@ -4646,31 +4673,39 @@ function renderizarDrawer(emp){
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
       +'<input type="date" id="ed_fechaBaja" value="'+parsearFecha(E["FECHA DE BAJA"])+'" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +sel("ed_tipoSalida","Tipo de Salida",E["TIPO DE SALIDA"],["","Voluntaria","Involuntaria"])
+      +selBaja("ed_tipoSalida","ed_motivoBaja",E["TIPO DE SALIDA"],E["MOTIVO DE SALIDA"])
       +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
       +'<input type="number" id="ed_finiquito" value="'+(parsearMontoSheet(E["MONTO DE FINIQUITO"])||"")+'" placeholder="0.00" step="0.01" '
       +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-      +'<div class="md:col-span-4">'+sel("ed_motivoBaja","Motivo de Salida",E["MOTIVO DE SALIDA"],["","Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo","Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio","Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso","Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo","Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones","Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales","Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"])+'</div>'
       +'</div></div>')
     : '')+
     rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
     +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
     +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
-    +ro("Inicio 1er Contrato",ff(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
-    +ro("Vence 1er Contrato",ff(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
-    +ro("Inicio 2do Contrato",ff(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]))
-    +ro("Vence 2do Contrato",ff(E["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]))
-    +ro("Inicio 3er Contrato",ff(E["FECHA DE INICIO DEL TERCER CONTRATO"]))
-    +ro("Vence 3er Contrato",ff(E["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]))
+    +edf("ed_ini1contrato","Inicio 1er Contrato",parsearFecha(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
+    +edf("ed_ven1contrato","Vence 1er Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
+    +edf("ed_ini2contrato","Inicio 2do Contrato",parsearFecha(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]))
+    +edf("ed_ven2contrato","Vence 2do Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO"]))
+    +edf("ed_ini3contrato","Inicio 3er Contrato",parsearFecha(E["FECHA DE INICIO DEL TERCER CONTRATO"]))
+    +edf("ed_ven3contrato","Vence 3er Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL TERCER CONTRATO"]))
+    +edf("ed_ini4contrato","Inicio 4to Contrato",parsearFecha(E["FECHA DE INICIO DEL CUARTO CONTRATO"]))
+    +edf("ed_ven4contrato","Vence 4to Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL CUARTO CONTRATO"]))
+    +edf("ed_ini5contrato","Inicio 5to Contrato",parsearFecha(E["FECHA DE INICIO DEL QUINTO CONTRATO"]))
+    +edf("ed_ven5contrato","Vence 5to Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL QUINTO CONTRATO"]))
+    +edf("ed_ini6contrato","Inicio 6to Contrato",parsearFecha(E["FECHA DE INICIO DEL SEXTO CONTRATO"]))
+    +edf("ed_ven6contrato","Vence 6to Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL SEXTO CONTRATO"]))
     +'</div>'
-    +'<div class="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3">'
-    +'<p class="text-xs font-bold text-blue-800 mb-2"><i class="fas fa-plus-circle mr-1 text-blue-500"></i>Nuevo contrato</p>'
-    +'<div class="grid grid-cols-2 md:grid-cols-4 gap-2">'
-    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Inicio</label>'
-    +'<input type="date" id="ed_iniContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
-    +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Vencimiento</label>'
-    +'<input type="date" id="ed_venContrato" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
-    +'</div></div></div>')+
+    +'<div class="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3">'
+    +'<p class="text-xs font-bold text-amber-800 mb-2"><i class="fas fa-signature mr-1 text-amber-500"></i>Firma de contrato</p>'
+    +'<div class="flex items-center gap-3 flex-wrap">'
+    +(E["CONTRATO FIRMADO"]==="Sí"
+      ?'<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-100 px-3 py-1.5 rounded-full"><i class="fas fa-check-circle"></i>Contrato firmado</span>'
+       +'<button type="button" onclick="subirContratoFirmado(\''+E["ID INTERNO"]+'\')" class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2"><i class="fas fa-upload mr-1"></i>Actualizar PDF</button>'
+      :'<button type="button" onclick="subirContratoFirmado(\''+E["ID INTERNO"]+'\')" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-upload"></i>Subir contrato firmado</button>'
+       +'<span class="text-xs text-amber-700"><i class="fas fa-exclamation-triangle mr-1"></i>Sin contrato firmado registrado</span>')
+    +'</div>'
+    +(E["URL CONTRATO FIRMADO"]?'<p class="mt-1.5 text-xs text-slate-500"><i class="fas fa-link mr-1"></i><a href="'+E["URL CONTRATO FIRMADO"]+'" target="_blank" class="underline text-blue-600">Ver documento actual</a></p>':'')
+    +'</div></div>')+
     sec("Seguimiento","fa-clipboard-list","text-amber-500",
         sel("ed_ent15","Entrevista 15 Días",E["ENTREVISTA DE AJUSTE 15 DÍAS"],["","Pendiente","Sí","No"])+
         sel("ed_ent45","Entrevista 45 Días",E["ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS"],["","Pendiente","Sí","No"])+
@@ -4796,18 +4831,36 @@ async function guardarCambiosEditor(){
             "PARENTESCO DEL BENEFICIARIO": document.getElementById('ed_parBenef')?.value||undefined,
             "PORCENTAJE DE ASIGNACIÓN":document.getElementById('ed_pctBenef')?.value||undefined,
             "TIPO DE CONTRATO":        document.getElementById('ed_tipoContrato')?.value||undefined,
+            // Fechas de contratos 1-6 (editables directamente)
+            "FECHA DE INICIO DEL PRIMER CONTRATO":    document.getElementById('ed_ini1contrato')?.value||undefined,
+            "FECHA DE VENCIMIENTO DEL PRIMER CONTRATO":document.getElementById('ed_ven1contrato')?.value||undefined,
+            "FECHA DE INICIO DEL SEGUNDO CONTRATO":   document.getElementById('ed_ini2contrato')?.value||undefined,
+            "FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO":document.getElementById('ed_ven2contrato')?.value||undefined,
+            "FECHA DE INICIO DEL TERCER CONTRATO":    document.getElementById('ed_ini3contrato')?.value||undefined,
+            "FECHA DE VENCIMIENTO DEL TERCER CONTRATO":document.getElementById('ed_ven3contrato')?.value||undefined,
+            "FECHA DE INICIO DEL CUARTO CONTRATO":    document.getElementById('ed_ini4contrato')?.value||undefined,
+            "FECHA DE VENCIMIENTO DEL CUARTO CONTRATO":document.getElementById('ed_ven4contrato')?.value||undefined,
+            "FECHA DE INICIO DEL QUINTO CONTRATO":    document.getElementById('ed_ini5contrato')?.value||undefined,
+            "FECHA DE VENCIMIENTO DEL QUINTO CONTRATO":document.getElementById('ed_ven5contrato')?.value||undefined,
+            "FECHA DE INICIO DEL SEXTO CONTRATO":     document.getElementById('ed_ini6contrato')?.value||undefined,
+            "FECHA DE VENCIMIENTO DEL SEXTO CONTRATO":document.getElementById('ed_ven6contrato')?.value||undefined,
             "ENTREVISTA DE AJUSTE 15 DÍAS": document.getElementById('ed_ent15')?.value||undefined,
             "ENTREVISTA DE AJUSTE Y EVAL. DESEMPEÑO 45 DÍAS": document.getElementById('ed_ent45')?.value||undefined,
             "FECHA EVALUACIÓN 360":    document.getElementById('ed_eval360')?.value||undefined,
             "JEFE DIRECTO":            document.getElementById('ed_jefeDirecto')?.value||undefined,
             "CORREO ACCESO":           document.getElementById('ed_correoAcceso')?.value||undefined,
-            // Campos de baja — se envían si tienen valor (finiquito permite 0)
+            // Campos de baja — motivo: si es "Otro*" usar el texto del campo especificado
             "FECHA DE BAJA":           document.getElementById('ed_fechaBaja')?.value    || undefined,
             "TIPO DE SALIDA":          document.getElementById('ed_tipoSalida')?.value   || undefined,
-            "MOTIVO DE SALIDA":        document.getElementById('ed_motivoBaja')?.value   || undefined,
+            "MOTIVO DE SALIDA":        (()=>{
+                var m = document.getElementById('ed_motivoBaja')?.value || "";
+                if (m && m.toLowerCase().startsWith("otro")) {
+                    var esp = (document.getElementById('ed_motivoBajaOtroTexto')?.value||"").trim();
+                    return esp ? ("Otro: "+esp) : m;
+                }
+                return m || undefined;
+            })(),
             "MONTO DE FINIQUITO":      (()=>{ const v=document.getElementById('ed_finiquito')?.value; return (v!==undefined&&v!=='')?v:undefined; })(),
-            ...(campoIni&&iniNuevo?{[campoIni]:iniNuevo}:{}),
-            ...(campoVen&&venNuevo?{[campoVen]:venNuevo}:{}),
         }
     };
     // Limpiar undefined
@@ -4822,6 +4875,121 @@ async function guardarCambiosEditor(){
             cerrarEditor();forzarActualizacion();
         }else mostrarToast('error','Error al guardar',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
+}
+
+// ─── MOTIVOS DE SALIDA POR TIPO ───────────────────────────────
+const MOTIVOS_VOLUNTARIA = [
+    "Mejor oferta económica en otra empresa",
+    "Oportunidad de crecimiento o desarrollo profesional",
+    "Inconformidad con el salario o prestaciones",
+    "Problemas con el jefe directo o liderazgo",
+    "Mal ambiente laboral o conflictos con compañeros",
+    "Carga de trabajo excesiva o estrés",
+    "Falta de oportunidades de promoción",
+    "Horario laboral / falta de equilibrio vida-trabajo",
+    "Distancia o problemas de traslado",
+    "Motivos personales o familiares",
+    "Cambio de residencia o ciudad",
+    "Regreso a estudios",
+    "Problemas de salud",
+    "Jubilación",
+    "Inicio de negocio propio",
+    "Inconformidad con funciones del puesto",
+    "Discriminación / acoso / hostigamiento",
+    "Falta de herramientas para desempeñar el trabajo",
+    "Trabajo que representa riesgo para su salud",
+    "Falta de capacitación",
+    "Necesidad de cuidar a familiares enfermos",
+    "Problemas legales",
+    "Matrimonio",
+    "Necesidad de atender a los hijos",
+    "Otro"
+];
+const MOTIVOS_INVOLUNTARIA = [
+    "Terminación de contrato temporal",
+    "Rescisión por bajo desempeño",
+    "Ausentismo o faltas injustificadas",
+    "Indisciplina o incumplimiento de políticas",
+    "Recorte de personal o reestructura",
+    "Cierre de área o departamento",
+    "Fin de proyecto",
+    "Abandono de empleo",
+    "Rescisión justificada (LFT Art. 47)",
+    "Incapacidad permanente",
+    "Fallecimiento",
+    "Otro (especifique)"
+];
+
+function buildMotivosOpts(tipo, valActual) {
+    var lista = tipo === "Voluntaria" ? MOTIVOS_VOLUNTARIA
+              : tipo === "Involuntaria" ? MOTIVOS_INVOLUNTARIA
+              : [];
+    if (!lista.length) return '<option value="">Selecciona tipo de salida primero...</option>';
+    return '<option value="">Selecciona...</option>'
+         + lista.map(function(m){
+               var sel = (m === valActual) ? ' selected' : '';
+               return '<option value="'+m+'"'+sel+'>'+m+'</option>';
+           }).join('');
+}
+
+function actualizarMotivosBaja(tipo, idSelect, idOtro) {
+    var sel = document.getElementById(idSelect);
+    var valActual = sel ? sel.value : "";
+    if (sel) sel.innerHTML = buildMotivosOpts(tipo, valActual);
+    // Ocultar campo "otro" al cambiar tipo
+    var divOtro = document.getElementById(idOtro);
+    if (divOtro) divOtro.classList.add('hidden');
+}
+
+function toggleOtroBaja(val, idOtro) {
+    var divOtro = document.getElementById(idOtro);
+    if (!divOtro) return;
+    var esOtro = val && val.toLowerCase().startsWith("otro");
+    if (esOtro) divOtro.classList.remove('hidden');
+    else divOtro.classList.add('hidden');
+}
+
+async function subirContratoFirmado(idInterno) {
+    // Crear input file temporal
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,image/*';
+    input.onchange = async function() {
+        var file = input.files[0];
+        if (!file) return;
+        mostrarLoader('Subiendo contrato firmado...');
+        try {
+            // Leer como base64
+            var b64 = await new Promise(function(res, rej) {
+                var reader = new FileReader();
+                reader.onload = function(e) { res(e.target.result.split(',')[1]); };
+                reader.onerror = rej;
+                reader.readAsDataURL(file);
+            });
+            var r = await enviarPeticion('subir_contrato_firmado', {
+                idInterno: idInterno,
+                nombre: file.name,
+                tipo: file.type,
+                datos: b64
+            });
+            ocultarLoader();
+            if (r.status === 'success') {
+                mostrarToast('success', 'Contrato subido', 'El contrato firmado quedó registrado.', 5000);
+                forzarActualizacion();
+                // Reabrir drawer del mismo empleado
+                setTimeout(function(){
+                    var emp = cacheGlobal.find(function(e){ return (e["ID INTERNO"]||"").toString()===idInterno; });
+                    if (emp) abrirEditor(emp);
+                }, 1500);
+            } else {
+                mostrarToast('error', 'Error al subir', r.message || 'Intenta de nuevo.');
+            }
+        } catch(e) {
+            ocultarLoader();
+            mostrarToast('error', 'Error', e.message);
+        }
+    };
+    input.click();
 }
 
 // ─── OFFBOARDING AUTOCOMPLETE ─────────────────────────────────
@@ -4899,7 +5067,14 @@ async function procesarBaja(event){
         nombreEmpleado: nom,
         fechaBaja:      document.getElementById('baja_fechaBaja').value,
         tipoSalida:     document.getElementById('baja_tipoSalida').value,
-        motivoSalida:   document.getElementById('baja_motivoSalida').value,
+        motivoSalida:   (()=>{
+            var m = document.getElementById('baja_motivoSalida')?.value || "";
+            if (m && m.toLowerCase().startsWith("otro")) {
+                var esp = (document.getElementById('baja_motivoOtroTexto')?.value||"").trim();
+                return esp ? ("Otro: "+esp) : m;
+            }
+            return m;
+        })(),
         montoFiniquito: document.getElementById('baja_montoFiniquito').value
     };
     try{
