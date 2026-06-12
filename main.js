@@ -621,24 +621,6 @@ function mostrarSugerenciasEstaticas(query, lista, input){
 }
 
 // ─── STEPPER ONBOARDING — paso 0 ahora es DOCUMENTOS ─────────
-const PASOS=[
-    // PASO 0 — Documentos y OCR (PRIMERO)
-    {id:'paso-documentos',titulo:'Documentos',icono:'fa-wand-magic-sparkles',color:'amber',descripcion:'Carga documentos para pre-rellenar el formulario automáticamente',campos:[]},
-    // PASO 1 — Datos laborales
-    {id:'paso-empleo',titulo:'Datos Laborales',icono:'fa-briefcase',color:'blue',descripcion:'Información del puesto y contratación',campos:[
-        {id:"numeroEmpleado",     label:"No. de Empleado",       type:"number",req:true, col:2,autonum:true},
-        {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
-        {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
-        {id:"empresa",            label:"Empresa",                type:"select-dynamic",req:true, col:2,optionsFn:function(){ return empresas; }},
-        {id:"grupoComercial",     label:"Grupo Comercial",         type:"text",  req:false,col:2,placeholder:"Se llena automáticamente al seleccionar empresa",readonly:true},
-        {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
-        {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
-        {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
-        {id:"sueldoMensual",      label:"Sueldo Mensual (MXN)",   type:"number",req:true, col:2,placeholder:"0.00"},
-        {id:"frecuenciaPago",     label:"Frecuencia de Pago",     type:"select",req:true, col:2,options:["Quincenal","Semanal","Mensual"]},
-        {id:"fuenteContratacion", label:"Fuente de Contratación", type:"text",  req:false,col:2,placeholder:"Ej. Referido, OCC, LinkedIn..."},
-    ]},
-    // PASO 2 — Contrato
 
 // ── Calcular fechas de contratos (3 Operativo / 6 Administrativo) ─
 function calcularFechasContrato() {
@@ -711,6 +693,26 @@ function calcularFechasContratoExpediente() {
     }
     mostrarToast('success', numC+' contratos calculados', msgs.join(' | '), 8000);
 }
+
+const PASOS=[
+    // PASO 0 — Documentos y OCR (PRIMERO)
+    {id:'paso-documentos',titulo:'Documentos',icono:'fa-wand-magic-sparkles',color:'amber',descripcion:'Carga documentos para pre-rellenar el formulario automáticamente',campos:[]},
+    // PASO 1 — Datos laborales
+    {id:'paso-empleo',titulo:'Datos Laborales',icono:'fa-briefcase',color:'blue',descripcion:'Información del puesto y contratación',campos:[
+        {id:"numeroEmpleado",     label:"No. de Empleado",       type:"number",req:true, col:2,autonum:true},
+        {id:"fechaIngreso",       label:"Fecha de Ingreso",       type:"date",  req:true, col:2},
+        {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
+        {id:"empresa",            label:"Empresa",                type:"select-dynamic",req:true, col:2,optionsFn:function(){ return empresas; }},
+        {id:"grupoComercial",     label:"Grupo Comercial",         type:"text",  req:false,col:2,placeholder:"Se llena automáticamente al seleccionar empresa",readonly:true},
+        {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
+        {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
+        {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
+        {id:"sueldoMensual",      label:"Sueldo Mensual (MXN)",   type:"number",req:true, col:2,placeholder:"0.00"},
+        {id:"frecuenciaPago",     label:"Frecuencia de Pago",     type:"select",req:true, col:2,options:["Quincenal","Semanal","Mensual"]},
+        {id:"fuenteContratacion", label:"Fuente de Contratación", type:"text",  req:false,col:2,placeholder:"Ej. Referido, OCC, LinkedIn..."},
+    ]},
+    // PASO 2 — Contrato
+
 
     {id:'paso-contrato',titulo:'Contrato',icono:'fa-file-contract',color:'indigo',descripcion:'Tipo, vigencias y seguimiento de contratos',accion:{label:'Calcular fechas automaticamente',fn:'calcularFechasContrato()'},campos:[
         {id:"tipoContrato",              label:"Tipo de Contrato",            type:"select",req:true, col:2,options:["Tiempo Indeterminado","Prueba","Temporal"]},
