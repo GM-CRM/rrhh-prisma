@@ -409,24 +409,68 @@ if ('serviceWorker' in navigator) {
   <!-- ══ DASHBOARD ════════════════════════════════════════════ -->
   <section id="module-dashboard" class="module-section active">
 
-    <div class="bg-white rounded-xl border border-slate-200 px-5 py-3.5 mb-5 flex flex-col md:flex-row items-center gap-3">
-      <span class="text-sm font-semibold text-slate-500 flex items-center gap-2 whitespace-nowrap">
-        <i class="fas fa-building text-blue-500"></i>Empresa:
-      </span>
-      <select id="filtroEmpresaGlobal" onchange="cargarDashboard()"
-        class="w-full md:w-80 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 transition">
-        <option value="ALL">Todas las empresas</option>
-        <option>Newspot Mexico</option>
-        <option>Centro De Telecomunicaciones Y Publicidad De Mexico</option>
-        <option>Global Media</option><option>Editora Mexicana</option>
-        <option>Cable Master</option><option>Fember Press</option>
-        <option>Infomonitor</option><option>Rtv Comunicacion</option>
-        <option>Radio Expresion Cultural</option>
-      </select>
-      <button onclick="forzarActualizacion()"
-        class="md:ml-auto text-sm font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition flex items-center gap-2">
-        <i class="fas fa-sync-alt text-xs"></i>Actualizar
-      </button>
+    <!-- Segmentadores del dashboard -->
+    <div class="bg-white rounded-xl border border-slate-200 px-5 py-4 mb-5">
+      <div class="flex flex-wrap items-end gap-3">
+
+        <div class="flex flex-col gap-1 min-w-[160px] flex-1">
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+            <i class="fas fa-building text-blue-500"></i>Empresa
+          </label>
+          <select id="filtroEmpresaGlobal" onchange="cargarDashboard()"
+            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 transition">
+            <option value="ALL">Todas</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1 min-w-[150px] flex-1">
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+            <i class="fas fa-layer-group text-violet-500"></i>Grupo
+          </label>
+          <select id="filtroGrupoGlobal" onchange="cargarDashboard()"
+            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-violet-500 transition">
+            <option value="ALL">Todos los grupos</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1 min-w-[130px]">
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+            <i class="fas fa-calendar-days text-emerald-500"></i>Mes
+          </label>
+          <select id="filtroMesGlobal" onchange="cargarDashboard()"
+            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-500 transition">
+            <option value="ALL">Todos</option>
+            <option value="01">Enero</option><option value="02">Febrero</option>
+            <option value="03">Marzo</option><option value="04">Abril</option>
+            <option value="05">Mayo</option><option value="06">Junio</option>
+            <option value="07">Julio</option><option value="08">Agosto</option>
+            <option value="09">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1 min-w-[100px]">
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+            <i class="fas fa-calendar text-amber-500"></i>Año
+          </label>
+          <select id="filtroAnioGlobal" onchange="cargarDashboard()"
+            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-amber-500 transition">
+            <option value="ALL">Todos</option>
+          </select>
+        </div>
+
+        <div class="flex gap-2 ml-auto flex-shrink-0">
+          <button onclick="limpiarFiltrosDashboard()"
+            class="text-sm font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+            <i class="fas fa-filter-circle-xmark text-xs"></i>Limpiar
+          </button>
+          <button onclick="forzarActualizacion()"
+            class="text-sm font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+            <i class="fas fa-sync-alt text-xs"></i>Actualizar
+          </button>
+        </div>
+
+      </div>
     </div>
 
     <!-- KPIs fila 1 -->
@@ -853,7 +897,7 @@ if ('serviceWorker' in navigator) {
         </div>
 
         <!-- Filtros -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
           <!-- Buscador -->
           <div class="md:col-span-2 relative">
             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
@@ -861,16 +905,15 @@ if ('serviceWorker' in navigator) {
               oninput="aplicarFiltros()"
               class="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
           </div>
+          <!-- Filtro grupo comercial -->
+          <select id="filtro-grupo" onchange="aplicarFiltros()"
+            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-violet-500 transition cursor-pointer">
+            <option value="">Todos los grupos</option>
+          </select>
           <!-- Filtro empresa -->
           <select id="filtro-empresa" onchange="aplicarFiltros()"
             class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
             <option value="">Todas las empresas</option>
-            <option>Newspot Mexico</option>
-            <option>Centro De Telecomunicaciones Y Publicidad De Mexico</option>
-            <option>Global Media</option><option>Editora Mexicana</option>
-            <option>Cable Master</option><option>Fember Press</option>
-            <option>Infomonitor</option><option>Rtv Comunicacion</option>
-            <option>Radio Expresion Cultural</option>
           </select>
           <!-- Filtro estatus -->
           <select id="filtro-estatus" onchange="aplicarFiltros()"
@@ -891,16 +934,24 @@ if ('serviceWorker' in navigator) {
       </div>
 
       <!-- Tabla -->
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left whitespace-nowrap">
+      <div class="w-full">
+        <table class="w-full text-sm text-left table-fixed">
+          <colgroup>
+            <col style="width:7%">
+            <col style="width:22%">
+            <col style="width:28%">
+            <col style="width:22%">
+            <col style="width:9%">
+            <col style="width:12%">
+          </colgroup>
           <thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
             <tr>
-              <th class="px-5 py-3 font-semibold">No. Emp</th>
-              <th class="px-5 py-3 font-semibold">Colaborador</th>
-              <th class="px-5 py-3 font-semibold">Empresa</th>
-              <th class="px-5 py-3 font-semibold">Puesto</th>
-              <th class="px-5 py-3 font-semibold">Estatus</th>
-              <th class="px-5 py-3 font-semibold text-center">Acciones</th>
+              <th class="px-3 py-3 font-semibold">No. Emp</th>
+              <th class="px-3 py-3 font-semibold">Colaborador</th>
+              <th class="px-3 py-3 font-semibold">Empresa</th>
+              <th class="px-3 py-3 font-semibold">Puesto</th>
+              <th class="px-3 py-3 font-semibold">Estatus</th>
+              <th class="px-3 py-3 font-semibold text-center">Acciones</th>
             </tr>
           </thead>
           <tbody id="tabla-directorio" class="divide-y divide-slate-100 text-slate-600"></tbody>
@@ -989,25 +1040,52 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <!-- Drawer overlay -->
-<div id="drawer-overlay" onclick="cerrarEditor()" class="hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"></div>
+<!-- Overlay modal expediente -->
+<div id="drawer-overlay" onclick="cerrarEditor()" class="hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"></div>
 
-<!-- Drawer editor -->
-<div id="drawer-editor" class="fixed right-0 top-0 h-full w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col translate-x-full">
-  <!-- Header drawer -->
-  <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 bg-slate-50 flex-shrink-0">
-    <div class="flex items-center gap-3 flex-1 min-w-0" id="drawer-titulo"></div>
-    <button onclick="cerrarEditor()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition flex-shrink-0">
-      <i class="fas fa-times"></i>
-    </button>
-  </div>
-  <!-- Cuerpo drawer -->
-  <div id="drawer-cuerpo" class="flex-1 overflow-y-auto p-5"></div>
-  <!-- Footer drawer -->
-  <div class="flex gap-3 px-5 py-4 border-t border-slate-100 bg-slate-50 flex-shrink-0">
-    <button onclick="cerrarEditor()" class="flex-1 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl transition">Cancelar</button>
-    <button onclick="guardarCambiosEditor()" class="flex-1 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 py-2.5 rounded-xl transition shadow-sm">
-      <i class="fas fa-save mr-2"></i>Guardar cambios
-    </button>
+<!-- Modal expediente centrado -->
+<div id="drawer-editor" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col pointer-events-auto opacity-0 scale-95 transition-all duration-200" id="drawer-inner">
+
+    <!-- Header modal -->
+    <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl flex-shrink-0">
+      <div class="flex items-center gap-3 flex-1 min-w-0" id="drawer-titulo"></div>
+      <button onclick="cerrarEditor()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition flex-shrink-0">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Cuerpo modal — dos columnas -->
+    <div class="flex-1 overflow-y-auto">
+      <div id="drawer-cuerpo" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
+
+      <!-- Historial de carrera (se muestra si tiene ID_PERSONA) -->
+      <div id="sec-historial-wrapper" style="display:none" class="px-6 pb-4">
+        <div class="bg-white rounded-2xl border border-violet-100 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-bold text-violet-600 uppercase tracking-wide flex items-center gap-1.5">
+              <i class="fas fa-timeline"></i>Historial de Carrera
+            </p>
+            <button onclick="abrirModalMovimiento(empleadoEdicion?.['ID_PERSONA'], empleadoEdicion?.['NOMBRE DEL TRABAJADOR'])"
+              class="text-xs font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 px-2.5 py-1 rounded-lg transition flex items-center gap-1">
+              <i class="fas fa-plus text-xs"></i>Movimiento
+            </button>
+          </div>
+          <div id="sec-historial">
+            <div class="text-xs text-slate-400 text-center py-3">Cargando...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer modal -->
+    <div class="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex-shrink-0">
+      <button onclick="cerrarEditor()" class="flex-1 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl transition">Cancelar</button>
+      <button onclick="guardarCambiosEditor()" class="flex-1 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 py-2.5 rounded-xl transition shadow-sm">
+        <i class="fas fa-save mr-2"></i>Guardar cambios
+      </button>
+    </div>
+
   </div>
 </div>
 
@@ -1026,6 +1104,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=61.0"></script>
+<script src="main.js?v=67.1"></script>
 </body>
 </html>
