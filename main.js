@@ -4663,57 +4663,9 @@ function renderizarDrawer(emp){
         ed("ed_parBenef","Parentesco",E["PARENTESCO DEL BENEFICIARIO"])+
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     )+
-    // ── Fila completa: Baja / Finiquito ─────────────────────────
-    +(function(){
-      if(est!=="Baja") return '';
-      try {
-        var tipoSal  = (E["TIPO DE SALIDA"]||"").toString();
-        var motivSal = (E["MOTIVO DE SALIDA"]||"").toString();
-        var fechBaj  = parsearFecha(E["FECHA DE BAJA"])||"";
-        var montoFin = (parsearMontoSheet(E["MONTO DE FINIQUITO"])||"").toString();
-        var esOtro   = motivSal.toLowerCase().startsWith("otro");
-        var valOtro  = motivSal.startsWith("Otro: ") ? motivSal.replace("Otro: ","") : "";
-        return rawFull(
-          '<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
-          +'<p class="text-xs font-bold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">'
-          +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
-          +' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
-          +'</p>'
-          +'<div class="grid grid-cols-1 md:grid-cols-3 gap-3">'
-          +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
-          +'<input type="date" id="ed_fechaBaja" value="'+fechBaj+'" '
-          +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-          +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Tipo de Salida</label>'
-          +'<select id="ed_tipoSalida" onchange="actualizarMotivosBaja(this.value,\'ed_motivoBaja\',\'ed_motivoBajaOtro\')" '
-          +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
-          +'<option value="">Selecciona...</option>'
-          +'<option '+(tipoSal==="Voluntaria"?"selected":"")+'>Voluntaria</option>'
-          +'<option '+(tipoSal==="Involuntaria"?"selected":"")+'>Involuntaria</option>'
-          +'</select></div>'
-          +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
-          +'<input type="number" id="ed_finiquito" value="'+montoFin+'" placeholder="0.00" step="0.01" '
-          +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-          +'</div>'
-          +'<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">'
-          +'<div class="'+(esOtro?'':'md:col-span-2')+'">'
-          +'<label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Motivo de Salida</label>'
-          +'<select id="ed_motivoBaja" onchange="toggleOtroBaja(this.value,\'ed_motivoBajaOtro\')" '
-          +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
-          + buildMotivosOpts(tipoSal, motivSal)
-          +'</select></div>'
-          +'<div id="ed_motivoBajaOtro" class="'+(esOtro?'':'hidden')+'">'
-          +'<label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Especifica el motivo</label>'
-          +'<input type="text" id="ed_motivoBajaOtroTexto" placeholder="Describe el motivo..." '
-          +'value="'+valOtro+'" '
-          +'class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
-          +'</div>'
-          +'</div>'
-        );
-      } catch(ex) {
-        console.error('[Baja block error]', ex);
-        return '';
-      }
-    }())+
+    // ── Fila completa: Baja / Finiquito — se inserta vía DOM después del innerHTML ──
+    // (placeholder vacío para mantener posición en el grid)
+    +(est==="Baja" ? rawFull('<div id="baja-placeholder"></div>') : '')+
     rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
     +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
     +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
@@ -4801,6 +4753,51 @@ function renderizarDrawer(emp){
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
     if(eval360val){const el=document.getElementById("ed_eval360");if(el)el.value=parsearFecha(eval360val);}
+
+    // ── Insertar bloque Baja/Finiquito vía DOM (más robusto que concatenación) ──
+    if(est==="Baja"){
+        const placeholder = document.getElementById('baja-placeholder');
+        if(placeholder){
+            var tipoSal  = (E["TIPO DE SALIDA"]||"").toString();
+            var motivSal = (E["MOTIVO DE SALIDA"]||"").toString();
+            var fechBaj  = parsearFecha(E["FECHA DE BAJA"])||"";
+            var montoFin = (parsearMontoSheet(E["MONTO DE FINIQUITO"])||"").toString();
+            var esOtro   = motivSal.toLowerCase().startsWith("otro");
+            var valOtro  = motivSal.startsWith("Otro: ") ? motivSal.replace("Otro: ","") : "";
+            placeholder.innerHTML =
+              '<div class="mb-5 border border-red-200 rounded-xl p-4 bg-red-50">'
+              +'<p class="text-xs font-bold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">'
+              +'<i class="fas fa-user-minus"></i>Baja / Finiquito'
+              +' <span class="ml-auto text-xs font-bold bg-red-100 text-red-600 px-2 py-0.5 rounded-full">Baja registrada</span>'
+              +'</p>'
+              +'<div class="grid grid-cols-1 md:grid-cols-3 gap-3">'
+              +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Fecha de Baja</label>'
+              +'<input type="date" id="ed_fechaBaja" value="'+fechBaj+'" class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+              +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Tipo de Salida</label>'
+              +'<select id="ed_tipoSalida" onchange="actualizarMotivosBaja(this.value,\'ed_motivoBaja\',\'ed_motivoBajaOtro\')" class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
+              +'<option value="">Selecciona...</option>'
+              +'<option '+(tipoSal==="Voluntaria"?"selected":"")+'>Voluntaria</option>'
+              +'<option '+(tipoSal==="Involuntaria"?"selected":"")+'>Involuntaria</option>'
+              +'</select></div>'
+              +'<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Monto de Finiquito (MXN)</label>'
+              +'<input type="number" id="ed_finiquito" value="'+montoFin+'" placeholder="0.00" step="0.01" class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+              +'</div>'
+              +'<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">'
+              +'<div class="'+(esOtro?'':'md:col-span-2')+'">'
+              +'<label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Motivo de Salida</label>'
+              +'<select id="ed_motivoBaja" onchange="toggleOtroBaja(this.value,\'ed_motivoBajaOtro\')" class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition">'
+              + buildMotivosOpts(tipoSal, motivSal)
+              +'</select></div>'
+              +'<div id="ed_motivoBajaOtro" class="'+(esOtro?'':'hidden')+'">'
+              +'<label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-0.5">Especifica el motivo</label>'
+              +'<input type="text" id="ed_motivoBajaOtroTexto" placeholder="Describe el motivo..." value="'+valOtro+'" class="w-full border border-red-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-red-400 transition"></div>'
+              +'</div>'
+              +'</div>';
+            console.log('[Baja DOM] Bloque insertado correctamente');
+        } else {
+            console.warn('[Baja DOM] No se encontró el placeholder #baja-placeholder');
+        }
+    }
 
     // ── Sección Historial de Carrera ──────────────────────────
     // Solo mostrar si hay ID_PERSONA asignado
