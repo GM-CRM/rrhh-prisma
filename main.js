@@ -4648,7 +4648,7 @@ function renderizarDrawer(emp){
     var _p4 = sec("Contacto","fa-phone","text-cyan-500",
         ed("ed_correo","Correo Electrónico",E["CORREO ELECTRÓNICO"],"email")+
         ed("ed_telefono","Teléfono Personal",E["TELÉFONO PERSONAL"])+
-        '<div class="col-span-2">'+ed("ed_domicilio","Domicilio Completo",E["DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)"])+'</div>'+
+        '<div class="col-span-2">'+ed("ed_domicilio","Domicilio Completo",E["DOMICILIO COMPLETO"]||E["DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)"]||"")+'</div>'+
         ed("ed_contEmerg","Contacto de Emergencia",E["CONTACTO DE EMERGENCIA"])+
         ed("ed_parEmerg","Parentesco",E["PARENTESCO"])+
         ed("ed_telEmerg","Teléfono de Emergencia",E["TELÉFONO DE EMERGENCIA"])
@@ -4816,7 +4816,7 @@ async function guardarCambiosEditor(){
             "ESCOLARIDAD":             document.getElementById('ed_escolaridad')?.value||undefined,
             "CORREO ELECTRÓNICO":      document.getElementById('ed_correo')?.value||undefined,
             "TELÉFONO PERSONAL":       document.getElementById('ed_telefono')?.value||undefined,
-            "DOMICILIO COMPLETO (CALLE, NÚMERO, COLONIA, CP, ESTADO Y MUNICIPIO)": document.getElementById('ed_domicilio')?.value||undefined,
+            "DOMICILIO COMPLETO":      document.getElementById('ed_domicilio')?.value||undefined,
             "CONTACTO DE EMERGENCIA":  document.getElementById('ed_contEmerg')?.value||undefined,
             "PARENTESCO":              document.getElementById('ed_parEmerg')?.value||undefined,
             "TELÉFONO DE EMERGENCIA":  document.getElementById('ed_telEmerg')?.value||undefined,
@@ -5008,17 +5008,19 @@ function initAutocomplete(){
         if(!hits.length){ lista.classList.add('hidden'); return; }
         lista.classList.remove('hidden');
         lista.innerHTML = hits.map(function(emp) {
-            const est   = (emp['ESTATUS']||'').trim();
-            const col   = est==='Activo' ? 'text-emerald-600' : 'text-red-500';
-            const nomE  = (emp['NOMBRE DEL TRABAJADOR']||'—').replace(/'/g,"\\'");
-            const emp2  = (emp['EMPRESA']||'').replace(/'/g,"\\'");
-            const pu    = (emp['PUESTO']||'').replace(/'/g,"\\'");
-            const idInt = (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString();
+            const est    = (emp['ESTATUS']||'').trim();
+            const col    = est==='Activo' ? 'text-emerald-600' : 'text-red-500';
+            const nomE   = (emp['NOMBRE DEL TRABAJADOR']||'—').replace(/'/g,"\\'");
+            const emp2   = (emp['EMPRESA']||'').replace(/'/g,"\\'");
+            const pu     = (emp['PUESTO']||'').replace(/'/g,"\\'");
+            const idInt  = (emp['ID INTERNO']||'').toString().trim().replace(/'/g,"\\'");
+            const noEmp  = (emp['NO. EMPLEADO']||'').toString().trim().replace(/'/g,"\\'");
+            const label  = idInt ? idInt : ('#'+noEmp);
             return '<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition"'
-                 + ' onclick="seleccionarEmpleado(\'' + idInt + '\',\'' + nomE + '\',\'' + est + '\',\'' + emp2 + '\',\'' + pu + '\')'  + '">'
+                 + ' onclick="seleccionarEmpleado(\'' + idInt + '\',\'' + nomE + '\',\'' + est + '\',\'' + emp2 + '\',\'' + pu + '\',\'' + noEmp + '\')">'
                  + '<div class="flex items-center justify-between gap-3">'
                  + '<div><p class="text-sm font-semibold text-slate-800">' + (emp['NOMBRE DEL TRABAJADOR']||'—') + '</p>'
-                 + '<p class="text-xs text-slate-400">' + idInt + ' · ' + (emp['EMPRESA']||'') + ' · ' + (emp['PUESTO']||'') + '</p></div>'
+                 + '<p class="text-xs text-slate-400">' + label + ' · ' + (emp['EMPRESA']||'') + ' · ' + (emp['PUESTO']||'') + '</p></div>'
                  + '<span class="text-xs font-bold ' + col + ' flex-shrink-0">' + est + '</span>'
                  + '</div></button>';
         }).join('');
@@ -5028,26 +5030,28 @@ function initAutocomplete(){
 
 let empleadoSeleccionado = null;
 
-function seleccionarEmpleado(id,nombre,estatus,empresa,puesto){
-    // Buscar el empleado completo en cache para separar ID INTERNO de No. Empleado
+function seleccionarEmpleado(idInterno, nombre, estatus, empresa, puesto, noEmp){
+    // Buscar en cache para confirmar el registro exacto
     empleadoSeleccionado = cacheGlobal.find(function(e){
-        var idInt = (e["ID INTERNO"]||"").toString().trim();
-        var noE   = (e["NO. EMPLEADO"]||"").toString().trim();
-        var empN  = (e["EMPRESA"]||"").trim();
-        return (idInt && idInt===id) || (noE===id && empN===empresa);
+        var eIdInt = (e["ID INTERNO"]||"").toString().trim();
+        var eNoEmp = (e["NO. EMPLEADO"]||"").toString().trim();
+        var eEmp   = (e["EMPRESA"]||"").trim();
+        // Priorizar coincidencia por ID INTERNO (único)
+        if(idInterno && eIdInt) return eIdInt === idInterno;
+        // Fallback: No.Empleado + Empresa (para empleados sin ID INTERNO aún)
+        return eNoEmp === noEmp && eEmp === empresa;
     }) || null;
-    // Guardar ID INTERNO real (puede diferir del 'id' recibido que puede ser No.Empleado)
-    var idInternoReal = empleadoSeleccionado ? (empleadoSeleccionado["ID INTERNO"]||"").toString().trim() : "";
-    var noEmpReal     = empleadoSeleccionado ? (empleadoSeleccionado["NO. EMPLEADO"]||"").toString().trim() : id;
-    document.getElementById('baja_idEmpleado').value   = idInternoReal || id;
-    document.getElementById('baja_noEmpleado') && (document.getElementById('baja_noEmpleado').value = noEmpReal);
-    document.getElementById('baja_empresaEmpleado') && (document.getElementById('baja_empresaEmpleado').value = empresa);
-    document.getElementById('baja_nombreEmpleado').value = nombre;
+    // Guardar en campos hidden: idInterno y noEmpleado SIEMPRE separados
+    document.getElementById('baja_idEmpleado').value  = idInterno || "";
+    document.getElementById('baja_noEmpleado').value  = noEmp || "";
+    document.getElementById('baja_empresaEmpleado').value = empresa || "";
+    document.getElementById('baja_nombreEmpleado').value  = nombre;
     document.getElementById('baja_sugerencias').classList.add('hidden');
-    const badge=document.getElementById('baja_empleado_badge');
+    const badge = document.getElementById('baja_empleado_badge');
     badge.classList.remove('hidden');
-    const col=estatus==='Activo'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
-    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">#${noEmpReal} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
+    const col = estatus==='Activo' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600';
+    const labelId = idInterno || ('#'+noEmp);
+    badge.innerHTML = `<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">${labelId} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
 }
 
 async function procesarBaja(event){
@@ -5056,15 +5060,15 @@ async function procesarBaja(event){
     const nom=document.getElementById('baja_nombreEmpleado').value.trim();
     if(!id&&!nom){mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');return;}
     mostrarLoader("Procesando baja...");
-    // El ID INTERNO ya fue guardado correctamente por seleccionarEmpleado
-    const empBaja = empleadoSeleccionado || cacheGlobal.find(e =>
-        (e["ID INTERNO"]||"").toString().trim() === id.trim() ||
-        (e["NO. EMPLEADO"]||"").toString().trim() === id.trim()
-    ) || null;
-    const idInternoPayload = empBaja ? (empBaja["ID INTERNO"]||"").toString().trim() : "";
-    const noEmpPayload     = empBaja ? (empBaja["NO. EMPLEADO"]||"").toString().trim() : id;
-    const empresaPayload   = empBaja ? (empBaja["EMPRESA"]||"").trim() : "";
+    const idInternoPayload = (document.getElementById('baja_idEmpleado')?.value||"").trim();
+    const noEmpPayload     = (document.getElementById('baja_noEmpleado')?.value||"").trim();
+    const empresaPayload   = (document.getElementById('baja_empresaEmpleado')?.value||"").trim();
     console.log('[procesarBaja] idInterno:', idInternoPayload, '| noEmp:', noEmpPayload, '| empresa:', empresaPayload);
+    if(!idInternoPayload && !noEmpPayload){
+        ocultarLoader();
+        mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');
+        return;
+    }
     const payload = {
         idInterno:      idInternoPayload,
         numeroEmpleado: noEmpPayload,
