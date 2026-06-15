@@ -5029,20 +5029,25 @@ function initAutocomplete(){
 let empleadoSeleccionado = null;
 
 function seleccionarEmpleado(id,nombre,estatus,empresa,puesto){
-    // Guardar referencia completa al empleado
+    // Buscar el empleado completo en cache para separar ID INTERNO de No. Empleado
     empleadoSeleccionado = cacheGlobal.find(function(e){
         var idInt = (e["ID INTERNO"]||"").toString().trim();
         var noE   = (e["NO. EMPLEADO"]||"").toString().trim();
         var empN  = (e["EMPRESA"]||"").trim();
         return (idInt && idInt===id) || (noE===id && empN===empresa);
     }) || null;
-    document.getElementById('baja_idEmpleado').value=id;
-    document.getElementById('baja_nombreEmpleado').value=nombre;
+    // Guardar ID INTERNO real (puede diferir del 'id' recibido que puede ser No.Empleado)
+    var idInternoReal = empleadoSeleccionado ? (empleadoSeleccionado["ID INTERNO"]||"").toString().trim() : "";
+    var noEmpReal     = empleadoSeleccionado ? (empleadoSeleccionado["NO. EMPLEADO"]||"").toString().trim() : id;
+    document.getElementById('baja_idEmpleado').value   = idInternoReal || id;
+    document.getElementById('baja_noEmpleado') && (document.getElementById('baja_noEmpleado').value = noEmpReal);
+    document.getElementById('baja_empresaEmpleado') && (document.getElementById('baja_empresaEmpleado').value = empresa);
+    document.getElementById('baja_nombreEmpleado').value = nombre;
     document.getElementById('baja_sugerencias').classList.add('hidden');
     const badge=document.getElementById('baja_empleado_badge');
     badge.classList.remove('hidden');
     const col=estatus==='Activo'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
-    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">#${id} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
+    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">#${noEmpReal} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
 }
 
 async function procesarBaja(event){
@@ -5051,13 +5056,19 @@ async function procesarBaja(event){
     const nom=document.getElementById('baja_nombreEmpleado').value.trim();
     if(!id&&!nom){mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');return;}
     mostrarLoader("Procesando baja...");
-    // Buscar el empleado en cache usando el ID INTERNO para obtener empresa y número real
-    const empBaja = cacheGlobal.find(e => (e["ID INTERNO"]||"").toString().trim() === id.trim()
-                                       || (e["NO. EMPLEADO"]||"").toString() === id.trim());
+    // El ID INTERNO ya fue guardado correctamente por seleccionarEmpleado
+    const empBaja = empleadoSeleccionado || cacheGlobal.find(e =>
+        (e["ID INTERNO"]||"").toString().trim() === id.trim() ||
+        (e["NO. EMPLEADO"]||"").toString().trim() === id.trim()
+    ) || null;
+    const idInternoPayload = empBaja ? (empBaja["ID INTERNO"]||"").toString().trim() : "";
+    const noEmpPayload     = empBaja ? (empBaja["NO. EMPLEADO"]||"").toString().trim() : id;
+    const empresaPayload   = empBaja ? (empBaja["EMPRESA"]||"").trim() : "";
+    console.log('[procesarBaja] idInterno:', idInternoPayload, '| noEmp:', noEmpPayload, '| empresa:', empresaPayload);
     const payload = {
-        idInterno:      id,
-        numeroEmpleado: empBaja ? (empBaja["NO. EMPLEADO"]||"").toString() : id,
-        empresa:        empBaja ? (empBaja["EMPRESA"]||"") : "",
+        idInterno:      idInternoPayload,
+        numeroEmpleado: noEmpPayload,
+        empresa:        empresaPayload,
         nombreEmpleado: nom,
         fechaBaja:      document.getElementById('baja_fechaBaja').value,
         tipoSalida:     document.getElementById('baja_tipoSalida').value,
