@@ -5013,12 +5013,14 @@ function initAutocomplete(){
             const nomE  = (emp['NOMBRE DEL TRABAJADOR']||'—').replace(/'/g,"\\'");
             const emp2  = (emp['EMPRESA']||'').replace(/'/g,"\\'");
             const pu    = (emp['PUESTO']||'').replace(/'/g,"\\'");
-            const idInt = (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString();
+            const idInt = (emp['ID INTERNO']||'').toString().trim().replace(/'/g,"\\'");
+            const noEmp = (emp['NO. EMPLEADO']||'').toString().trim().replace(/'/g,"\\'");
+            const label = idInt ? idInt : ('#'+noEmp);
             return '<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition"'
-                 + ' onclick="seleccionarEmpleado(\'' + idInt + '\',\'' + nomE + '\',\'' + est + '\',\'' + emp2 + '\',\'' + pu + '\')'  + '">'
+                 + ' onclick="seleccionarEmpleado(\'' + idInt + '\',\'' + nomE + '\',\'' + est + '\',\'' + emp2 + '\',\'' + pu + '\',\'' + noEmp + '\')">'
                  + '<div class="flex items-center justify-between gap-3">'
                  + '<div><p class="text-sm font-semibold text-slate-800">' + (emp['NOMBRE DEL TRABAJADOR']||'—') + '</p>'
-                 + '<p class="text-xs text-slate-400">' + idInt + ' · ' + (emp['EMPRESA']||'') + ' · ' + (emp['PUESTO']||'') + '</p></div>'
+                 + '<p class="text-xs text-slate-400">' + label + ' · ' + (emp['EMPRESA']||'') + ' · ' + (emp['PUESTO']||'') + '</p></div>'
                  + '<span class="text-xs font-bold ' + col + ' flex-shrink-0">' + est + '</span>'
                  + '</div></button>';
         }).join('');
@@ -5028,21 +5030,26 @@ function initAutocomplete(){
 
 let empleadoSeleccionado = null;
 
-function seleccionarEmpleado(id,nombre,estatus,empresa,puesto){
-    // Guardar referencia completa al empleado
+function seleccionarEmpleado(idInterno, nombre, estatus, empresa, puesto, noEmp){
+    // Buscar en cache usando ID INTERNO + Empresa (evita ambigüedad con No.Empleado duplicado)
     empleadoSeleccionado = cacheGlobal.find(function(e){
-        var idInt = (e["ID INTERNO"]||"").toString().trim();
-        var noE   = (e["NO. EMPLEADO"]||"").toString().trim();
-        var empN  = (e["EMPRESA"]||"").trim();
-        return (idInt && idInt===id) || (noE===id && empN===empresa);
+        var eId  = (e["ID INTERNO"]||"").toString().trim();
+        var eNo  = (e["NO. EMPLEADO"]||"").toString().trim();
+        var eEmp = (e["EMPRESA"]||"").trim();
+        if(idInterno && eId) return eId===idInterno && eEmp===empresa;
+        return eNo===(noEmp||"") && eEmp===empresa;
     }) || null;
-    document.getElementById('baja_idEmpleado').value=id;
-    document.getElementById('baja_nombreEmpleado').value=nombre;
+    // Guardar ID INTERNO y No.Empleado en campos separados
+    document.getElementById('baja_idEmpleado').value = idInterno||"";
+    if(document.getElementById('baja_noEmpleado')) document.getElementById('baja_noEmpleado').value = noEmp||"";
+    if(document.getElementById('baja_empresaEmpleado')) document.getElementById('baja_empresaEmpleado').value = empresa||"";
+    document.getElementById('baja_nombreEmpleado').value = nombre;
     document.getElementById('baja_sugerencias').classList.add('hidden');
     const badge=document.getElementById('baja_empleado_badge');
     badge.classList.remove('hidden');
     const col=estatus==='Activo'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
-    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">#${id} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
+    const labelId = idInterno||('#'+noEmp);
+    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">${labelId} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
 }
 
 async function procesarBaja(event){
@@ -5051,13 +5058,15 @@ async function procesarBaja(event){
     const nom=document.getElementById('baja_nombreEmpleado').value.trim();
     if(!id&&!nom){mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');return;}
     mostrarLoader("Procesando baja...");
-    // Buscar el empleado en cache usando el ID INTERNO para obtener empresa y número real
-    const empBaja = cacheGlobal.find(e => (e["ID INTERNO"]||"").toString().trim() === id.trim()
-                                       || (e["NO. EMPLEADO"]||"").toString() === id.trim());
+    // Leer campos hidden que seleccionarEmpleado guardó correctamente
+    const idInternoVal = (document.getElementById('baja_idEmpleado')?.value||"").trim();
+    const noEmpVal     = (document.getElementById('baja_noEmpleado')?.value||"").trim();
+    const empresaVal   = (document.getElementById('baja_empresaEmpleado')?.value||"").trim();
+    console.log('[procesarBaja] idInterno:', idInternoVal, '| noEmp:', noEmpVal, '| empresa:', empresaVal);
     const payload = {
-        idInterno:      id,
-        numeroEmpleado: empBaja ? (empBaja["NO. EMPLEADO"]||"").toString() : id,
-        empresa:        empBaja ? (empBaja["EMPRESA"]||"") : "",
+        idInterno:      idInternoVal,
+        numeroEmpleado: noEmpVal,
+        empresa:        empresaVal,
         nombreEmpleado: nom,
         fechaBaja:      document.getElementById('baja_fechaBaja').value,
         tipoSalida:     document.getElementById('baja_tipoSalida').value,
