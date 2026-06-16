@@ -861,15 +861,10 @@ function renderizarPasoActual(){
 
     // ── Pasos normales ────────────────────────────────────────
     const cols={blue:'bg-blue-50 text-blue-600',indigo:'bg-indigo-50 text-indigo-600',teal:'bg-teal-50 text-teal-600',cyan:'bg-cyan-50 text-cyan-600',rose:'bg-rose-50 text-rose-600',green:'bg-emerald-50 text-emerald-600'};
-    const accionBtn = paso.accion
-        ? `<button type="button" onclick="${paso.accion.fn}" class="inline-flex items-center gap-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-             <i class="fas fa-magic"></i>${paso.accion.label}</button>`
-        : '';
     el.innerHTML=`
       <div class="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
         <div class="w-12 h-12 rounded-xl ${cols[paso.color]||'bg-slate-100 text-slate-500'} flex items-center justify-center flex-shrink-0"><i class="fas ${paso.icono} text-xl"></i></div>
-        <div class="flex-1"><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
-        ${accionBtn}
+        <div><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>`;
 
@@ -1257,16 +1252,6 @@ function restaurarValoresPaso(){
     const paso=PASOS[pasoActual];
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
     if(paso.id==='paso-personal')calcularRangoEdadAuto();
-    // Auto-calcular fechas de contratos al llegar al paso de contrato
-    if(paso.id==='paso-contrato'){
-        setTimeout(function(){
-            // Solo calcular si hay fecha de ingreso y aún no hay fechas calculadas
-            var tieneContratos = altaData['vencimientoPrimerContrato'] || altaData['vencSegundoContrato'];
-            if(!tieneContratos && (altaData['fechaIngreso']||altaData['fechaInicioContrato'])){
-                calcularFechasContrato();
-            }
-        }, 150);
-    }
 }
 function irAPaso(idx){
     if(idx>pasoActual){if(!guardarPasoActual())return;}else guardarPasoActual();
@@ -1329,19 +1314,7 @@ async function enviarAlta(){
             mostrarToast('success','¡Alta registrada!',`Expediente creado para ${altaData.nombreTrabajador}.`,8000);
             Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');});
             altaData={};pasoActual=0;renderizarStepper();forzarActualizacion();
-        } else if(r.codigo==="SIN_DRIVE"){
-            // Alta quedó registrada en el Sheet pero sin carpeta Drive — reintentar con forzar:true
-            mostrarToast('warning','Reintentando...','La primera alta quedó incompleta, completando ahora...',4000);
-            mostrarLoader("Completando expediente en Drive...");
-            const r2 = await enviarPeticion("alta",{...altaData,documentos:docs,forzar:true});
-            ocultarLoader();
-            if(r2.status==="success"){
-                mostrarToast('success','¡Alta completada!',`Expediente Drive creado para ${altaData.nombreTrabajador}.`,8000);
-                altaData={};pasoActual=0;renderizarStepper();forzarActualizacion();
-            } else {
-                mostrarToast('error','Error al completar',r2.message);
-            }
-        } else mostrarToast('error','Error en el alta',r.message);
+        }else mostrarToast('error','Error en el alta',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
 }
 
@@ -5154,6 +5127,7 @@ async function procesarBaja(event){
 
 // ─── CACHÉ Y DATOS ────────────────────────────────────────────
 let cacheGlobal=[];
+let cachePersonas=[]; // deduplicado por ID_PERSONA — para Directorio y Organigrama
 let cacheTimestamp=0;
 const CACHE_TTL=5*60*1000; // 5 minutos — no volver a pedir datos al backend antes de este tiempo
 
@@ -5167,8 +5141,10 @@ async function obtenerDatos(forzar){
         ocultarLoader();
         if(r.status==="success"){
             const todos=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
-            // Deduplicar por ID_PERSONA: conservar el registro con fecha de ingreso más reciente
-            // Los registros sin ID_PERSONA se conservan todos
+            // cacheGlobal contiene TODOS los registros (para Expedientes, Bajas, etc.)
+            cacheGlobal=todos;
+            // cachePersonas deduplica por ID_PERSONA para Directorio/Organigrama
+            // (muestra solo el registro más reciente de cada persona)
             const mapaPersona={};
             const sinIdPersona=[];
             todos.forEach(function(e){
@@ -5179,7 +5155,7 @@ async function obtenerDatos(forzar){
                     mapaPersona[idP]=e;
                 }
             });
-            cacheGlobal=[...Object.values(mapaPersona),...sinIdPersona];
+            cachePersonas=[...Object.values(mapaPersona),...sinIdPersona];
             cacheTimestamp=Date.now();
             return cacheGlobal;
         }
@@ -5188,6 +5164,7 @@ async function obtenerDatos(forzar){
 }
 async function forzarActualizacion(){
     cacheGlobal=[];
+    cachePersonas=[];
     datosFiltrados=[];
     cacheTimestamp=0;
     dashboardCargado=false;
