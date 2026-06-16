@@ -704,8 +704,8 @@ const PASOS=[
         {id:"nombreTrabajador",   label:"Nombre Completo",        type:"text",  req:true, col:2,placeholder:"Apellido Paterno Materno Nombre(s)"},
         {id:"empresa",            label:"Empresa",                type:"select-dynamic",req:true, col:2,optionsFn:function(){ return empresas; }},
         {id:"grupoComercial",     label:"Grupo Comercial",         type:"text",  req:false,col:2,placeholder:"Se llena automáticamente al seleccionar empresa",readonly:true},
-        {id:"departamento",       label:"Departamento",           type:"datalist", req:true, col:2, listId:'list-departamentos'},
-        {id:"puesto",             label:"Puesto",                 type:"datalist", req:true, col:2, listId:'list-puestos'},
+        {id:"departamento",       label:"Departamento",           type:"datalist", req:false, col:2, listId:'list-departamentos'},
+        {id:"puesto",             label:"Puesto",                 type:"datalist", req:false, col:2, listId:'list-puestos'},
         {id:"tipoIngreso",        label:"Tipo de Ingreso",        type:"select",req:true, col:2,options:["Administrativo","Operativo"]},
         {id:"sueldoMensual",      label:"Sueldo Mensual (MXN)",   type:"number",req:true, col:2,placeholder:"0.00"},
         {id:"frecuenciaPago",     label:"Frecuencia de Pago",     type:"select",req:true, col:2,options:["Quincenal","Semanal","Mensual"]},
@@ -999,17 +999,42 @@ async function cargarSiguienteNumero(){
         if(el) el.placeholder = "Selecciona la empresa primero";
         return;
     }
+
+    // Detectar reingreso: buscar en cache por CURP o RFC en la misma empresa
+    const curpAlta = (altaData.curp||"").trim().toUpperCase();
+    const rfcAlta  = (altaData.rfc||"").trim().toUpperCase();
+    const reingresoExistente = cacheGlobal.find(function(e){
+        const empE  = (e["EMPRESA"]||"").trim();
+        const curpE = (e["CURP"]||"").trim().toUpperCase();
+        const rfcE  = (e["RFC"]||"").trim().toUpperCase();
+        const est   = (e["ESTATUS"]||"").trim();
+        if(empE !== empresa || est !== "Baja") return false;
+        return (curpAlta && curpE === curpAlta) || (rfcAlta && rfcE === rfcAlta);
+    });
+
     try{
         const r = await enviarPeticion("siguiente_numero", { empresa: empresa });
-        console.log("[cargarSiguienteNumero] respuesta GAS:", r);
         if(r.status === "success"){
             const el = document.getElementById("alta_numeroEmpleado");
+            // Si es reingreso, usar el número anterior
+            const numSugerido = reingresoExistente
+                ? (reingresoExistente["NO. EMPLEADO"]||"").toString()
+                : r.siguiente.toString();
             if(el){
-                el.value = r.siguiente;
+                el.value = numSugerido;
                 el.placeholder = "";
+                el.readOnly = false; // Siempre editable
             }
-            altaData.numeroEmpleado = r.siguiente.toString();
+            altaData.numeroEmpleado = numSugerido;
             if(r.idInterno) altaData._idInterno = r.idInterno;
+
+            // Mostrar aviso de reingreso si aplica
+            if(reingresoExistente){
+                const nomAnterior = reingresoExistente["NOMBRE DEL TRABAJADOR"]||"";
+                const feingAnterior = reingresoExistente["FECHA DE INGRESO"]||"";
+                mostrarToast('info','Reingreso detectado',
+                    `${nomAnterior} ya trabajó aquí. Se asigna el No. ${numSugerido} de su ingreso anterior. Puedes cambiarlo si lo necesitas.`, 8000);
+            }
         }
     }catch(e){ console.warn("cargarSiguienteNumero:", e); }
 }
@@ -5125,20 +5150,8 @@ async function obtenerDatos(forzar){
         const r=await enviarPeticion("exportar_datos",{});
         ocultarLoader();
         if(r.status==="success"){
-            const todos=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
-            // Deduplicar por ID_PERSONA: conservar el registro con fecha de ingreso más reciente
-            // Los registros sin ID_PERSONA se conservan todos
-            const mapaPersona={};
-            const sinIdPersona=[];
-            todos.forEach(function(e){
-                const idP=(e["ID_PERSONA"]||"").toString().trim();
-                if(!idP){ sinIdPersona.push(e); return; }
-                const fIng=parseFloat(e["FECHA DE INGRESO"])||0;
-                if(!mapaPersona[idP] || fIng > (parseFloat(mapaPersona[idP]["FECHA DE INGRESO"])||0)){
-                    mapaPersona[idP]=e;
-                }
-            });
-            cacheGlobal=[...Object.values(mapaPersona),...sinIdPersona];
+            // cacheGlobal: TODOS los registros sin deduplicar (Expedientes, Bajas, autocomplete)
+            cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
             cacheTimestamp=Date.now();
             return cacheGlobal;
         }
