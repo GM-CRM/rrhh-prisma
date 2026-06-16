@@ -4660,7 +4660,9 @@ function renderizarDrawer(emp){
         ed("ed_pctBenef","% Asignación",E["PORCENTAJE DE ASIGNACIÓN"],"number")
     );
     var _p6 = (est==="Baja" ? rawFull('<div id="baja-placeholder"></div>') : '');
-    var _p7 = rawFull('<div class="mb-5"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+    var _p7 = rawFull('<div class="mb-5"><div class="flex items-center justify-between mb-3"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide flex items-center gap-2"><i class="fas fa-file-contract text-indigo-500"></i>Contratos</p>'
+    +'<button type="button" onclick="calcularFechasContratoExpediente()" class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-magic"></i>Calcular fechas</button>'
+    +'</div>'
     +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
     +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
     +edf("ed_ini1contrato","Inicio 1er Contrato",parsearFecha(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
@@ -4777,22 +4779,6 @@ function renderizarDrawer(emp){
 async function guardarCambiosEditor(){
     if(!empleadoEdicion){cerrarEditor();return;}
     const id=(empleadoEdicion["NO. EMPLEADO"]||"").toString();
-
-    // Determinar siguiente contrato disponible
-    const contratos=[
-        {ini:'FECHA DE INICIO DEL PRIMER CONTRATO', ven:'FECHA DE VENCIMIENTO DEL PRIMER CONTRATO'},
-        {ini:'FECHA DE INICIO DEL SEGUNDO CONTRATO',ven:'FECHA DE VENCIMIENTO DEL SEGUNDO CONTRATO'},
-        {ini:'FECHA DE INICIO DEL TERCER CONTRATO', ven:'FECHA DE VENCIMIENTO DEL TERCER CONTRATO'},
-    ];
-    const iniNuevo=document.getElementById('ed_iniContrato').value;
-    const venNuevo=document.getElementById('ed_venContrato').value;
-    let campoIni='',campoVen='';
-    if(iniNuevo||venNuevo){
-        for(const c of contratos){
-            if(!empleadoEdicion[c.ini]){campoIni=c.ini;campoVen=c.ven;break;}
-        }
-        if(!campoIni){campoIni=contratos[2].ini;campoVen=contratos[2].ven;} // usar 3er si todos llenos
-    }
 
     const payload={
         idInterno:      empleadoEdicion["ID INTERNO"] || "",
@@ -5127,7 +5113,6 @@ async function procesarBaja(event){
 
 // ─── CACHÉ Y DATOS ────────────────────────────────────────────
 let cacheGlobal=[];
-let cachePersonas=[]; // deduplicado por ID_PERSONA — para Directorio y Organigrama
 let cacheTimestamp=0;
 const CACHE_TTL=5*60*1000; // 5 minutos — no volver a pedir datos al backend antes de este tiempo
 
@@ -5141,10 +5126,8 @@ async function obtenerDatos(forzar){
         ocultarLoader();
         if(r.status==="success"){
             const todos=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
-            // cacheGlobal contiene TODOS los registros (para Expedientes, Bajas, etc.)
-            cacheGlobal=todos;
-            // cachePersonas deduplica por ID_PERSONA para Directorio/Organigrama
-            // (muestra solo el registro más reciente de cada persona)
+            // Deduplicar por ID_PERSONA: conservar el registro con fecha de ingreso más reciente
+            // Los registros sin ID_PERSONA se conservan todos
             const mapaPersona={};
             const sinIdPersona=[];
             todos.forEach(function(e){
@@ -5155,7 +5138,7 @@ async function obtenerDatos(forzar){
                     mapaPersona[idP]=e;
                 }
             });
-            cachePersonas=[...Object.values(mapaPersona),...sinIdPersona];
+            cacheGlobal=[...Object.values(mapaPersona),...sinIdPersona];
             cacheTimestamp=Date.now();
             return cacheGlobal;
         }
@@ -5164,7 +5147,6 @@ async function obtenerDatos(forzar){
 }
 async function forzarActualizacion(){
     cacheGlobal=[];
-    cachePersonas=[];
     datosFiltrados=[];
     cacheTimestamp=0;
     dashboardCargado=false;
