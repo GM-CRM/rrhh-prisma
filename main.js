@@ -1103,6 +1103,47 @@ function calcularRangoEdadAuto(){
 // El frontend envía el archivo en Base64 al GAS.
 // El GAS llama a Google Vision / Drive sin restricciones CORS.
 
+// ── PDF → PNG usando PDF.js (Mozilla) ────────────────────────
+// Renderiza la primera página del PDF como imagen PNG de alta resolución.
+// PDF.js se carga dinámicamente desde CDN la primera vez.
+// No requiere instalación ni dependencias adicionales.
+async function pdfPaginaAPNG(file, escala) {
+    escala = escala || 2.5; // 2.5x = alta resolución (~A4 → ~2000px ancho)
+
+    // Cargar PDF.js si no está disponible
+    if (!window.pdfjsLib) {
+        await new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            s.onload = res;
+            s.onerror = () => rej(new Error('No se pudo cargar PDF.js'));
+            document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // Leer archivo como ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+
+    // Cargar el PDF
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const pagina = await pdf.getPage(1); // primera página
+
+    // Renderizar en canvas a alta resolución
+    const viewport = pagina.getViewport({ scale: escala });
+    const canvas   = document.createElement('canvas');
+    canvas.width   = viewport.width;
+    canvas.height  = viewport.height;
+    const ctx = canvas.getContext('2d');
+
+    await pagina.render({ canvasContext: ctx, viewport: viewport }).promise;
+
+    // Exportar como PNG base64 (sin encabezado)
+    const dataUrl = canvas.toDataURL('image/png');
+    return dataUrl.split(',')[1];
+}
+
 async function ejecutarOCR() {
     const input = document.getElementById('alta_archivos');
     if (!input || !input.files.length) {
@@ -1135,29 +1176,52 @@ async function ejecutarOCR() {
         }
 
         try {
-            // Convertir a Base64 en el browser
-            const b64 = await new Promise((res, rej) => {
-                const r = new FileReader();
-                r.onload  = () => res(r.result.split(',')[1]);
-                r.onerror = () => rej(new Error('Error leyendo ' + file.name));
-                r.readAsDataURL(file);
-            });
+            // Si es PDF: renderizar como imagen PNG en el navegador (alta calidad)
+            // Esto evita depender de Drive para convertir — manda la imagen directo a Vision API
+            let b64Envio   = null;
+            let mimeEnvio  = file.type;
+            let nombreEnvio = file.name;
+
+            if (esPDF) {
+                stTxt.innerText = `Renderizando PDF: ${file.name}...`;
+                try {
+                    const pngB64 = await pdfPaginaAPNG(file);
+                    if (pngB64) {
+                        b64Envio  = pngB64;
+                        mimeEnvio = 'image/png';
+                        nombreEnvio = file.name.replace(/\.pdf$/i, '.png');
+                        stTxt.innerText = `Analizando imagen del PDF: ${file.name}...`;
+                    }
+                } catch(pdfErr) {
+                    console.warn('[OCR] No se pudo renderizar PDF, enviando como PDF:', pdfErr);
+                }
+            }
+
+            // Si no se pudo renderizar como imagen, leer como base64 normal
+            if (!b64Envio) {
+                b64Envio = await new Promise((res, rej) => {
+                    const r = new FileReader();
+                    r.onload  = () => res(r.result.split(',')[1]);
+                    r.onerror = () => rej(new Error('Error leyendo ' + file.name));
+                    r.readAsDataURL(file);
+                });
+            }
 
             stTxt.innerText = `Analizando: ${file.name}...`;
 
             // Motor 1: Groq/Llama (IA gratuita — Drive extrae texto, Groq analiza)
             // Motor 2: fallback a Vision API + regex si Groq falla
             let r = await enviarPeticion('groq_ocr', {
-                data:     b64,
-                mimeType: file.type,
-                nombre:   file.name
+                data:     b64Envio,
+                mimeType: mimeEnvio,
+                nombre:   nombreEnvio
             });
             if (r.status !== 'success') {
                 console.warn('[OCR] Groq falló, usando Vision API:', r.message);
                 r = await enviarPeticion('ocr_documento', {
-                    data:     b64,
-                    mimeType: file.type,
-                    nombre:   file.name
+                    data:     b64Envio,
+                    mimeType: mimeEnvio,
+                    nombre:   nombreEnvio
                 });
             }
 
