@@ -1126,40 +1126,34 @@ async function pdfPaginaAPNG(file, escala) {
     // Leer archivo como ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
 
-    // Cargar el PDF — renderizar TODAS las páginas (ej. constancia SAT tiene 2)
+    // Cargar el PDF — renderizar TODAS las páginas en un solo canvas vertical
+    // (la constancia SAT tiene 2 páginas: RFC/nombre en p1, CURP/domicilio en p2)
     const pdf        = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const numPaginas = pdf.numPages;
 
-    // Renderizar cada página en su propio canvas
     const canvases = [];
-    let anchoMax = 0;
-    let altoTotal = 0;
-
+    let anchoMax = 0, altoTotal = 0;
     for (let i = 1; i <= numPaginas; i++) {
-        const pagina   = await pdf.getPage(i);
-        const viewport = pagina.getViewport({ scale: escala });
+        const pag      = await pdf.getPage(i);
+        const viewport = pag.getViewport({ scale: escala });
         const c        = document.createElement('canvas');
         c.width        = viewport.width;
         c.height       = viewport.height;
-        await pagina.render({ canvasContext: c.getContext('2d'), viewport }).promise;
+        await pag.render({ canvasContext: c.getContext('2d'), viewport }).promise;
         canvases.push(c);
         anchoMax   = Math.max(anchoMax, c.width);
         altoTotal += c.height;
     }
 
-    // Combinar todas las páginas en un solo canvas vertical
-    const canvasFinal  = document.createElement('canvas');
-    canvasFinal.width  = anchoMax;
-    canvasFinal.height = altoTotal;
-    const ctx = canvasFinal.getContext('2d');
-    let offsetY = 0;
-    for (const c of canvases) {
-        ctx.drawImage(c, 0, offsetY);
-        offsetY += c.height;
-    }
+    // Combinar todas las páginas verticalmente
+    const final   = document.createElement('canvas');
+    final.width   = anchoMax;
+    final.height  = altoTotal;
+    const ctx     = final.getContext('2d');
+    let offsetY   = 0;
+    for (const c of canvases) { ctx.drawImage(c, 0, offsetY); offsetY += c.height; }
 
-    // Exportar como PNG base64 (sin encabezado)
-    const dataUrl = canvasFinal.toDataURL('image/png');
+    const dataUrl = final.toDataURL('image/png');
     return dataUrl.split(',')[1];
 }
 
@@ -1249,12 +1243,10 @@ async function ejecutarOCR() {
                 continue;
             }
 
-            // Acumular los datos detectados de todos los archivos
-            // Prioridad por tipo de documento: la fuente canónica de cada campo
-            // no se sobreescribe por documentos de menor autoridad.
-            const tipoDetectado = (r.tipoDocumento || '').toUpperCase();
-            const AUTORIDAD_OCR = {
-                'SAT':       new Set(['rfc','nombreTrabajador','curp','domicilioCompleto']),
+            // Acumular con prioridad por tipo de documento
+            const _tipo = (r.tipoDocumento || '').toUpperCase();
+            const _autoridad = {
+                'SAT':       new Set(['rfc','curp','nombreTrabajador','domicilioCompleto']),
                 'CURP':      new Set(['curp','nombreTrabajador']),
                 'INE':       new Set(['nombreTrabajador','curp','domicilioCompleto']),
                 'IMSS':      new Set(['nss','nombreTrabajador','curp']),
@@ -1265,14 +1257,10 @@ async function ejecutarOCR() {
                 'ACTA':      new Set(['nombreTrabajador','curp']),
                 'TITULO':    new Set(['nombreTrabajador','escolaridad']),
             };
-            const camposAutorizados = AUTORIDAD_OCR[tipoDetectado] || null;
+            const _auth = _autoridad[_tipo] || null;
             Object.entries(r.datos || {}).forEach(([k, v]) => {
                 if (!v || !v.toString().trim()) return;
-                // Siempre acepta si el campo está vacío.
-                // Si ya hay valor, solo lo sobreescribe si este tipo tiene autoridad sobre ese campo.
-                if (!acum[k] || !camposAutorizados || camposAutorizados.has(k)) {
-                    acum[k] = v.toString().trim();
-                }
+                if (!acum[k] || !_auth || _auth.has(k)) acum[k] = v.toString().trim();
             });
 
         } catch (e) {
@@ -6176,3 +6164,30 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
         }
     });
 }
+
+// ════════════════════════════════════════════════════════════
+// MAYÚSCULAS GLOBALES — todos los inputs de texto
+// Excluye: email, password, date, number y campos con data-nouppercase
+// ════════════════════════════════════════════════════════════
+(function(){
+    const _EXCL_TYPE = new Set(['email','password','search','number','date','time','tel']);
+    const _EXCL_ID   = new Set(['correoElectronico','correo','email','password','contrasena','token']);
+    function _upper(el){
+        if(!el || el.tagName==='SELECT') return;
+        if(_EXCL_TYPE.has((el.type||'').toLowerCase())) return;
+        if(_EXCL_ID.has(el.name||'') || _EXCL_ID.has(el.id||'')) return;
+        if(el.dataset.nouppercase!==undefined) return;
+        if((el.className||'').includes('no-upper')) return;
+        const pos=el.selectionStart;
+        el.value=el.value.toUpperCase();
+        try{el.setSelectionRange(pos,pos);}catch(e){}
+    }
+    document.addEventListener('input', e=>{
+        const el=e.target;
+        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') _upper(el);
+    }, true);
+    document.addEventListener('paste', e=>{
+        const el=e.target;
+        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') setTimeout(()=>_upper(el),0);
+    }, true);
+})();
