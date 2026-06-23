@@ -861,10 +861,14 @@ function renderizarPasoActual(){
 
     // ── Pasos normales ────────────────────────────────────────
     const cols={blue:'bg-blue-50 text-blue-600',indigo:'bg-indigo-50 text-indigo-600',teal:'bg-teal-50 text-teal-600',cyan:'bg-cyan-50 text-cyan-600',rose:'bg-rose-50 text-rose-600',green:'bg-emerald-50 text-emerald-600'};
+    const accionBtn = paso.accion
+        ? `<button type="button" onclick="${paso.accion.fn}" class="ml-auto flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition"><i class="fas fa-magic"></i>${paso.accion.label}</button>`
+        : '';
     el.innerHTML=`
       <div class="flex items-center gap-4 mb-6 pb-5 border-b border-slate-100">
         <div class="w-12 h-12 rounded-xl ${cols[paso.color]||'bg-slate-100 text-slate-500'} flex items-center justify-center flex-shrink-0"><i class="fas ${paso.icono} text-xl"></i></div>
-        <div><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
+        <div class="flex-1"><h3 class="text-base font-bold text-slate-800">${paso.titulo}</h3><p class="text-sm text-slate-400 mt-0.5">${paso.descripcion}</p></div>
+        ${accionBtn}
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${paso.campos.map(c=>renderizarCampo(c)).join('')}</div>`;
 
@@ -1276,7 +1280,29 @@ function guardarPasoActual(){
 function restaurarValoresPaso(){
     const paso=PASOS[pasoActual];
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
-    if(paso.id==='paso-personal')calcularRangoEdadAuto();
+    if(paso.id==='paso-personal') calcularRangoEdadAuto();
+    if(paso.id==='paso-contrato'){
+        // Adjuntar listener de cambio en fecha inicio contrato para auto-calcular
+        var elFecIni = document.getElementById('alta_fechaInicioContrato');
+        if(elFecIni && !elFecIni._calcListenerAttached){
+            elFecIni.addEventListener('change', function(){ calcularFechasContrato(); });
+            elFecIni._calcListenerAttached = true;
+        }
+        // También en tipoIngreso/tipoContrato para recalcular al cambiar
+        var elTipo = document.getElementById('alta_tipoIngreso');
+        if(elTipo && !elTipo._calcListenerAttached){
+            elTipo.addEventListener('change', function(){
+                if(document.getElementById('alta_fechaInicioContrato')?.value) calcularFechasContrato();
+            });
+            elTipo._calcListenerAttached = true;
+        }
+        // Auto-calcular si ya hay fecha y aún no hay fechas calculadas
+        setTimeout(function(){
+            var fi = document.getElementById('alta_fechaInicioContrato');
+            var vc = document.getElementById('alta_vencimientoPrimerContrato');
+            if(fi && fi.value && (!vc || !vc.value)) calcularFechasContrato();
+        }, 150);
+    }
 }
 function irAPaso(idx){
     if(idx>pasoActual){if(!guardarPasoActual())return;}else guardarPasoActual();
@@ -2372,12 +2398,43 @@ function activarTabPersonas(tab, btnEl) {
     }
     const cont = document.getElementById('personas-contenido');
     if(!cont) return;
-    cont.innerHTML = '<div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div>';
 
-    if(tab==='directorio')    renderDirectorio(cont);
-    else if(tab==='organigrama') renderOrganigrama(cont);
-    else if(tab==='informes') renderInformesPersonas(cont);
-    else if(tab==='admin')    renderAdminPersonas(cont);
+    // Segmentador de grupos comerciales
+    const grupos = [...new Set(cacheGlobal.map(function(e){
+        return (e["GRUPO COMERCIAL"]||"").toString().trim();
+    }).filter(Boolean))].sort();
+    const grupoActual = window._personasGrupoFiltro || '';
+    const segHtml = grupos.length > 1
+        ? '<div class="flex items-center gap-2 flex-wrap mb-4 px-1 py-1">'
+          +'<span class="text-xs font-bold text-slate-400 uppercase tracking-wide">Grupo:</span>'
+          +'<button onclick="filtrarPersonasPorGrupo(\'\',this)" class="px-3 py-1 rounded-full text-xs font-semibold transition '+(grupoActual===''?'bg-violet-600 text-white':'bg-slate-100 text-slate-600 hover:bg-violet-50')+'">Todos</button>'
+          +grupos.map(function(g){
+              return '<button onclick="filtrarPersonasPorGrupo(\''+g.replace(/'/g,"\\'")+'\',this)" class="px-3 py-1 rounded-full text-xs font-semibold transition '+(grupoActual===g?'bg-violet-600 text-white':'bg-slate-100 text-slate-600 hover:bg-violet-50')+'">'+g+'</button>';
+          }).join('')+'</div>'
+        : '';
+    cont.innerHTML = segHtml + '<div id="personas-tab-contenido"><div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div></div>';
+    window._personasTabActual = tab;
+    const subcont = document.getElementById('personas-tab-contenido');
+    if(tab==='directorio')    renderDirectorio(subcont);
+    else if(tab==='organigrama') renderOrganigrama(subcont);
+    else if(tab==='informes') renderInformesPersonas(subcont);
+    else if(tab==='admin')    renderAdminPersonas(subcont);
+}
+
+function filtrarPersonasPorGrupo(grupo, btn) {
+    window._personasGrupoFiltro = grupo;
+    document.querySelectorAll('[onclick^="filtrarPersonasPorGrupo"]').forEach(function(b){
+        b.className = b.className.replace('bg-violet-600 text-white','bg-slate-100 text-slate-600 hover:bg-violet-50');
+    });
+    if(btn) btn.className = btn.className.replace('bg-slate-100 text-slate-600 hover:bg-violet-50','bg-violet-600 text-white');
+    const tab = window._personasTabActual || 'directorio';
+    const subcont = document.getElementById('personas-tab-contenido');
+    if(!subcont) return;
+    subcont.innerHTML = '<div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div>';
+    if(tab==='directorio')    renderDirectorio(subcont);
+    else if(tab==='organigrama') renderOrganigrama(subcont);
+    else if(tab==='informes') renderInformesPersonas(subcont);
+    else if(tab==='admin')    renderAdminPersonas(subcont);
 }
 
 // ── Obtener datos (cache 5 min) ───────────────────────────────
@@ -2715,9 +2772,18 @@ function abrirPerfilPersona(idInterno) {
 // ── Construir árbol de organigrama desde cacheGlobal ─────────
 function construirArbolDesdeCache() {
     if(!cacheGlobal || !cacheGlobal.length) return [];
+    const grupoFiltro = (window._personasGrupoFiltro || '').trim();
 
     const empleados = cacheGlobal
-        .filter(function(e){ return (e["NO. EMPLEADO"]||"").toString().trim(); })
+        .filter(function(e){
+            if(!(e["NO. EMPLEADO"]||"").toString().trim()) return false;
+            if((e["ESTATUS"]||"").toString().trim() !== "Activo") return false;
+            if(grupoFiltro){
+                const g = (e["GRUPO COMERCIAL"]||"").toString().trim();
+                if(g !== grupoFiltro) return false;
+            }
+            return true;
+        })
         .map(function(e){
             return {
                 idInterno:  (e["ID INTERNO"]||"").toString().trim(),
@@ -2793,13 +2859,6 @@ async function renderOrganigrama(cont) {
 
     window._orgArbol = arbol;
     renderNodosOrg(arbol, '');
-    setTimeout(function(){
-        var w=document.getElementById('org-wrap');
-        if(w) w.addEventListener('click',function(e){
-            var card=e.target.closest('.org-card');
-            if(card && card.dataset.id) abrirPerfilPersona(card.dataset.id);
-        });
-    },100);
 }
 
 function flattenArbol(nodos) {
@@ -2825,7 +2884,6 @@ function renderNodosOrg(nodos, empFiltro) {
     if(!wrap) return;
 
     const todos = flattenArbol(nodos);
-    const sinJefe = todos.filter(function(n){ return !n.jefe || !n.jefe.trim(); });
     const conJefe = todos.filter(function(n){ return n.jefe && n.jefe.trim(); });
 
     if(!nodos.length){
@@ -2835,23 +2893,66 @@ function renderNodosOrg(nodos, empFiltro) {
         return;
     }
 
-    // Aviso si pocos tienen jefe asignado
     const avisoHtml = conJefe.length === 0
-        ? '<div class="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700">'
-          +'<i class="fas fa-triangle-exclamation mr-1.5"></i>'
-          +'<strong>Sin jerarquía definida</strong> — ningún empleado tiene Jefe Directo asignado. '
-          +'Edita los expedientes y asigna el ID INTERNO del jefe en el campo "Jefe Directo".</div>'
+        ? '<div class="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700"><i class="fas fa-triangle-exclamation mr-1.5"></i><strong>Sin jerarquía definida</strong> — ningún empleado tiene Jefe Directo asignado. Edita los expedientes y asigna el ID INTERNO del jefe en el campo "Jefe Directo".</div>'
         : conJefe.length < todos.length
-            ? '<div class="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700">'
-              +'<i class="fas fa-info-circle mr-1.5"></i>'
-              +conJefe.length+' de '+todos.length+' empleados tienen jefe asignado. '
-              +(todos.length-conJefe.length)+' aparecen como raíces sin jefe.</div>'
+            ? '<div class="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-xs text-blue-700"><i class="fas fa-info-circle mr-1.5"></i>'+conJefe.length+' de '+todos.length+' empleados tienen jefe asignado.</div>'
             : '';
 
-    // Si hay más de 20 raíces, usar vista de lista más compacta
-    const claseArbol = nodos.length > 20 ? 'org-tree lista-plana' : 'org-tree';
-    wrap.innerHTML = avisoHtml + '<div class="' + claseArbol + '">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
+    // Siempre árbol — nunca lista plana
+    wrap.innerHTML = avisoHtml + '<div class="org-tree">'+renderNodoHtml(nodos, 0, empFiltro)+'</div>';
+
+    // Click: modal de relaciones
+    wrap.addEventListener('click', function(e){
+        var card = e.target.closest('.org-card');
+        if(card && card.dataset.id) mostrarRelacionesOrg(card.dataset.id);
+    });
 }
+
+function mostrarRelacionesOrg(idInterno) {
+    const todos = flattenArbol(window._orgArbol || []);
+    const mapa  = {};
+    todos.forEach(function(n){ if(n.idInterno) mapa[n.idInterno] = n; });
+    const persona = mapa[idInterno];
+    if(!persona) return;
+
+    const jefe = persona.jefe ? mapa[persona.jefe] : null;
+    const subordinados = todos.filter(function(n){ return n.jefe === idInterno; });
+    const compañeros   = jefe ? todos.filter(function(n){ return n.jefe === jefe.idInterno && n.idInterno !== idInterno; }) : [];
+
+    function tarjeta(n, tipo) {
+        const ini = getIniciales(n.nombre)||'?', color = avatarColor(n.nombre);
+        const badges = {jefe:'text-violet-600 bg-violet-50',sub:'text-blue-600 bg-blue-50',comp:'text-slate-500 bg-slate-100'};
+        const labels = {jefe:'Jefe',sub:'Subordinado',comp:'Compañero'};
+        return '<div class="flex items-center gap-3 py-2 border-b border-slate-50 last:border-0">'
+            +'<div class="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+color+'">'+ini+'</div>'
+            +'<div class="flex-1 min-w-0"><p class="text-sm font-semibold text-slate-800 truncate">'+n.nombre+'</p>'
+            +'<p class="text-xs text-slate-400 truncate">'+n.puesto+(n.depto?' · '+n.depto:'')+'</p></div>'
+            +'<span class="text-xs font-bold px-2 py-0.5 rounded-full '+badges[tipo]+'">'+labels[tipo]+'</span></div>';
+    }
+
+    const ini = getIniciales(persona.nombre)||'?', color = avatarColor(persona.nombre);
+    const html = '<div id="org-modal-overlay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onclick="if(event.target===this)cerrarModalOrg()">'
+        +'<div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">'
+        +'<div class="flex items-center gap-4 p-5 border-b border-slate-100">'
+        +'<div class="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-bold flex-shrink-0" style="background:'+color+'">'+ini+'</div>'
+        +'<div class="flex-1"><p class="text-base font-bold text-slate-800">'+persona.nombre+'</p>'
+        +'<p class="text-sm text-slate-400">'+persona.puesto+(persona.depto?' · '+persona.depto:'')+'</p>'
+        +'<p class="text-xs text-violet-500 font-semibold mt-0.5">'+persona.empresa+'</p></div>'
+        +'<button onclick="cerrarModalOrg()" class="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 transition"><i class="fas fa-times"></i></button>'
+        +'</div>'
+        +'<div class="flex-1 overflow-y-auto p-5 space-y-4">'
+        +(jefe ? '<div><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2"><i class="fas fa-arrow-up text-violet-400 mr-1.5"></i>Jefe Directo</p>'+tarjeta(jefe,'jefe')+'</div>'
+               : '<div class="bg-slate-50 rounded-xl p-3 text-xs text-slate-400 text-center"><i class="fas fa-crown mr-1"></i>Sin jefe directo asignado</div>')
+        +(subordinados.length ? '<div><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2"><i class="fas fa-arrow-down text-blue-400 mr-1.5"></i>Subordinados ('+subordinados.length+')</p>'+subordinados.map(function(s){return tarjeta(s,'sub');}).join('')+'</div>' : '')
+        +(compañeros.length ? '<div><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2"><i class="fas fa-users text-slate-400 mr-1.5"></i>Compañeros ('+compañeros.length+')</p>'+compañeros.slice(0,8).map(function(c){return tarjeta(c,'comp');}).join('')+(compañeros.length>8?'<p class="text-xs text-slate-400 text-center pt-2">...y '+(compañeros.length-8)+' más</p>':'')+'</div>' : '')
+        +'</div></div></div>';
+
+    var existing = document.getElementById('org-modal-overlay');
+    if(existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+function cerrarModalOrg() { var m=document.getElementById('org-modal-overlay'); if(m) m.remove(); }
 
 function renderNodoHtml(nodos, nivel, empFiltro) {
     return nodos.map(function(e){
@@ -4644,7 +4745,7 @@ function renderizarDrawer(emp){
         +'<div><p class="text-xs font-bold text-violet-700">Reingreso detectado</p>'
         +'<p class="text-xs text-violet-500">Esta persona tiene períodos anteriores registrados. Consulta el historial al final del expediente.</p></div></div>') : '');
     var _p2 = sec("Datos Laborales","fa-briefcase","text-blue-500",
-        ro("No. Empleado",E["NO. EMPLEADO"])+
+        ed("ed_noEmpleado","No. Empleado",E["NO. EMPLEADO"],"number")+
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
         ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
         ro("Antigüedad ⟵ fórmula Sheet",E["ANTIGÜEDAD"])+
@@ -4810,6 +4911,7 @@ async function guardarCambiosEditor(){
         numeroEmpleado: id,
         empresa:        empleadoEdicion["EMPRESA"] || "",
         campos:{
+            "NO. EMPLEADO":            document.getElementById('ed_noEmpleado')?.value||undefined,
             "EMPRESA":                 document.getElementById('ed_empresa')?.value||undefined,
             "GRUPO COMERCIAL":         document.getElementById('ed_grupoComercial')?.value||undefined,
             "PUESTO":                  document.getElementById('ed_puesto')?.value||undefined,
