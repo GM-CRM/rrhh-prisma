@@ -1126,21 +1126,40 @@ async function pdfPaginaAPNG(file, escala) {
     // Leer archivo como ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
 
-    // Cargar el PDF
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const pagina = await pdf.getPage(1); // primera página
+    // Cargar el PDF — renderizar TODAS las páginas (ej. constancia SAT tiene 2)
+    const pdf        = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const numPaginas = pdf.numPages;
 
-    // Renderizar en canvas a alta resolución
-    const viewport = pagina.getViewport({ scale: escala });
-    const canvas   = document.createElement('canvas');
-    canvas.width   = viewport.width;
-    canvas.height  = viewport.height;
-    const ctx = canvas.getContext('2d');
+    // Renderizar cada página en su propio canvas
+    const canvases = [];
+    let anchoMax = 0;
+    let altoTotal = 0;
 
-    await pagina.render({ canvasContext: ctx, viewport: viewport }).promise;
+    for (let i = 1; i <= numPaginas; i++) {
+        const pagina   = await pdf.getPage(i);
+        const viewport = pagina.getViewport({ scale: escala });
+        const c        = document.createElement('canvas');
+        c.width        = viewport.width;
+        c.height       = viewport.height;
+        await pagina.render({ canvasContext: c.getContext('2d'), viewport }).promise;
+        canvases.push(c);
+        anchoMax   = Math.max(anchoMax, c.width);
+        altoTotal += c.height;
+    }
+
+    // Combinar todas las páginas en un solo canvas vertical
+    const canvasFinal  = document.createElement('canvas');
+    canvasFinal.width  = anchoMax;
+    canvasFinal.height = altoTotal;
+    const ctx = canvasFinal.getContext('2d');
+    let offsetY = 0;
+    for (const c of canvases) {
+        ctx.drawImage(c, 0, offsetY);
+        offsetY += c.height;
+    }
 
     // Exportar como PNG base64 (sin encabezado)
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = canvasFinal.toDataURL('image/png');
     return dataUrl.split(',')[1];
 }
 
@@ -1231,8 +1250,29 @@ async function ejecutarOCR() {
             }
 
             // Acumular los datos detectados de todos los archivos
+            // Prioridad por tipo de documento: la fuente canónica de cada campo
+            // no se sobreescribe por documentos de menor autoridad.
+            const tipoDetectado = (r.tipoDocumento || '').toUpperCase();
+            const AUTORIDAD_OCR = {
+                'SAT':       new Set(['rfc','nombreTrabajador','curp','domicilioCompleto']),
+                'CURP':      new Set(['curp','nombreTrabajador']),
+                'INE':       new Set(['nombreTrabajador','curp','domicilioCompleto']),
+                'IMSS':      new Set(['nss','nombreTrabajador','curp']),
+                'CFE':       new Set(['domicilioCompleto','nombreTrabajador']),
+                'TELMEX':    new Set(['domicilioCompleto','nombreTrabajador']),
+                'AGUA':      new Set(['domicilioCompleto','nombreTrabajador']),
+                'PASAPORTE': new Set(['nombreTrabajador','curp']),
+                'ACTA':      new Set(['nombreTrabajador','curp']),
+                'TITULO':    new Set(['nombreTrabajador','escolaridad']),
+            };
+            const camposAutorizados = AUTORIDAD_OCR[tipoDetectado] || null;
             Object.entries(r.datos || {}).forEach(([k, v]) => {
-                if (v && v.toString().trim()) acum[k] = v.toString().trim();
+                if (!v || !v.toString().trim()) return;
+                // Siempre acepta si el campo está vacío.
+                // Si ya hay valor, solo lo sobreescribe si este tipo tiene autoridad sobre ese campo.
+                if (!acum[k] || !camposAutorizados || camposAutorizados.has(k)) {
+                    acum[k] = v.toString().trim();
+                }
             });
 
         } catch (e) {
@@ -6136,40 +6176,3 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
         }
     });
 }
-
-// ════════════════════════════════════════════════════════════
-// MAYÚSCULAS GLOBALES — todos los inputs de texto
-// Excluye: type=email, type=password, type=search, y campos
-// con data-nouppercase o class que contenga "no-upper"
-// ════════════════════════════════════════════════════════════
-(function(){
-    const EXCLUIR_TYPES = new Set(['email','password','search','number','date','time','tel']);
-    const EXCLUIR_NAMES = new Set(['correoElectronico','correo','email','password','contrasena','token']);
-
-    function aplicarMayusculas(el){
-        if(!el || el.tagName === 'SELECT') return;
-        const tipo = (el.type||'').toLowerCase();
-        if(EXCLUIR_TYPES.has(tipo)) return;
-        if(EXCLUIR_NAMES.has(el.name||'') || EXCLUIR_NAMES.has(el.id||'')) return;
-        if(el.dataset.nouppercase !== undefined) return;
-        if((el.className||'').includes('no-upper')) return;
-        const pos = el.selectionStart;
-        el.value = el.value.toUpperCase();
-        try{ el.setSelectionRange(pos, pos); }catch(e){}
-    }
-
-    document.addEventListener('input', function(e){
-        const el = e.target;
-        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
-            aplicarMayusculas(el);
-        }
-    }, true);
-
-    // También aplicar al pegar con paste
-    document.addEventListener('paste', function(e){
-        const el = e.target;
-        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
-            setTimeout(function(){ aplicarMayusculas(el); }, 0);
-        }
-    }, true);
-})();
