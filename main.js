@@ -6136,3 +6136,40 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
         }
     });
 }
+
+// ════════════════════════════════════════════════════════════
+// MAYÚSCULAS GLOBALES — todos los inputs de texto
+// Excluye: type=email, type=password, type=search, y campos
+// con data-nouppercase o class que contenga "no-upper"
+// ════════════════════════════════════════════════════════════
+(function(){
+    const EXCLUIR_TYPES = new Set(['email','password','search','number','date','time','tel']);
+    const EXCLUIR_NAMES = new Set(['correoElectronico','correo','email','password','contrasena','token']);
+
+    function aplicarMayusculas(el){
+        if(!el || el.tagName === 'SELECT') return;
+        const tipo = (el.type||'').toLowerCase();
+        if(EXCLUIR_TYPES.has(tipo)) return;
+        if(EXCLUIR_NAMES.has(el.name||'') || EXCLUIR_NAMES.has(el.id||'')) return;
+        if(el.dataset.nouppercase !== undefined) return;
+        if((el.className||'').includes('no-upper')) return;
+        const pos = el.selectionStart;
+        el.value = el.value.toUpperCase();
+        try{ el.setSelectionRange(pos, pos); }catch(e){}
+    }
+
+    document.addEventListener('input', function(e){
+        const el = e.target;
+        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
+            aplicarMayusculas(el);
+        }
+    }, true);
+
+    // También aplicar al pegar con paste
+    document.addEventListener('paste', function(e){
+        const el = e.target;
+        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'){
+            setTimeout(function(){ aplicarMayusculas(el); }, 0);
+        }
+    }, true);
+})();
