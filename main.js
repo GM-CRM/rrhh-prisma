@@ -637,7 +637,9 @@ function calcularFechasContrato() {
 
     var el_ti  = document.getElementById('alta_tipoIngreso');
     var tipo   = el_ti ? el_ti.value.toLowerCase() : '';
+    // 'Administrativo' → 6 contratos; 'Operativo' (o vacío) → 3 contratos
     var numC   = tipo.indexOf('admin') !== -1 ? 6 : 3;
+    console.log('[Contratos] tipo='+tipo+' numC='+numC);
     var PAIRS  = [
         ['alta_fechaInicioContrato',  'alta_vencimientoPrimerContrato'],
         ['alta_iniciSegundoContrato', 'alta_vencSegundoContrato'],
@@ -6018,6 +6020,12 @@ async function arrancarApp(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', arrancarApp);
 else arrancarApp();
 
+// Actualizar barra Drive al cargar y cada 5 min
+window.addEventListener('load', function(){
+    setTimeout(actualizarBarraDrive, 3000);
+    setInterval(actualizarBarraDrive, 5 * 60 * 1000);
+});
+
 // ════════════════════════════════════════════════════════════
 // HISTORIAL DE CARRERA
 // ════════════════════════════════════════════════════════════
@@ -6190,4 +6198,51 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
         const el=e.target;
         if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') setTimeout(()=>_upper(el),0);
     }, true);
+})();
+
+// ════════════════════════════════════════════════════════════
+// BARRA DE ALMACENAMIENTO DRIVE
+// ════════════════════════════════════════════════════════════
+async function actualizarBarraDrive() {
+    try {
+        const r = await llamarGAS({ action: 'getDriveUsage' });
+        if (r.status !== 'success') return;
+        const pct  = r.pct || 0;
+        const used = r.usedGB || 0;
+        const lim  = r.limitGB || 6;
+        // Color según uso
+        const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#8b5cf6';
+        const bar  = document.getElementById('drive-storage-bar');
+        const txt  = document.getElementById('drive-storage-txt');
+        const fill = document.getElementById('drive-storage-fill');
+        if (bar)  bar.style.display  = 'flex';
+        if (txt)  txt.textContent    = used.toFixed(2) + ' GB / ' + lim + ' GB (' + pct + '%)';
+        if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
+    } catch(e) { /* silencioso */ }
+}
+
+// ════════════════════════════════════════════════════════════
+// MAYÚSCULAS GLOBALES — todos los inputs de texto
+// ════════════════════════════════════════════════════════════
+(function(){
+    const _EX_TYPE = new Set(['email','password','search','number','date','time','tel']);
+    const _EX_ID   = new Set(['correoElectronico','correo','email','password','contrasena','token']);
+    function _upper(el){
+        if(!el||el.tagName==='SELECT') return;
+        if(_EX_TYPE.has((el.type||'').toLowerCase())) return;
+        if(_EX_ID.has(el.name||'')||_EX_ID.has(el.id||'')) return;
+        if(el.dataset.nouppercase!==undefined) return;
+        if((el.className||'').includes('no-upper')) return;
+        const pos=el.selectionStart;
+        el.value=el.value.toUpperCase();
+        try{el.setSelectionRange(pos,pos);}catch(e){}
+    }
+    document.addEventListener('input',e=>{
+        const el=e.target;
+        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') _upper(el);
+    },true);
+    document.addEventListener('paste',e=>{
+        const el=e.target;
+        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') setTimeout(()=>_upper(el),0);
+    },true);
 })();
