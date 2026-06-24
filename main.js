@@ -623,26 +623,25 @@ function mostrarSugerenciasEstaticas(query, lista, input){
 
 // ── Mostrar/ocultar contratos 4-6 según tipo de ingreso ──────
 function actualizarVisibilidadContratos() {
-    // setTimeout para asegurar que el DOM ya tiene los campos renderizados
-    setTimeout(function() {
-        var elTipo  = document.getElementById('alta_tipoIngreso');
-        var tipo    = elTipo ? elTipo.value.toLowerCase() : '';
-        var esAdmin = tipo.indexOf('admin') !== -1;
-        var ids456  = ['alta_fechaInicioContrato4','alta_vencimientoContrato4',
-                       'alta_fechaInicioContrato5','alta_vencimientoContrato5',
-                       'alta_fechaInicioContrato6','alta_vencimientoContrato6'];
-        ids456.forEach(function(id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            // Subir hasta encontrar el wrapper del campo (div con data-campo-id o label+input)
-            var wrap = el.closest('[data-campo-id]')
-                    || el.closest('div[class*="col-span"]')
-                    || el.parentElement;
-            if (wrap) wrap.style.display = esAdmin ? '' : 'none';
-        });
-        console.log('[Contratos] tipo='+tipo+' esAdmin='+esAdmin+
-                    ' ids456 encontrados='+ids456.filter(function(id){return !!document.getElementById(id);}).length);
-    }, 200);
+    // Leer de altaData (persiste entre pasos) en lugar del DOM
+    // alta_tipoIngreso está en paso-empleo que ya no está en el DOM cuando estamos en paso-contrato
+    var tipo    = (altaData.tipoIngreso || '').toLowerCase();
+    // También intentar leer del DOM si está disponible (cuando estamos en paso-empleo)
+    var elTipo  = document.getElementById('alta_tipoIngreso');
+    if (elTipo && elTipo.value) tipo = elTipo.value.toLowerCase();
+
+    var esAdmin = tipo.indexOf('admin') !== -1;
+    var ids456  = ['alta_fechaInicioContrato4','alta_vencimientoContrato4',
+                   'alta_fechaInicioContrato5','alta_vencimientoContrato5',
+                   'alta_fechaInicioContrato6','alta_vencimientoContrato6'];
+    ids456.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var wrap = el.closest('[data-campo-id]') || el.parentElement;
+        if (wrap) wrap.style.display = esAdmin ? '' : 'none';
+    });
+    console.log('[Contratos] tipo='+tipo+' esAdmin='+esAdmin+
+                ' ids456 encontrados='+ids456.filter(function(id){return !!document.getElementById(id);}).length);
 }
 
 // ── Calcular fechas de contratos (3 Operativo / 6 Administrativo) ─
@@ -738,21 +737,21 @@ const PASOS=[
 
 
     {id:'paso-contrato',titulo:'Contrato',icono:'fa-file-contract',color:'indigo',descripcion:'Tipo, vigencias y seguimiento de contratos',accion:{label:'Calcular fechas automaticamente',fn:'calcularFechasContrato()'},campos:[
+        {id:"entrevista15Dias",          label:"Entrevista Ajuste 15 Días",   type:"select",req:false,col:2,options:["Pendiente","Sí","No"]},
+        {id:"entrevista45Dias",          label:"Entrevista y Eval. 45 Días",  type:"select",req:false,col:2,options:["Pendiente","Sí","No"]},
         {id:"tipoContrato",              label:"Tipo de Contrato",            type:"select",req:true, col:2,options:["Tiempo Indeterminado","Prueba","Temporal"]},
         {id:"fechaInicioContrato",       label:"Inicio 1er Contrato",         type:"date",  req:false,col:2},
         {id:"vencimientoPrimerContrato", label:"Vencimiento 1er Contrato",    type:"date",  req:false,col:2},
-        {id:"entrevista15Dias",          label:"Entrevista Ajuste 15 Días",   type:"select",req:false,col:2,options:["Pendiente","Sí","No"]},
-        {id:"entrevista45Dias",          label:"Entrevista y Eval. 45 Días",  type:"select",req:false,col:2,options:["Pendiente","Sí","No"]},
         {id:"iniciSegundoContrato",      label:"Inicio 2do Contrato",         type:"date",  req:false,col:2},
         {id:"vencSegundoContrato",       label:"Vencimiento 2do Contrato",    type:"date",  req:false,col:2},
         {id:"iniciTercerContrato",       label:"Inicio 3er Contrato",         type:"date",  req:false,col:2},
         {id:"vencTercerContrato",        label:"Vencimiento 3er Contrato",    type:"date",  req:false,col:2},
-        {id:"fechaInicioContrato4",      label:"Inicio 4to Contrato",         type:"date",  req:false,col:2},
-        {id:"vencimientoContrato4",      label:"Vencimiento 4to Contrato",    type:"date",  req:false,col:2},
-        {id:"fechaInicioContrato5",      label:"Inicio 5to Contrato",         type:"date",  req:false,col:2},
-        {id:"vencimientoContrato5",      label:"Vencimiento 5to Contrato",    type:"date",  req:false,col:2},
-        {id:"fechaInicioContrato6",      label:"Inicio 6to Contrato",         type:"date",  req:false,col:2},
-        {id:"vencimientoContrato6",      label:"Vencimiento 6to Contrato",    type:"date",  req:false,col:2},
+        {id:"fechaInicioContrato4",      label:"Inicio 4to Contrato",         type:"date",  req:false,col:2,adminOnly:true},
+        {id:"vencimientoContrato4",      label:"Vencimiento 4to Contrato",    type:"date",  req:false,col:2,adminOnly:true},
+        {id:"fechaInicioContrato5",      label:"Inicio 5to Contrato",         type:"date",  req:false,col:2,adminOnly:true},
+        {id:"vencimientoContrato5",      label:"Vencimiento 5to Contrato",    type:"date",  req:false,col:2,adminOnly:true},
+        {id:"fechaInicioContrato6",      label:"Inicio 6to Contrato",         type:"date",  req:false,col:2,adminOnly:true},
+        {id:"vencimientoContrato6",      label:"Vencimiento 6to Contrato",    type:"date",  req:false,col:2,adminOnly:true},
         {id:"fechaEval360",              label:"Fecha Evaluación 360°",       type:"date",  req:false,col:2},
     ]},
     // PASO 3 — Datos personales
@@ -984,7 +983,9 @@ function renderizarCampo(c){
     }else{
         inp=`<input type="${c.type}" id="alta_${c.id}" ${c.req?'required':''} ${ml} ${ph} ${c.readonly?'readonly tabindex="-1"':''} class="${cls} ${c.readonly?'bg-slate-50 text-slate-400 cursor-default':''}">`;
     }
-    return`<div class="${span}" data-campo-id="alta_${c.id}"><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">${c.label} ${req}${nota}</label>${inp}</div>`;
+    // adminOnly: oculto por defecto, se muestra solo cuando tipoIngreso = Administrativo
+    const estiloAdmin = c.adminOnly ? ' style="display:none"' : '';
+    return`<div class="${span}" data-campo-id="alta_${c.id}"${estiloAdmin}><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">${c.label} ${req}${nota}</label>${inp}</div>`;
 }
 
 function manejarDrop(event){
@@ -1399,7 +1400,8 @@ function restaurarValoresPaso(){
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
     if(paso.id==='paso-personal') calcularRangoEdadAuto();
     if(paso.id==='paso-contrato'){
-        actualizarVisibilidadContratos();
+        // Ejecutar con delay para que el DOM esté completamente renderizado
+        setTimeout(function(){ actualizarVisibilidadContratos(); }, 50);
         // Adjuntar listener de cambio en fecha inicio contrato para auto-calcular
         var elFecIni = document.getElementById('alta_fechaInicioContrato');
         if(elFecIni && !elFecIni._calcListenerAttached){
