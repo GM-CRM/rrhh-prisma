@@ -1,4 +1,3 @@
-
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -6205,7 +6204,7 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
 // ════════════════════════════════════════════════════════════
 async function actualizarBarraDrive() {
     try {
-        const r = await llamarGAS({ action: 'getDriveUsage' });
+        const r = await enviarPeticion('getDriveUsage', {});
         if (r.status !== 'success') return;
         const pct  = r.pct || 0;
         const used = r.usedGB || 0;
