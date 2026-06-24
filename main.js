@@ -623,14 +623,12 @@ function mostrarSugerenciasEstaticas(query, lista, input){
 
 // ── Mostrar/ocultar contratos 4-6 según tipo de ingreso ──────
 function actualizarVisibilidadContratos() {
-    var elTipo = document.getElementById('alta_tipoIngreso');
-    var tipo   = elTipo ? elTipo.value.toLowerCase() : '';
+    var elTipo  = document.getElementById('alta_tipoIngreso');
+    var tipo    = elTipo ? elTipo.value.toLowerCase() : '';
     var esAdmin = tipo.indexOf('admin') !== -1;
-    var ids456 = [
-        'alta_fechaInicioContrato4','alta_vencimientoContrato4',
-        'alta_fechaInicioContrato5','alta_vencimientoContrato5',
-        'alta_fechaInicioContrato6','alta_vencimientoContrato6'
-    ];
+    var ids456  = ['alta_fechaInicioContrato4','alta_vencimientoContrato4',
+                   'alta_fechaInicioContrato5','alta_vencimientoContrato5',
+                   'alta_fechaInicioContrato6','alta_vencimientoContrato6'];
     ids456.forEach(function(id) {
         var el = document.getElementById(id);
         if (!el) return;
@@ -1393,7 +1391,6 @@ function restaurarValoresPaso(){
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
     if(paso.id==='paso-personal') calcularRangoEdadAuto();
     if(paso.id==='paso-contrato'){
-        // Mostrar/ocultar contratos 4-6 según tipo ingreso
         actualizarVisibilidadContratos();
         // Adjuntar listener de cambio en fecha inicio contrato para auto-calcular
         var elFecIni = document.getElementById('alta_fechaInicioContrato');
@@ -1401,7 +1398,7 @@ function restaurarValoresPaso(){
             elFecIni.addEventListener('change', function(){ calcularFechasContrato(); });
             elFecIni._calcListenerAttached = true;
         }
-        // También en tipoIngreso para recalcular y actualizar visibilidad
+        // tipoIngreso: recalcular fechas y actualizar visibilidad
         var elTipo = document.getElementById('alta_tipoIngreso');
         if(elTipo && !elTipo._calcListenerAttached){
             elTipo.addEventListener('change', function(){
@@ -6219,7 +6216,7 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
 async function actualizarBarraDrive() {
     try {
         const r = await enviarPeticion('getDriveUsage', {});
-        if (r.status !== 'success') return;
+        if (!r || r.status !== 'success') return;
         const pct  = r.pct    || 0;
         const used = r.usedGB  || 0;
         const lim  = r.limitGB || 15;
@@ -6233,9 +6230,35 @@ async function actualizarBarraDrive() {
         if (txt)  txt.textContent   = used.toFixed(2) + ' / ' + lim.toFixed(0) + ' GB';
         if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
         if (wrap) wrap.title = 'Usado: ' + used.toFixed(2) + ' GB | Libre: ' + free.toFixed(2) + ' GB | Total: ' + lim.toFixed(0) + ' GB (' + pct + '% usado)';
-    } catch(e) { /* silencioso */ }
+    } catch(e) { console.warn('[Drive]', e); }
 }
 window.addEventListener('load', function(){
     setTimeout(actualizarBarraDrive, 3000);
     setInterval(actualizarBarraDrive, 5 * 60 * 1000);
 });
+
+// ════════════════════════════════════════════════════════════
+// MAYÚSCULAS GLOBALES — todos los inputs de texto
+// ════════════════════════════════════════════════════════════
+(function(){
+    const _EX_TYPE = new Set(['email','password','search','number','date','time','tel']);
+    const _EX_ID   = new Set(['correoElectronico','correo','email','password','contrasena','token']);
+    function _upper(el){
+        if(!el||el.tagName==='SELECT') return;
+        if(_EX_TYPE.has((el.type||'').toLowerCase())) return;
+        if(_EX_ID.has(el.name||'')||_EX_ID.has(el.id||'')) return;
+        if(el.dataset.nouppercase!==undefined) return;
+        if((el.className||'').includes('no-upper')) return;
+        const pos=el.selectionStart;
+        el.value=el.value.toUpperCase();
+        try{el.setSelectionRange(pos,pos);}catch(e){}
+    }
+    document.addEventListener('input',e=>{
+        const el=e.target;
+        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') _upper(el);
+    },true);
+    document.addEventListener('paste',e=>{
+        const el=e.target;
+        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') setTimeout(()=>_upper(el),0);
+    },true);
+})();
