@@ -637,9 +637,7 @@ function calcularFechasContrato() {
 
     var el_ti  = document.getElementById('alta_tipoIngreso');
     var tipo   = el_ti ? el_ti.value.toLowerCase() : '';
-    // 'Administrativo' → 6 contratos; 'Operativo' (o vacío) → 3 contratos
     var numC   = tipo.indexOf('admin') !== -1 ? 6 : 3;
-    console.log('[Contratos] tipo='+tipo+' numC='+numC);
     var PAIRS  = [
         ['alta_fechaInicioContrato',  'alta_vencimientoPrimerContrato'],
         ['alta_iniciSegundoContrato', 'alta_vencSegundoContrato'],
@@ -1191,46 +1189,41 @@ async function ejecutarOCR() {
         }
 
         try {
-            // Si es PDF: renderizar como imagen PNG en el navegador (alta calidad)
-            // Esto evita depender de Drive para convertir — manda la imagen directo a Vision API
-            let b64Envio   = null;
-            let mimeEnvio  = file.type;
+            // Leer archivo como base64
+            let b64Envio    = null;
+            let mimeEnvio   = file.type;
             let nombreEnvio = file.name;
 
-            if (esPDF) {
-                stTxt.innerText = `Renderizando PDF: ${file.name}...`;
-                try {
-                    const pngB64 = await pdfPaginaAPNG(file);
-                    if (pngB64) {
-                        b64Envio  = pngB64;
-                        mimeEnvio = 'image/png';
-                        nombreEnvio = file.name.replace(/\.pdf$/i, '.png');
-                        stTxt.innerText = `Analizando imagen del PDF: ${file.name}...`;
-                    }
-                } catch(pdfErr) {
-                    console.warn('[OCR] No se pudo renderizar PDF, enviando como PDF:', pdfErr);
-                }
-            }
-
-            // Si no se pudo renderizar como imagen, leer como base64 normal
-            if (!b64Envio) {
-                b64Envio = await new Promise((res, rej) => {
-                    const r = new FileReader();
-                    r.onload  = () => res(r.result.split(',')[1]);
-                    r.onerror = () => rej(new Error('Error leyendo ' + file.name));
-                    r.readAsDataURL(file);
-                });
-            }
+            b64Envio = await new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onload  = () => res(r.result.split(',')[1]);
+                r.onerror = () => rej(new Error('Error leyendo ' + file.name));
+                r.readAsDataURL(file);
+            });
 
             stTxt.innerText = `Analizando: ${file.name}...`;
 
-            // Motor 1: Groq/Llama (IA gratuita — Drive extrae texto, Groq analiza)
-            // Motor 2: fallback a Vision API + regex si Groq falla
-            let r = await enviarPeticion('groq_ocr', {
+            // ── NUEVA ESTRATEGIA OCR ──────────────────────────────
+            // Motor 1: Gemini 2.0 Flash — lee PDF e imágenes nativamente,
+            //          entiende contexto completo del documento, gratuito.
+            // Motor 2: Groq/Llama — fallback si Gemini falla.
+            // Motor 3: Vision API — último recurso.
+            console.log('[OCR] Enviando a Gemini:', file.name, mimeEnvio);
+            let r = await enviarPeticion('gemini_ocr', {
                 data:     b64Envio,
                 mimeType: mimeEnvio,
                 nombre:   nombreEnvio
             });
+            console.log('[OCR] Gemini resultado:', JSON.stringify(r));
+
+            if (r.status !== 'success') {
+                console.warn('[OCR] Gemini falló, usando Groq:', r.message);
+                r = await enviarPeticion('groq_ocr', {
+                    data:     b64Envio,
+                    mimeType: mimeEnvio,
+                    nombre:   nombreEnvio
+                });
+            }
             if (r.status !== 'success') {
                 console.warn('[OCR] Groq falló, usando Vision API:', r.message);
                 r = await enviarPeticion('ocr_documento', {
@@ -6020,12 +6013,6 @@ async function arrancarApp(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', arrancarApp);
 else arrancarApp();
 
-// Actualizar barra Drive al cargar y cada 5 min
-window.addEventListener('load', function(){
-    setTimeout(actualizarBarraDrive, 3000);
-    setInterval(actualizarBarraDrive, 5 * 60 * 1000);
-});
-
 // ════════════════════════════════════════════════════════════
 // HISTORIAL DE CARRERA
 // ════════════════════════════════════════════════════════════
@@ -6198,55 +6185,4 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
         const el=e.target;
         if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') setTimeout(()=>_upper(el),0);
     }, true);
-})();
-
-// ════════════════════════════════════════════════════════════
-// BARRA DE ALMACENAMIENTO DRIVE
-// ════════════════════════════════════════════════════════════
-async function actualizarBarraDrive() {
-    try {
-        const r = await enviarPeticion('getDriveUsage', {});
-        if (r.status !== 'success') return;
-        const pct  = r.pct   || 0;
-        const used = r.usedGB  || 0;
-        const lim  = r.limitGB || 15;
-        const free = r.freeGB  || (lim - used);
-        // Color: verde→violeta→ámbar→rojo según uso
-        const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#8b5cf6';
-        const bar  = document.getElementById('drive-storage-bar');
-        const txt  = document.getElementById('drive-storage-txt');
-        const fill = document.getElementById('drive-storage-fill');
-        const wrap = document.getElementById('drive-storage-wrap');
-        if (bar)  bar.style.display  = 'flex';
-        if (txt)  txt.textContent    = used.toFixed(2) + ' / ' + lim.toFixed(0) + ' GB';
-        if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
-        // Tooltip con desglose completo
-        if (wrap) wrap.title = 'Usado: ' + used.toFixed(2) + ' GB\nLibre: ' + free.toFixed(2) + ' GB\nTotal: ' + lim.toFixed(0) + ' GB (' + pct + '% usado)';
-    } catch(e) { /* silencioso */ }
-}
-
-// ════════════════════════════════════════════════════════════
-// MAYÚSCULAS GLOBALES — todos los inputs de texto
-// ════════════════════════════════════════════════════════════
-(function(){
-    const _EX_TYPE = new Set(['email','password','search','number','date','time','tel']);
-    const _EX_ID   = new Set(['correoElectronico','correo','email','password','contrasena','token']);
-    function _upper(el){
-        if(!el||el.tagName==='SELECT') return;
-        if(_EX_TYPE.has((el.type||'').toLowerCase())) return;
-        if(_EX_ID.has(el.name||'')||_EX_ID.has(el.id||'')) return;
-        if(el.dataset.nouppercase!==undefined) return;
-        if((el.className||'').includes('no-upper')) return;
-        const pos=el.selectionStart;
-        el.value=el.value.toUpperCase();
-        try{el.setSelectionRange(pos,pos);}catch(e){}
-    }
-    document.addEventListener('input',e=>{
-        const el=e.target;
-        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') _upper(el);
-    },true);
-    document.addEventListener('paste',e=>{
-        const el=e.target;
-        if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') setTimeout(()=>_upper(el),0);
-    },true);
 })();
