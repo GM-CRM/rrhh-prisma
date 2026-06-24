@@ -623,18 +623,26 @@ function mostrarSugerenciasEstaticas(query, lista, input){
 
 // ── Mostrar/ocultar contratos 4-6 según tipo de ingreso ──────
 function actualizarVisibilidadContratos() {
-    var elTipo  = document.getElementById('alta_tipoIngreso');
-    var tipo    = elTipo ? elTipo.value.toLowerCase() : '';
-    var esAdmin = tipo.indexOf('admin') !== -1;
-    var ids456  = ['alta_fechaInicioContrato4','alta_vencimientoContrato4',
-                   'alta_fechaInicioContrato5','alta_vencimientoContrato5',
-                   'alta_fechaInicioContrato6','alta_vencimientoContrato6'];
-    ids456.forEach(function(id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        var wrap = el.closest('[data-campo-id]') || el.parentElement;
-        if (wrap) wrap.style.display = esAdmin ? '' : 'none';
-    });
+    // setTimeout para asegurar que el DOM ya tiene los campos renderizados
+    setTimeout(function() {
+        var elTipo  = document.getElementById('alta_tipoIngreso');
+        var tipo    = elTipo ? elTipo.value.toLowerCase() : '';
+        var esAdmin = tipo.indexOf('admin') !== -1;
+        var ids456  = ['alta_fechaInicioContrato4','alta_vencimientoContrato4',
+                       'alta_fechaInicioContrato5','alta_vencimientoContrato5',
+                       'alta_fechaInicioContrato6','alta_vencimientoContrato6'];
+        ids456.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            // Subir hasta encontrar el wrapper del campo (div con data-campo-id o label+input)
+            var wrap = el.closest('[data-campo-id]')
+                    || el.closest('div[class*="col-span"]')
+                    || el.parentElement;
+            if (wrap) wrap.style.display = esAdmin ? '' : 'none';
+        });
+        console.log('[Contratos] tipo='+tipo+' esAdmin='+esAdmin+
+                    ' ids456 encontrados='+ids456.filter(function(id){return !!document.getElementById(id);}).length);
+    }, 200);
 }
 
 // ── Calcular fechas de contratos (3 Operativo / 6 Administrativo) ─
