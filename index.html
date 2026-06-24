@@ -380,6 +380,21 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
     </div>
+    <!-- Barra almacenamiento Drive -->
+    <div id="drive-storage-bar" style="display:none;">
+      <div id="drive-storage-wrap" title="Cargando..." style="cursor:default;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <i class="fas fa-hdd" style="font-size:.6rem;color:#8b5cf6;"></i>
+            <span style="font-size:.6rem;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Drive</span>
+          </div>
+          <span id="drive-storage-txt" style="font-size:.62rem;color:#94a3b8;font-weight:600;white-space:nowrap;">— / — GB</span>
+        </div>
+        <div style="width:100%;height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;">
+          <div id="drive-storage-fill" style="height:100%;width:0%;background:#8b5cf6;border-radius:99px;transition:width .8s ease;"></div>
+        </div>
+      </div>
+    </div>
     <!-- Indicador sistema en línea -->
     <div class="flex items-center gap-2 text-xs text-slate-600">
       <span class="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse"></span>Sistema en línea
@@ -414,9 +429,7 @@ if ('serviceWorker' in navigator) {
         <i class="fas fa-bell text-sm"></i>
         <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none">0</span>
       </button>
-      <span class="bg-violet-50 text-violet-700 text-xs font-bold px-3 py-1.5 rounded-full border border-violet-200 flex items-center gap-1.5">
-        <span class="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse"></span>En línea
-      </span>
+
     </div>
   </header>
 

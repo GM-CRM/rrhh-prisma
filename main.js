@@ -1,4 +1,3 @@
-
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -1292,8 +1291,8 @@ async function ejecutarOCR() {
 
     Object.entries(acum).forEach(([k, v]) => {
         if (!v || CAMPOS_EXCLUIDOS.has(k)) return; // Filtrar campos no permitidos
-        // Normalizar nombre a Title Case
-        if (k === 'nombreTrabajador') v = toTitleCase(v.toString());
+        const _noUp = new Set(['correoElectronico','fechaNacimiento','urlFoto']);
+        if (!_noUp.has(k)) v = v.toString().toUpperCase().trim();
         altaData[k] = v;
         detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
             <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
