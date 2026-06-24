@@ -1400,29 +1400,39 @@ function restaurarValoresPaso(){
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
     if(paso.id==='paso-personal') calcularRangoEdadAuto();
     if(paso.id==='paso-contrato'){
-        // Ejecutar con delay para que el DOM esté completamente renderizado
-        setTimeout(function(){ actualizarVisibilidadContratos(); }, 50);
-        // Adjuntar listener de cambio en fecha inicio contrato para auto-calcular
+        // Paso 1 (50ms): mostrar/ocultar campos 4-6 según tipo
+        // Paso 2 (300ms): calcular fechas DESPUÉS de que los campos ya son visibles
+        setTimeout(function(){
+            actualizarVisibilidadContratos();
+        }, 50);
+        // Adjuntar listener de cambio en fecha inicio contrato
+        // El listener también espera a que visibilidad esté aplicada antes de calcular
         var elFecIni = document.getElementById('alta_fechaInicioContrato');
         if(elFecIni && !elFecIni._calcListenerAttached){
-            elFecIni.addEventListener('change', function(){ calcularFechasContrato(); });
+            elFecIni.addEventListener('change', function(){
+                // Actualizar visibilidad primero, luego calcular con delay
+                actualizarVisibilidadContratos();
+                setTimeout(function(){ calcularFechasContrato(); }, 250);
+            });
             elFecIni._calcListenerAttached = true;
         }
-        // tipoIngreso: recalcular fechas y actualizar visibilidad
+        // tipoIngreso: actualizar visibilidad y recalcular
         var elTipo = document.getElementById('alta_tipoIngreso');
         if(elTipo && !elTipo._calcListenerAttached){
             elTipo.addEventListener('change', function(){
                 actualizarVisibilidadContratos();
-                if(document.getElementById('alta_fechaInicioContrato')?.value) calcularFechasContrato();
+                setTimeout(function(){
+                    if(document.getElementById('alta_fechaInicioContrato')?.value) calcularFechasContrato();
+                }, 250);
             });
             elTipo._calcListenerAttached = true;
         }
-        // Auto-calcular si ya hay fecha y aún no hay fechas calculadas
+        // Auto-calcular si ya hay fecha — esperar a que visibilidad esté aplicada
         setTimeout(function(){
             var fi = document.getElementById('alta_fechaInicioContrato');
             var vc = document.getElementById('alta_vencimientoPrimerContrato');
             if(fi && fi.value && (!vc || !vc.value)) calcularFechasContrato();
-        }, 150);
+        }, 350);
     }
 }
 function irAPaso(idx){
