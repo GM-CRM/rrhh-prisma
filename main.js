@@ -1189,43 +1189,50 @@ async function ejecutarOCR() {
         }
 
         try {
-            // Leer archivo como base64
             let b64Envio    = null;
             let mimeEnvio   = file.type;
             let nombreEnvio = file.name;
 
-            b64Envio = await new Promise((res, rej) => {
-                const r = new FileReader();
-                r.onload  = () => res(r.result.split(',')[1]);
-                r.onerror = () => rej(new Error('Error leyendo ' + file.name));
-                r.readAsDataURL(file);
-            });
+            if (esPDF) {
+                // PDF → PNG de alta resolución con PDF.js (todas las páginas)
+                // Esto permite que Vision API lea el texto correctamente
+                stTxt.innerText = `Renderizando PDF: ${file.name}...`;
+                try {
+                    const pngB64 = await pdfPaginaAPNG(file);
+                    if (pngB64) {
+                        b64Envio    = pngB64;
+                        mimeEnvio   = 'image/png';
+                        nombreEnvio = file.name.replace(/\.pdf$/i, '.png');
+                        console.log('[OCR] PDF convertido a PNG, enviando a Vision+Groq');
+                    }
+                } catch(pdfErr) {
+                    console.warn('[OCR] PDF.js falló, se enviará el PDF directo:', pdfErr);
+                }
+            }
+
+            // Si no se convirtió (imagen original o PDF.js falló) → leer como base64
+            if (!b64Envio) {
+                b64Envio = await new Promise((res, rej) => {
+                    const r = new FileReader();
+                    r.onload  = () => res(r.result.split(',')[1]);
+                    r.onerror = () => rej(new Error('Error leyendo ' + file.name));
+                    r.readAsDataURL(file);
+                });
+            }
 
             stTxt.innerText = `Analizando: ${file.name}...`;
+            console.log('[OCR] Enviando:', nombreEnvio, mimeEnvio);
 
-            // ── NUEVA ESTRATEGIA OCR ──────────────────────────────
-            // Motor 1: Gemini 2.0 Flash — lee PDF e imágenes nativamente,
-            //          entiende contexto completo del documento, gratuito.
-            // Motor 2: Groq/Llama — fallback si Gemini falla.
-            // Motor 3: Vision API — último recurso.
-            console.log('[OCR] Enviando a Gemini:', file.name, mimeEnvio);
-            let r = await enviarPeticion('gemini_ocr', {
+            // Motor 1: groq_ocr — Vision API extrae texto del PNG → Groq analiza campos
+            // Motor 2: ocr_documento — pipeline alternativo con regex
+            let r = await enviarPeticion('groq_ocr', {
                 data:     b64Envio,
                 mimeType: mimeEnvio,
                 nombre:   nombreEnvio
             });
-            console.log('[OCR] Gemini resultado:', JSON.stringify(r));
-
+            console.log('[OCR] Resultado groq_ocr:', JSON.stringify(r));
             if (r.status !== 'success') {
-                console.warn('[OCR] Gemini falló, usando Groq:', r.message);
-                r = await enviarPeticion('groq_ocr', {
-                    data:     b64Envio,
-                    mimeType: mimeEnvio,
-                    nombre:   nombreEnvio
-                });
-            }
-            if (r.status !== 'success') {
-                console.warn('[OCR] Groq falló, usando Vision API:', r.message);
+                console.warn('[OCR] groq_ocr falló, usando ocr_documento:', r.message);
                 r = await enviarPeticion('ocr_documento', {
                     data:     b64Envio,
                     mimeType: mimeEnvio,
