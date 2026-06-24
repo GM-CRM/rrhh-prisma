@@ -1,3 +1,4 @@
+
 // ─── LOADER ANIMADO ──────────────────────────────────────────
 function setLoaderStatus(msg, pct) {
     try {
@@ -6206,17 +6207,21 @@ async function actualizarBarraDrive() {
     try {
         const r = await enviarPeticion('getDriveUsage', {});
         if (r.status !== 'success') return;
-        const pct  = r.pct || 0;
-        const used = r.usedGB || 0;
-        const lim  = r.limitGB || 6;
-        // Color según uso
+        const pct  = r.pct   || 0;
+        const used = r.usedGB  || 0;
+        const lim  = r.limitGB || 15;
+        const free = r.freeGB  || (lim - used);
+        // Color: verde→violeta→ámbar→rojo según uso
         const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#8b5cf6';
         const bar  = document.getElementById('drive-storage-bar');
         const txt  = document.getElementById('drive-storage-txt');
         const fill = document.getElementById('drive-storage-fill');
+        const wrap = document.getElementById('drive-storage-wrap');
         if (bar)  bar.style.display  = 'flex';
-        if (txt)  txt.textContent    = used.toFixed(2) + ' GB / ' + lim + ' GB (' + pct + '%)';
+        if (txt)  txt.textContent    = used.toFixed(2) + ' / ' + lim.toFixed(0) + ' GB';
         if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
+        // Tooltip con desglose completo
+        if (wrap) wrap.title = 'Usado: ' + used.toFixed(2) + ' GB\nLibre: ' + free.toFixed(2) + ' GB\nTotal: ' + lim.toFixed(0) + ' GB (' + pct + '% usado)';
     } catch(e) { /* silencioso */ }
 }
 
