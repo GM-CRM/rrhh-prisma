@@ -6309,10 +6309,25 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
 // ════════════════════════════════════════════════════════════
 // BARRA DE ALMACENAMIENTO DRIVE
 // ════════════════════════════════════════════════════════════
+// BUGFIX: getDriveUsage() puede colgarse (sospecha: DriveApp restringido por
+// política de Workspace, igual que pasó antes con Gemini). Si se le deja el
+// timeout genérico de 25s y se reintenta cada 5 min sin control, una sola
+// llamada colgada puede quedar viva en el servidor de GAS mucho después de
+// que el navegador la abandonó, y coincide con que justo DESPUÉS empiecen a
+// fallar el resto de las peticiones (CORS/404/HTML en vez de JSON — señal de
+// que Google dejó de ejecutar el script, no un bug de este frontend).
+// Mitigación: timeout corto y propio (8s, no crítico) + circuit breaker que
+// deja de insistir tras 2 fallos seguidos, en vez de martillar cada 5 min.
+let _driveUsageFallosSeguidos = 0;
 async function actualizarBarraDrive() {
+    if (_driveUsageFallosSeguidos >= 2) {
+        console.warn('[Drive] Desactivado tras 2 fallos seguidos — evitando más carga al backend.');
+        return;
+    }
     try {
-        const r = await enviarPeticion('getDriveUsage', {});
-        if (!r || r.status !== 'success') return;
+        const r = await enviarPeticion('getDriveUsage', {}, 8000);
+        if (!r || r.status !== 'success') { _driveUsageFallosSeguidos++; return; }
+        _driveUsageFallosSeguidos = 0;
         const pct  = r.pct    || 0;
         const used = r.usedGB  || 0;
         const lim  = r.limitGB || 15;
@@ -6326,7 +6341,10 @@ async function actualizarBarraDrive() {
         if (txt)  txt.textContent   = used.toFixed(2) + ' / ' + lim.toFixed(0) + ' GB';
         if (fill) { fill.style.width = pct + '%'; fill.style.background = color; }
         if (wrap) wrap.title = 'Usado: ' + used.toFixed(2) + ' GB | Libre: ' + free.toFixed(2) + ' GB | Total: ' + lim.toFixed(0) + ' GB (' + pct + '% usado)';
-    } catch(e) { console.warn('[Drive]', e); }
+    } catch(e) {
+        _driveUsageFallosSeguidos++;
+        console.warn('[Drive]', e);
+    }
 }
 window.addEventListener('load', function(){
     setTimeout(actualizarBarraDrive, 3000);
