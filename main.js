@@ -1820,7 +1820,16 @@ function abrirModalNuevoUsuario(){
             +'<option value="Auxiliar">Auxiliar</option>'
             +'<option value="Administrador">Administrador</option>'
             +'</select>'
-            +'<input id="swal-empresas" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="Empresas separadas por coma (vacío = todas)">'
+            +'<div style="margin:4px 0;">'
+            +'<label style="font-size:.78rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">Empresas con acceso <span style="font-weight:400;color:#94a3b8">(vacío = todas)</span></label>'
+            +'<div id="swal-empresas-list" style="max-height:140px;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#f8fafc;">'
+            +(window._catalogoEmpresas||empresas||[]).map(function(e){
+                const nom=typeof e==='object'?e.nombre:e;
+                return '<label style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer;padding:2px 0;">'
+                    +'<input type="checkbox" class="swal-emp-check" value="'+nom+'" style="accent-color:#7c3aed;width:14px;height:14px;"> '+nom+'</label>';
+            }).join('')
+            +'</div></div>'
+            +'<input id="swal-empresas" type="hidden" value="">'
             +'</div>',
         confirmButtonText:'Crear usuario',
         confirmButtonColor:'#7c3aed',
@@ -1835,11 +1844,14 @@ function abrirModalNuevoUsuario(){
                 Swal.showValidationMessage('Nombre, email y contraseña son requeridos.');
                 return false;
             }
+            // Leer empresas seleccionadas del checklist
+            const _checks = document.querySelectorAll('.swal-emp-check:checked');
+            const _empSel = Array.from(_checks).map(function(c){return c.value;}).join(',');
             const r = await enviarPeticion('crear_usuario',{
                 token:getToken(), nombre, email, password,
                 telefono:   document.getElementById('swal-tel').value.trim(),
                 rol:        document.getElementById('swal-rol').value,
-                empresas:   document.getElementById('swal-empresas').value.trim(),
+                empresas:   _empSel,
                 idInterno:  idInterno
             });
             if(r.status!=='success') Swal.showValidationMessage(r.message);
@@ -1936,23 +1948,34 @@ async function editarUsuario(email){
     if(r.status!=='success') return;
     const u=(r.usuarios||[]).find(function(x){return x.email===email;});
     if(!u) return;
+    const _empActuales = u.empresas || [];
+    const _listaEmps = empresas || [];
     Swal.fire({
         title:'Editar: '+u.nombre,
         html:'<div class="text-left space-y-3">'
             +'<input id="swal-e-nombre" class="swal2-input" value="'+(u.nombre||'')+'" placeholder="Nombre completo">'
             +'<input id="swal-e-tel" class="swal2-input" value="'+(u.telefono||'')+'" placeholder="Teléfono">'
             +'<select id="swal-e-rol" class="swal2-input"><option value="Auxiliar"'+(u.rol==='Auxiliar'?' selected':'')+'>Auxiliar</option><option value="Administrador"'+(u.rol==='Administrador'?' selected':'')+'>Administrador</option></select>'
-            +'<input id="swal-e-empresas" class="swal2-input" value="'+(u.empresas||[]).join(',')+'" placeholder="Empresas (coma) o vacío = todas">'
+            +'<div style="margin:4px 0;">'
+            +'<label style="font-size:.78rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">Empresas con acceso <span style="font-weight:400;color:#94a3b8">(vacío = todas)</span></label>'
+            +'<div id="swal-e-empresas-list" style="max-height:140px;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#f8fafc;">'
+            +_listaEmps.map(function(nom){
+                const checked = _empActuales.some(function(e){ return e.trim().toLowerCase()===nom.trim().toLowerCase(); });
+                return '<label style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer;padding:2px 0;">'
+                    +'<input type="checkbox" class="swal-e-emp-check" value="'+nom+'"'+(checked?' checked':'')+' style="accent-color:#7c3aed;width:14px;height:14px;"> '+nom+'</label>';
+            }).join('')
+            +'</div></div>'
             +'<input id="swal-e-idint" class="swal2-input" value="'+(u.idInterno||'')+'" placeholder="ID INTERNO del empleado (ej. NM5) — para evaluaciones">'
             +'</div>',
         confirmButtonText:'Guardar',confirmButtonColor:'#7c3aed',showCancelButton:true,cancelButtonText:'Cancelar',
         preConfirm:async function(){
+            const _empChecked = Array.from(document.querySelectorAll('.swal-e-emp-check:checked')).map(function(c){return c.value;}).join(',');
             const r2=await enviarPeticion('actualizar_usuario',{
                 token:getToken(), email,
                 nombre:     document.getElementById('swal-e-nombre').value,
                 telefono:   document.getElementById('swal-e-tel').value,
                 rol:        document.getElementById('swal-e-rol').value,
-                empresas:   document.getElementById('swal-e-empresas').value,
+                empresas:   _empChecked,
                 idInterno:  document.getElementById('swal-e-idint').value.trim()
             });
             if(r2.status!=='success') Swal.showValidationMessage(r2.message);
@@ -5416,7 +5439,8 @@ let datosFiltrados = [];
 
 async function cargarDatosTabla() {
     await obtenerDatos(false); // usa caché si está fresco (TTL 5 min)
-    datosFiltrados = [...cacheGlobal];
+    // Aplicar filtro de empresas permitidas del usuario (Auxiliares solo ven sus empresas)
+    datosFiltrados = [...filtrarPorEmpresasPermitidas(cacheGlobal)];
     actualizarListaEmpresas();
     paginaActual = 1;
     renderizarPagina(1);
@@ -5428,7 +5452,8 @@ function aplicarFiltros() {
     const grupo    = (document.getElementById('filtro-grupo')?.value    || '').trim();
     const estatus  = (document.getElementById('filtro-estatus')?.value  || '').trim();
 
-    datosFiltrados = cacheGlobal.filter(emp => {
+    const _baseExpedientes = filtrarPorEmpresasPermitidas(cacheGlobal);
+    datosFiltrados = _baseExpedientes.filter(emp => {
         const nombre = (emp["NOMBRE DEL TRABAJADOR"] || "").toLowerCase();
         const noEmp  = (emp["NO. EMPLEADO"] || "").toString().toLowerCase();
         const puesto = (emp["PUESTO"] || "").toLowerCase();
@@ -5695,7 +5720,9 @@ function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
 
 async function cargarDashboard(){
-    const todos=await obtenerDatos(false);
+    const _todosDash = await obtenerDatos(false);
+    // Auxiliares solo ven sus empresas asignadas
+    const todos = filtrarPorEmpresasPermitidas(_todosDash);
     const filtroEmp  = (document.getElementById('filtroEmpresaGlobal')?.value)||'ALL';
     const filtroGrupo= (document.getElementById('filtroGrupoGlobal')?.value)||'ALL';
     const filtroMes  = (document.getElementById('filtroMesGlobal')?.value)||'ALL';
