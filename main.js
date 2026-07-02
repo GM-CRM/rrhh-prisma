@@ -1600,22 +1600,43 @@ async function verificarSesion(){
         return false;
     }
     console.log('[verificarSesion] Token encontrado, validando...');
-    try{
-        const r=await enviarPeticion('validar_token',{token});
-        console.log('[verificarSesion] Respuesta GAS:', r.status, r.message||'');
-        if(r.status==='success'){
-            sesionActual={token,usuario:r.usuario};
-            aplicarSesion(r.usuario);
-            ocultarLoginScreen();
-            console.log('[verificarSesion] Sesión válida:', r.usuario.email);
-            return true;
+
+    // BUGFIX: antes, cualquier falla de red/timeout al validar el token
+    // (GAS lento en arrancar, wifi intermitente, etc.) borraba el token
+    // válido con clearToken() y forzaba re-login — esto es lo que causaba
+    // que "a veces cargue y a veces no": no era un problema de permisos,
+    // era una petición de red que fallaba y tiraba la sesión buena.
+    // Ahora: solo se borra el token cuando el SERVIDOR responde explícitamente
+    // que es inválido/expirado. Si es un error de red/timeout, se reintenta
+    // una vez antes de rendirse, y si aun así falla, se avisa sin cerrar sesión.
+    for(let intento=1; intento<=2; intento++){
+        try{
+            const r=await enviarPeticion('validar_token',{token});
+            console.log('[verificarSesion] Respuesta GAS:', r.status, r.message||'');
+            if(r.status==='success'){
+                sesionActual={token,usuario:r.usuario};
+                aplicarSesion(r.usuario);
+                ocultarLoginScreen();
+                console.log('[verificarSesion] Sesión válida:', r.usuario.email);
+                return true;
+            }
+            // Respuesta explícita del servidor: token realmente inválido/expirado
+            console.warn('[verificarSesion] Token inválido:', r.message);
+            clearToken();
+            mostrarLoginScreen(r.message||'Tu sesión expiró. Inicia sesión de nuevo.');
+            return false;
+        }catch(e){
+            console.error('[verificarSesion] Error de red/timeout (intento '+intento+'):', e.message||e);
+            if(intento===1){
+                await new Promise(res=>setTimeout(res,1200));
+                continue;
+            }
         }
-        console.warn('[verificarSesion] Token inválido:', r.message);
-    }catch(e){
-        console.error('[verificarSesion] Error fetch:', e.message||e);
     }
-    clearToken();
-    mostrarLoginScreen('Tu sesión expiró. Inicia sesión de nuevo.');
+
+    // Dos intentos fallidos por red/timeout, sin respuesta clara del servidor:
+    // NO borramos el token (puede seguir siendo válido), solo avisamos.
+    mostrarLoginScreen('No se pudo verificar tu sesión por un problema de conexión. Revisa tu internet e intenta de nuevo.');
     return false;
 }
 
@@ -1986,13 +2007,17 @@ async function editarUsuario(email){
 
 
 // ─── API GAS ──────────────────────────────────────────────────
-async function enviarPeticion(action,payload){
+async function enviarPeticion(action,payload,timeoutMs){
     if(action !== 'login' && action !== 'validar_token' && sesionActual && sesionActual.token) {
         payload = Object.assign({}, payload, { token: sesionActual.token });
     }
-    // Timeout de 25 segundos para evitar que el loader se quede colgado
+    // Timeout configurable (default 25s). Peticiones pesadas como
+    // "exportar_datos" (lee toda la hoja dos veces) pueden necesitar más
+    // tiempo, sobre todo con GAS "frío" — antes el límite fijo de 25s
+    // las abortaba de forma intermitente sin avisar al usuario.
+    const timeout = timeoutMs || 25000;
     const controller = new AbortController();
-    const timeoutId  = setTimeout(function(){ controller.abort(); }, 25000);
+    const timeoutId  = setTimeout(function(){ controller.abort(); }, timeout);
     try {
         const res = await fetch(API_URL, {
             method:  'POST',
@@ -5402,17 +5427,38 @@ async function obtenerDatos(forzar){
     // Usar caché si: no se forzó, hay datos, y no expiró el TTL
     if(!forzar && cacheGlobal.length && (ahora-cacheTimestamp)<CACHE_TTL) return cacheGlobal;
     mostrarLoader("Sincronizando base de datos...");
-    try{
-        const r=await enviarPeticion("exportar_datos",{});
-        ocultarLoader();
-        if(r.status==="success"){
-            // cacheGlobal: TODOS los registros sin deduplicar (Expedientes, Bajas, autocomplete)
-            cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
-            cacheTimestamp=Date.now();
-            return cacheGlobal;
+    // BUGFIX: esta petición lee toda la hoja (getValues + getDisplayValues),
+    // es la más pesada del sistema. Con el timeout genérico de 25s se abortaba
+    // de forma intermitente en hojas grandes o con GAS "frío", y el catch()
+    // fallaba en silencio devolviendo caché vieja o [] sin avisar nada — eso
+    // se sentía como "a veces carga, a veces no". Ahora: 45s de margen,
+    // un reintento automático, y aviso visible si de plano falla.
+    for(let intento=1; intento<=2; intento++){
+        try{
+            const r=await enviarPeticion("exportar_datos",{},45000);
+            ocultarLoader();
+            if(r.status==="success"){
+                // cacheGlobal: TODOS los registros sin deduplicar (Expedientes, Bajas, autocomplete)
+                cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+                cacheTimestamp=Date.now();
+                return cacheGlobal;
+            }
+            // El servidor respondió pero con error explícito (ej. permisos, GAS)
+            console.error('[obtenerDatos] Backend devolvió error:', r.message);
+            mostrarToast('error','No se pudo sincronizar', r.message||'El servidor respondió con un error.');
+            return cacheGlobal.length?cacheGlobal:[];
+        }catch(e){
+            console.error('[obtenerDatos] Error de red/timeout (intento '+intento+'):', e.message||e);
+            if(intento===1){ await new Promise(res=>setTimeout(res,1000)); continue; }
+            ocultarLoader();
+            if(cacheGlobal.length){
+                mostrarToast('warning','Mostrando datos en caché','No se pudo actualizar la información desde el servidor. '+(e.message||''));
+            } else {
+                mostrarToast('error','No se pudo cargar la información', e.message||'Revisa tu conexión e intenta de nuevo.');
+            }
+            return cacheGlobal.length?cacheGlobal:[];
         }
-        return cacheGlobal.length?cacheGlobal:[];
-    }catch(e){ocultarLoader();return cacheGlobal.length?cacheGlobal:[];}
+    }
 }
 async function forzarActualizacion(){
     cacheGlobal=[];
@@ -6054,12 +6100,15 @@ async function instalarPWA() {
 
 // Verificar sesión antes de inicializar la app
 async function arrancarApp(){
-    // Failsafe: si en 30 segundos no termina, mostrar login de todas formas
+    // Failsafe: si no termina, mostrar login de todas formas.
+    // BUGFIX: verificarSesion ahora puede reintentar una vez ante fallas de
+    // red (hasta ~2x25s + espera), así que el failsafe se sube a 65s para
+    // no interrumpir ese reintento con un mensaje contradictorio.
     const failsafe = setTimeout(function(){
         console.error('[arrancarApp] Timeout — mostrando login');
         ocultarLoader_app();
         mostrarLoginScreen('La conexión tardó demasiado. Intenta de nuevo.');
-    }, 30000);
+    }, 65000);
 
     try {
         setLoaderStatus('Verificando sesión...', 20);
