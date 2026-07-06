@@ -657,8 +657,11 @@ function calcularFechasContrato() {
         return dt.toISOString().slice(0,10);
     }
 
+    // Leer tipo de ingreso igual que actualizarVisibilidadContratos(): primero altaData
+    // (persiste entre pasos), y solo si el campo sigue en el DOM (paso-empleo) usar su valor.
+    var tipo   = (altaData.tipoIngreso || '').toLowerCase();
     var el_ti  = document.getElementById('alta_tipoIngreso');
-    var tipo   = el_ti ? el_ti.value.toLowerCase() : '';
+    if (el_ti && el_ti.value) tipo = el_ti.value.toLowerCase();
     var numC   = tipo.indexOf('admin') !== -1 ? 6 : 3;
     var PAIRS  = [
         ['alta_fechaInicioContrato',  'alta_vencimientoPrimerContrato'],
