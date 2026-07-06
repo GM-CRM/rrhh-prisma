@@ -488,7 +488,14 @@ function registrarAlta(payload) {
     idInterno,                               // AY ID INTERNO
     "",                                      // AZ JEFE DIRECTO
     payload.correoAcceso || "",              // BA CORREO ACCESO
-    payload.grupoComercial || ""             // BB GRUPO COMERCIAL
+    payload.grupoComercial || "",             // BB GRUPO COMERCIAL
+    "",                                       // BC ← ID_PERSONA (se asigna después con asignarIdPersonaNuevo)
+    payload.fechaInicioContrato4      || "",  // BD
+    payload.vencimientoContrato4      || "",  // BE
+    payload.fechaInicioContrato5      || "",  // BF
+    payload.vencimientoContrato5      || "",  // BG
+    payload.fechaInicioContrato6      || "",  // BH
+    payload.vencimientoContrato6      || ""   // BI
   ];
 
   // Escribir la fila — primero appendRow para crear la fila
@@ -498,7 +505,7 @@ function registrarAlta(payload) {
   // Fechas: convertir "YYYY-MM-DD" al número serial de Google Sheets
   // para que mantengan el mismo formato numérico que las demás filas.
   // El serial de Sheets = días desde 30/12/1899 (época de Lotus 1-2-3)
-  var COLS_FECHA = [2, 12, 39, 42, 43, 44, 45, 46, 47]; // B,L,AM,AP,AQ,AR,AS,AT,AU
+  var COLS_FECHA = [2, 12, 39, 42, 43, 44, 45, 46, 47, 56, 57, 58, 59, 60, 61]; // B,L,AM,AP,AQ,AR,AS,AT,AU,BD,BE,BF,BG,BH,BI
   COLS_FECHA.forEach(function(col) {
     var celda = sheet.getRange(filaDestino, col);
     var val   = celda.getValue();
@@ -545,7 +552,17 @@ function registrarAlta(payload) {
     }
   }
 
-  return { status:"success", message:"Alta registrada.", urlExpediente:url, noEmpleado:noEmp, idInterno:idInterno, esReingreso:esReingreso, idPersonaAnterior:idPersonaAnterior };
+  // Datos para prellenar el formulario de "Generar contrato" sin tener
+  // que volver a leer todo el Sheet (evita el retraso al abrir el modal).
+  var esOperativoAlta = /^operativ/i.test((payload.tipoIngreso || "").toString().trim());
+  var contratoPrefill = {
+    puesto:      payload.puesto || "",
+    tipoIngreso: payload.tipoIngreso || "",
+    fechaInicio: payload.fechaInicioContrato || "",
+    fechaFin:    esOperativoAlta ? (payload.vencTercerContrato || "") : (payload.vencimientoContrato6 || "")
+  };
+
+  return { status:"success", message:"Alta registrada.", urlExpediente:url, noEmpleado:noEmp, idInterno:idInterno, esReingreso:esReingreso, idPersonaAnterior:idPersonaAnterior, contratoPrefill:contratoPrefill };
 }
 
 // ─── BAJA ─────────────────────────────────────────────────────

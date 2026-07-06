@@ -1497,7 +1497,7 @@ async function enviarAlta(){
         ocultarLoader();
         if(r.status==="success"){
             mostrarToast('success','¡Alta registrada!',`Expediente creado para ${altaData.nombreTrabajador}.`,8000);
-            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');abrirModalGenerarContrato(r.idInterno);});
+            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');abrirModalGenerarContrato(r.idInterno, r.contratoPrefill);});
             altaData={};pasoActual=0;renderizarStepper();forzarActualizacion();
         }else mostrarToast('error','Error en el alta',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
@@ -5598,6 +5598,7 @@ function renderizarPagina(pag) {
                 + '<td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
                 + '<td class="px-3 py-3"><div class="flex items-center justify-center gap-2">'
                 + '<button onclick="abrirEditor(\'' + (emp['ID INTERNO']||id) + '\',\'' + (emp['EMPRESA']||'').replace(/'/g,'') + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
+                + '<button onclick="abrirModalGenerarContrato(\'' + (emp['ID INTERNO']||'') + '\')" class="text-slate-400 hover:text-indigo-600 transition" title="Generar contrato"><i class="fas fa-file-contract text-sm"></i></button>'
                 + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\',\'' + (emp['ID INTERNO']||'') + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
                 + link
                 + '</div></td></tr>';
@@ -6391,17 +6392,25 @@ function _escHtml(s) {
 }
 
 // ─── Función central: abre el formulario y genera el contrato ──
-// Se usa igual desde el alta y desde Expedientes: solo necesita el idInterno.
-async function abrirModalGenerarContrato(idInterno) {
+// idInterno: obligatorio.
+// prefillDirecto (opcional): si ya tienes los datos a la mano (ej. justo
+// después del alta, en r.contratoPrefill), pásalos aquí para abrir el
+// modal al instante sin otra consulta al backend. Si se omite, se
+// consultan del Sheet (caso del botón en Expedientes).
+async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
   var prefill = { puesto: "", tipoIngreso: "", fechaInicio: "", fechaFin: "" };
 
-  try {
-    const rDatos = await enviarPeticion("obtener_datos_contrato", { idInterno });
-    if (rDatos.status === "success") prefill = rDatos.datos;
-    else { mostrarToast('error','No se pudo cargar', rDatos.message, 5000); return; }
-  } catch (e) {
-    mostrarToast('error','Error', 'No se pudieron cargar los datos del contrato.', 5000);
-    return;
+  if (prefillDirecto) {
+    prefill = prefillDirecto;
+  } else {
+    try {
+      const rDatos = await enviarPeticion("obtener_datos_contrato", { idInterno });
+      if (rDatos.status === "success") prefill = rDatos.datos;
+      else { mostrarToast('error','No se pudo cargar', rDatos.message, 5000); return; }
+    } catch (e) {
+      mostrarToast('error','Error', 'No se pudieron cargar los datos del contrato.', 5000);
+      return;
+    }
   }
 
   const { value: formValues, isConfirmed } = await Swal.fire({
@@ -6480,12 +6489,3 @@ async function abrirModalGenerarContrato(idInterno) {
     Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el contrato (timeout o error de red). Intenta de nuevo: ' + e.toString() });
   }
 }
-
-// ─── Listener delegado: botón "Generar contrato" en Expedientes ───
-// Agrega en tu HTML de Expedientes:
-//   <button class="btn-generar-contrato" data-id-interno="${emp.idInterno}">Generar contrato</button>
-document.addEventListener('click', function(e){
-    const btn = e.target.closest('.btn-generar-contrato');
-    if(!btn) return;
-    abrirModalGenerarContrato(btn.dataset.idInterno);
-});
