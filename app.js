@@ -732,16 +732,31 @@ async function enviarAlta(){
         ocultarLoader();
         if(r.status==="success"){
             mostrarToast('success','¡Alta registrada!',`Expediente creado para ${altaData.nombreTrabajador}.`,8000);
-            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');});
+            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');abrirModalGenerarContrato(r.idInterno);});
             altaData={};pasoActual=0;renderizarStepper();forzarActualizacion();
         }else mostrarToast('error','Error en el alta',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
 }
 
 // ─── API GAS ──────────────────────────────────────────────────
-async function enviarPeticion(action,payload){
-    const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload})});
-    return await res.json();
+async function enviarPeticion(action,payload,timeoutMs){
+    // timeoutMs opcional: permite llamadas pesadas (ej. generar_contrato)
+    // sin cambiar el comportamiento default para el resto de acciones.
+    if(!timeoutMs){
+        const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload})});
+        return await res.json();
+    }
+    const controller=new AbortController();
+    const timeoutId=setTimeout(function(){controller.abort();}, timeoutMs);
+    try{
+        const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({action,payload}),signal:controller.signal});
+        clearTimeout(timeoutId);
+        return await res.json();
+    }catch(e){
+        clearTimeout(timeoutId);
+        if(e.name==='AbortError') throw new Error('Tiempo de espera agotado. Verifica tu conexión.');
+        throw e;
+    }
 }
 
 // ─── DRAWER EDICIÓN DE EMPLEADO ───────────────────────────────
@@ -1509,3 +1524,113 @@ async function instalarPWA() {
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initApp);
 else initApp();
+
+// ─── MODAL GENERAR CONTRATO ─────────────────────────────────
+// Escape mínimo para no romper atributos HTML si el valor trae comillas/etiquetas
+function _escHtml(s) {
+  return (s || "").toString()
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// ─── Función central: abre el formulario y genera el contrato ──
+// Se usa igual desde el alta y desde Expedientes: solo necesita el idInterno.
+async function abrirModalGenerarContrato(idInterno) {
+  var prefill = { puesto: "", tipoIngreso: "", fechaInicio: "", fechaFin: "" };
+
+  try {
+    const rDatos = await enviarPeticion("obtener_datos_contrato", { idInterno });
+    if (rDatos.status === "success") prefill = rDatos.datos;
+    else { mostrarToast('error','No se pudo cargar', rDatos.message, 5000); return; }
+  } catch (e) {
+    mostrarToast('error','Error', 'No se pudieron cargar los datos del contrato.', 5000);
+    return;
+  }
+
+  const { value: formValues, isConfirmed } = await Swal.fire({
+    title: 'Datos para el contrato',
+    html: `
+      <div style="text-align:left">
+        <label style="font-weight:600;font-size:13px;">Funciones del puesto</label>
+        <textarea id="swal-funciones" class="swal2-textarea" style="margin-top:4px;"
+          placeholder="Ej. Ejecutar en campo el plan semanal de producción; controlar avance físico de obra; ..."></textarea>
+
+        <label style="font-weight:600;font-size:13px;">Descanso diario</label>
+        <input id="swal-descanso" class="swal2-input" style="margin:4px 0 12px;"
+          value="${_escHtml('30 minutos')}" placeholder="Ej. 30 minutos">
+
+        <label style="font-weight:600;font-size:13px;">Fecha de inicio</label>
+        <input id="swal-fecha-inicio" type="date" class="swal2-input" style="margin:4px 0 12px;"
+          value="${_escHtml(prefill.fechaInicio)}">
+
+        <label style="font-weight:600;font-size:13px;">Fecha de fin de periodo (prueba/capacitación)</label>
+        <input id="swal-fecha-fin" type="date" class="swal2-input" style="margin:4px 0 4px;"
+          value="${_escHtml(prefill.fechaFin)}">
+      </div>
+    `,
+    focusConfirm: false,
+    showCancelButton: true,
+    confirmButtonText: 'Generar contrato',
+    cancelButtonText: 'Cancelar',
+    width: 520,
+    preConfirm: () => {
+      const funciones = document.getElementById('swal-funciones').value.trim();
+      const descanso  = document.getElementById('swal-descanso').value.trim();
+      const fInicio   = document.getElementById('swal-fecha-inicio').value;
+      const fFin      = document.getElementById('swal-fecha-fin').value;
+      if (!funciones) {
+        Swal.showValidationMessage('Captura las funciones del puesto.');
+        return false;
+      }
+      if (!fInicio || !fFin) {
+        Swal.showValidationMessage('Captura ambas fechas.');
+        return false;
+      }
+      return { funciones, descanso, fInicio, fFin };
+    }
+  });
+
+  if (!isConfirmed || !formValues) return;
+
+  Swal.fire({ title: 'Generando contrato...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+  try {
+    // NOTA: generar_contrato es pesada (Drive + Docs + export PDF).
+    // Si tu enviarPeticion(action, payload, timeoutMs) acepta un tercer
+    // parámetro de timeout, pásale uno largo aquí, igual que hiciste
+    // para exportar_datos (45s + reintento). Ajusta el nombre del
+    // parámetro a como esté definido tu enviarPeticion real.
+    const r = await enviarPeticion("generar_contrato", {
+      idInterno: idInterno,
+      funcionesPuesto: formValues.funciones,
+      descansoDiario: formValues.descanso,
+      fechaInicioOverride: formValues.fInicio,
+      fechaFinOverride: formValues.fFin
+    }, 45000);
+
+    if (r.status === "success") {
+      mostrarToast('success', '¡Contrato generado!', `Tipo: ${r.tipoIngreso}`, 8000);
+      Swal.fire({
+        icon: 'success',
+        title: '¡Contrato generado!',
+        html: `<a href="${r.urlDoc}" target="_blank">Abrir Google Doc</a><br><a href="${r.urlPdf}" target="_blank">Abrir PDF</a>`,
+        confirmButtonText: 'Cerrar'
+      });
+    } else {
+      Swal.fire({ icon: 'error', title: 'No se pudo generar el contrato', text: r.message });
+    }
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el contrato (timeout o error de red). Intenta de nuevo: ' + e.toString() });
+  }
+}
+
+// ─── Listener delegado: botón "Generar contrato" en Expedientes ───
+// Agrega en tu HTML de Expedientes:
+//   <button class="btn-generar-contrato" data-id-interno="${emp.idInterno}">Generar contrato</button>
+document.addEventListener('click', function(e){
+    const btn = e.target.closest('.btn-generar-contrato');
+    if(!btn) return;
+    abrirModalGenerarContrato(btn.dataset.idInterno);
+});
