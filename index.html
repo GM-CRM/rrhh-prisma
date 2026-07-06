@@ -102,7 +102,8 @@
     #toast-container{position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;overflow:hidden;max-width:22rem;clip:rect(auto,auto,auto,auto)}
     #toast-container>*{pointer-events:all}
     /* Notif panel */
-    #notif-panel{max-height:70vh;overflow-y:auto}
+    #notif-panel{max-height:80vh;display:flex;flex-direction:column}
+    #notif-lista{overflow-y:auto;flex:1}
   /* Ocultar toasts que aún están fuera de pantalla esperando animación */
   #toast-container > * { overflow: hidden; }
   .translate-x-full { opacity: 0; }
@@ -1085,11 +1086,12 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <!-- Panel de notificaciones -->
-<div id="notif-panel" class="hidden fixed right-4 top-14 w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden">
-  <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+<div id="notif-panel" class="hidden fixed right-4 top-14 w-[26rem] max-w-[95vw] bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden">
+  <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50 flex-shrink-0">
     <p class="text-sm font-bold text-slate-800">Notificaciones</p>
     <button onclick="limpiarNotificaciones()" class="text-xs text-slate-400 hover:text-red-500 transition">Limpiar todo</button>
   </div>
+  <div id="notif-tabs" class="flex items-center gap-1 px-3 py-2 border-b border-slate-100 flex-shrink-0 overflow-x-auto"></div>
   <div id="notif-lista"></div>
 </div>
 

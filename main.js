@@ -112,6 +112,27 @@ const NOTIF_ESTILOS = {
     aniversario: { bg:'bg-violet-50', border:'border-violet-200', icon:'fa-trophy',              iconColor:'text-violet-500',badge:'bg-violet-100 text-violet-700'},
 };
 
+// ─── Pestañas del centro de notificaciones ───────────────────
+// Agrupa los tipos crudos (n.tipo) en 4 categorías visibles al usuario.
+// 'error' se incluye en 'contrato' porque app.js llegó a usar ese tipo
+// para contratos vencidos (inconsistencia histórica entre archivos).
+const NOTIF_TABS = [
+    { key:'todas',       label:'Todas',       tipos:null },
+    { key:'cumple',      label:'Cumpleaños',  tipos:['cumple'] },
+    { key:'aniversario', label:'Aniversario', tipos:['aniversario'] },
+    { key:'contrato',    label:'Contrato',    tipos:['contrato','error'] },
+    { key:'otros',       label:'Otros',       tipos:['warning','info','success'] }
+];
+let notifTabActiva = 'todas';
+
+function categoriaDeNotif(tipo){
+    for(const t of NOTIF_TABS){
+        if(t.tipos && t.tipos.includes(tipo)) return t.key;
+    }
+    return 'otros';
+}
+
+
 function actualizarBadgeNotifs(){
     const noLeidas = notificaciones.filter(n=>!n.leida).length;
     const badge = document.getElementById('notif-badge');
@@ -133,20 +154,53 @@ function toggleCentroNotifs(){
 
 function renderizarNotificaciones(){
     const lista=document.getElementById('notif-lista');
+    const tabsCont=document.getElementById('notif-tabs');
     if(!lista) return;
-    if(!notificaciones.length){
-        lista.innerHTML='<div class="text-center py-10"><i class="fas fa-bell-slash text-slate-200 text-3xl mb-2 block"></i><p class="text-slate-400 text-sm">Sin notificaciones</p></div>';
+
+    // ─── Renderizar la barra de pestañas con conteo por categoría ───
+    if(tabsCont){
+        tabsCont.innerHTML = NOTIF_TABS.map(function(t){
+            const cuenta = t.key==='todas'
+                ? notificaciones.length
+                : notificaciones.filter(n=>categoriaDeNotif(n.tipo)===t.key).length;
+            const activa = notifTabActiva===t.key;
+            return '<button data-tab="'+t.key+'" class="notif-tab-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition '
+                + (activa ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
+                + '">'+t.label+(cuenta>0 ? ' <span class="opacity-70">('+cuenta+')</span>' : '')+'</button>';
+        }).join('');
+
+        // onclick= en vez de addEventListener: se reemplaza en cada render,
+        // no se acumula (antes esto causaba múltiples ejecuciones duplicadas
+        // al abrir/cerrar el panel varias veces).
+        tabsCont.onclick = function(e){
+            const btn = e.target.closest('.notif-tab-btn');
+            if(!btn) return;
+            notifTabActiva = btn.dataset.tab;
+            renderizarNotificaciones();
+        };
+    }
+
+    // ─── Filtrar por la pestaña activa ───
+    const filtradas = notifTabActiva==='todas'
+        ? notificaciones
+        : notificaciones.filter(n=>categoriaDeNotif(n.tipo)===notifTabActiva);
+
+    if(!filtradas.length){
+        const msg = notifTabActiva==='todas' ? 'Sin notificaciones' : 'Sin notificaciones en esta categoría';
+        lista.innerHTML='<div class="text-center py-10"><i class="fas fa-bell-slash text-slate-200 text-3xl mb-2 block"></i><p class="text-slate-400 text-sm">'+msg+'</p></div>';
         return;
     }
-    lista.innerHTML=notificaciones.slice(0,30).map(function(n){
+    lista.innerHTML=filtradas.slice(0,30).map(function(n){
         const est = NOTIF_ESTILOS[n.tipo] || NOTIF_ESTILOS.info;
         const empBtn = n.empleadoId
             ? '<button data-empid="'+n.empleadoId+'" class="notif-emp-btn text-xs text-blue-600 hover:underline mt-1 font-semibold">Ver empleado →</button>'
             : '';
         const fecha = new Date(n.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        // Etiqueta visible: antes 'warning' decía "Contrato" por error (eran
+        // notificaciones de entrevistas 15/45 días, no de contratos).
         const tipoLabel = {
-            error:'Error',warning:'Contrato',contrato:'Contrato',
-            info:'Info',success:'OK',cumple:'🎂 Cumple',aniversario:'🏆 Aniversario'
+            error:'Contrato', warning:'Seguimiento', contrato:'Contrato',
+            info:'Info', success:'OK', cumple:'🎂 Cumple', aniversario:'🏆 Aniversario'
         }[n.tipo]||n.tipo;
         return '<div class="p-3 border-b border-slate-100 '+(n.leida?'opacity-55':'')+' hover:bg-slate-50 transition">'
             +'<div class="flex gap-2.5 items-start">'
@@ -163,29 +217,28 @@ function renderizarNotificaciones(){
             +'</div></div></div>';
     }).join('');
 
-    // Event delegation: manejar clic en "Ver empleado →"
-    lista.addEventListener('click', function(e){
+    // onclick= en vez de addEventListener({once:true}): antes cada apertura
+    // del panel agregaba un listener nuevo sin quitar los anteriores, y al
+    // primer clic en "Ver empleado" TODOS se disparaban a la vez (drawer
+    // abriéndose varias veces). Con onclick= se reemplaza, nunca se acumula.
+    lista.onclick = function(e){
         const btn = e.target.closest('.notif-emp-btn');
         if(!btn) return;
         const empId = btn.dataset.empid;
         if(!empId) return;
 
-        // Cerrar el panel de notificaciones
         const panel = document.getElementById('notif-panel');
         if(panel) panel.classList.add('hidden');
 
-        // Buscar el empleado en cache por ID INTERNO o NO. EMPLEADO
         const emp = cacheGlobal.find(function(e){
             return (e['ID INTERNO']||'').toString().trim() === empId ||
                    (e['NO. EMPLEADO']||'').toString().trim() === empId;
         });
 
         if(emp){
-            // Si el módulo expedientes no está activo, activarlo primero
             const modBase = document.getElementById('module-basedatos');
             if(modBase && !modBase.classList.contains('active')){
                 showModule('basedatos');
-                // Esperar a que cargue la tabla antes de abrir el drawer
                 setTimeout(function(){
                     abrirEditor(
                         (emp['ID INTERNO']||emp['NO. EMPLEADO']||'').toString().trim(),
@@ -202,7 +255,16 @@ function renderizarNotificaciones(){
             mostrarToast('warning', 'Empleado no encontrado',
                 'No se encontró el registro #'+empId+' en la base de datos. Sincroniza e intenta de nuevo.');
         }
-    }, { once: true }); // once:true para evitar listeners duplicados al re-abrir el panel
+    };
+
+    // Marcar como leídas DESPUÉS de pintar (así se ve resaltada la primera
+    // vez que se abre el panel). Antes nunca se marcaban como leídas en
+    // absoluto: el badge se quedaba con el mismo conteo para siempre.
+    if(notificaciones.some(n=>!n.leida)){
+        notificaciones.forEach(n=>n.leida=true);
+        guardarNotifs();
+        actualizarBadgeNotifs();
+    }
 }
 
 function tiempoRelativo(iso){
