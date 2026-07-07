@@ -103,6 +103,12 @@
     #toast-container>*{pointer-events:all}
     /* Notif panel */
     #notif-panel{max-height:80vh;display:flex;flex-direction:column}
+    /* BUGFIX: el selector por ID de arriba (especificidad 1,0,0) le ganaba
+       siempre a la clase .hidden de Tailwind (especificidad 0,1,0), así que
+       display:flex se aplicaba SIEMPRE sin importar si classList tenía
+       'hidden' o no — el panel se veía abierto todo el tiempo. Esta regla,
+       misma especificidad de ID + !important, es la que realmente gana. */
+    #notif-panel.hidden{display:none !important}
     #notif-lista{overflow-y:auto;flex:1}
   /* Ocultar toasts que aún están fuera de pantalla esperando animación */
   #toast-container > * { overflow: hidden; }
@@ -1101,6 +1107,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.9"></script>
+<script src="main.js?v=69.10"></script>
 </body>
 </html>

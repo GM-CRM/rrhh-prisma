@@ -289,13 +289,20 @@ const DIAS_ALERTA_CONTRATO    = 30;
 const DIAS_ALERTA_ENTREVISTA  = 3;  // avisar X días antes de que se cumpla el plazo
 const CLAVE_ALERTAS           = 'gm_alertas_vistas';
 
+// BUGFIX: la comparación exacta ("...==='Activo'") fallaba silenciosamente
+// ante variantes de captura como "activo", "ACTIVO" o espacios extra,
+// dejando al empleado fuera de TODAS las alertas (contrato, entrevistas,
+// cumpleaños, aniversario) sin ningún aviso de error. Ahora es insensible
+// a mayúsculas/espacios.
+function esActivo(e){ return (e['ESTATUS']||'').toString().trim().toLowerCase()==='activo'; }
+
 function evaluarAlertas(datos){
     const hoy        = new Date();
     hoy.setHours(0,0,0,0);
     const alertasVistas = JSON.parse(localStorage.getItem(CLAVE_ALERTAS)||'{}');
     let nuevas = 0;
 
-    datos.filter(e=>(e["ESTATUS"]||"").trim()==="Activo").forEach(emp=>{
+    datos.filter(esActivo).forEach(emp=>{
         const id  = (emp["NO. EMPLEADO"]||"").toString();
         const nom = emp["NOMBRE DEL TRABAJADOR"] || ("Empleado #"+id);
 
@@ -356,7 +363,7 @@ function evaluarAlertas(datos){
 
     // Filtrar por empresas permitidas del usuario (Auxiliares solo ven sus empresas)
     const datosPermitidos = filtrarPorEmpresasPermitidas(datos);
-    datosPermitidos.filter(function(e){ return (e['ESTATUS']||'').trim()==='Activo'; }).forEach(function(emp){
+    datosPermitidos.filter(esActivo).forEach(function(emp){
         const id2  = (emp['ID INTERNO']||(emp['NO. EMPLEADO']||'')).toString();
         const nom2 = emp['NOMBRE DEL TRABAJADOR'] || 'Empleado';
         const pNom = nom2.split(' ')[0];
@@ -371,7 +378,12 @@ function evaluarAlertas(datos){
             var hoyUTC=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
             if(fC < hoyUTC) fC = new Date(Date.UTC(hoyYear+1,fm-1,fd));
             const dC=Math.round((fC - hoyUTC) / 86400000);
-            const clC='cumple_'+id2+'_'+hoyYear;
+            // BUGFIX: antes la clave era la misma para el aviso anticipado
+            // ("en 5 días") y el del día exacto ("¡hoy!"), así que una vez
+            // notificado el aviso anticipado, alertasVistas[clC] quedaba
+            // marcado para todo el año y el aviso del día exacto JAMÁS
+            // volvía a dispararse. Ahora cada uno tiene su propia clave.
+            const clC = dC===0 ? ('cumpleHOY_'+id2+'_'+hoyYear) : ('cumple_'+id2+'_'+hoyYear);
             if(!alertasVistas[clC] && dC<=7){
                 agregarNotificacion('cumple',
                     dC===0?'🎂 ¡Hoy cumpleaños! — '+pNom:'🎂 Cumpleaños en '+dC+' día(s) — '+pNom,
@@ -5504,7 +5516,17 @@ async function obtenerDatos(forzar){
             ocultarLoader();
             if(r.status==="success"){
                 // cacheGlobal: TODOS los registros sin deduplicar (Expedientes, Bajas, autocomplete)
-                cacheGlobal=r.data.filter(e=>e["NO. EMPLEADO"]&&e["NO. EMPLEADO"].toString().trim()!=="");
+                // BUGFIX: antes se exigía "NO. EMPLEADO" no vacío para conservar el registro,
+                // pero ese campo se repite entre empresas y puede venir vacío en reingresos o
+                // registros dados de alta solo con ID INTERNO (el identificador confiable del
+                // proyecto). Esto descartaba silenciosamente empleados activos de TODO el
+                // sistema — incluidas las alertas de cumpleaños/aniversario. Ahora basta con
+                // tener CUALQUIERA de los dos identificadores.
+                cacheGlobal=r.data.filter(e=>{
+                    const idInt=(e["ID INTERNO"]||"").toString().trim();
+                    const noEmp=(e["NO. EMPLEADO"]||"").toString().trim();
+                    return idInt!=="" || noEmp!=="";
+                });
                 cacheTimestamp=Date.now();
                 return cacheGlobal;
             }
@@ -6133,6 +6155,18 @@ async function initApp(){
     if(cacheGlobal.length)evaluarAlertas(cacheGlobal);
     initAutocomplete();
     // Cerrar panel de notificaciones al hacer click fuera
+    registrarCierreNotifsAlClickAfuera();
+}
+// BUGFIX: initApp() puede llamarse más de una vez en la misma carga de
+// página (login manual + arrancarApp con sesión existente). Antes el
+// addEventListener('click', ...) se registraba dentro de initApp() y se
+// acumulaba un listener nuevo cada vez (no rompía nada visualmente porque
+// todos hacían lo mismo, pero era una fuga de listeners). Con esta bandera
+// se registra una sola vez por carga de página.
+let _clickAfueraNotifsRegistrado = false;
+function registrarCierreNotifsAlClickAfuera(){
+    if(_clickAfueraNotifsRegistrado) return;
+    _clickAfueraNotifsRegistrado = true;
     document.addEventListener('click',e=>{
         const panel=document.getElementById('notif-panel');
         const btn=document.getElementById('btn-notif');
