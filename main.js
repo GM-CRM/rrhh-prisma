@@ -4987,7 +4987,7 @@ async function subirFotoPerfil(){
         nombreArchivo: 'foto_perfil_'+idParaNombre+'.'+file.name.split('.').pop(),
         mimeType: file.type,
         data: b64
-    });
+    }, 45000); // timeout largo: puede implicar crear carpeta+subcarpeta en Drive antes de subir
     console.log('[subirFotoPerfil] Respuesta backend:', JSON.stringify(resp));
     if(resp.status === 'success'){
         mostrarToast('success','Foto guardada','Foto subida a Drive. Carpeta: '+(resp.folderUrl||'existente'));
@@ -6032,7 +6032,7 @@ async function subirDocumentosExpediente() {
                 nombreArchivo:  file.name,
                 mimeType:       file.type || 'application/octet-stream',
                 data:           b64
-            });
+            }, 45000); // timeout largo: la primera subida a un empleado sin carpeta aún crea carpeta+subcarpeta en Drive
             if (resp.status === 'success') subidos++;
             else { errores++; console.warn(file.name, resp.message); }
         } catch(e) { errores++; }
