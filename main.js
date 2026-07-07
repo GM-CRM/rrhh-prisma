@@ -2806,9 +2806,12 @@ function activarTabPersonas(tab, btnEl) {
     if(!cont) return;
 
     // Segmentador de grupos comerciales
-    const grupos = [...new Set(cacheGlobal.map(function(e){
-        return (e["GRUPO COMERCIAL"]||"").toString().trim();
-    }).filter(Boolean))].sort();
+    // BUGFIX 07 jul 2026: antes leía los grupos directo de cacheGlobal
+    // (valores crudos por empleado, que pueden quedar desactualizados si
+    // la empresa cambió de grupo después de que ese empleado fue dado de
+    // alta) — eso producía píldoras duplicadas/inconsistentes. Ahora usa
+    // el catálogo EMPRESAS (listaGrupos()), que es la fuente de verdad.
+    const grupos = listaGrupos();
     const grupoActual = window._personasGrupoFiltro || '';
     const segHtml = grupos.length > 1
         ? '<div class="flex items-center gap-2 flex-wrap mb-4 px-1 py-1">'
@@ -3185,8 +3188,12 @@ function construirArbolDesdeCache() {
             if(!(e["NO. EMPLEADO"]||"").toString().trim()) return false;
             if((e["ESTATUS"]||"").toString().trim() !== "Activo") return false;
             if(grupoFiltro){
-                const g = (e["GRUPO COMERCIAL"]||"").toString().trim();
-                if(g !== grupoFiltro) return false;
+                // BUGFIX 07 jul 2026: preferir el grupo derivado del catálogo
+                // EMPRESAS (fuente de verdad) sobre el valor crudo guardado
+                // por empleado, y comparar normalizado (sin mayúsculas/acentos).
+                const empVal = (e["EMPRESA"]||"").toString().trim();
+                const g = grupoDeEmpresa(empVal) || (e["GRUPO COMERCIAL"]||"").toString().trim();
+                if(_normGrupo(g) !== _normGrupo(grupoFiltro)) return false;
             }
             return true;
         })
@@ -3502,8 +3509,10 @@ async function renderAdminPersonas(cont) {
     +grupos.map(function(g){
         const cnt = catalogoEmpresas.filter(function(e){return e.grupo===g;}).length;
         const cntEmp = cacheGlobal.filter(function(r){
-            const grp = (r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa((r["EMPRESA"]||"").toString().trim());
-            return grp === g;
+            // BUGFIX 07 jul 2026: catálogo primero, comparación normalizada
+            const empVal = (r["EMPRESA"]||"").toString().trim();
+            const grp = grupoDeEmpresa(empVal) || (r["GRUPO COMERCIAL"]||"").toString().trim();
+            return _normGrupo(grp) === _normGrupo(g);
         }).length;
         return '<div class="flex items-center justify-between py-1.5 border-b border-slate-50">'
             +'<div>'
@@ -5842,7 +5851,10 @@ function aplicarFiltros() {
         const noEmp  = (emp["NO. EMPLEADO"] || "").toString().toLowerCase();
         const puesto = (emp["PUESTO"] || "").toLowerCase();
         const empVal = (emp["EMPRESA"] || "").toString().trim();
-        const grpVal = (emp["GRUPO COMERCIAL"] || "").toString().trim() || grupoDeEmpresa(empVal);
+        // BUGFIX 07 jul 2026: el catálogo EMPRESAS es la fuente de verdad;
+        // el valor guardado por empleado solo se usa si la empresa no está
+        // en el catálogo (caso raro, empresa no dada de alta ahí todavía).
+        const grpVal = grupoDeEmpresa(empVal) || (emp["GRUPO COMERCIAL"] || "").toString().trim();
         const pasaBusqueda = !busqueda || nombre.includes(busqueda) || noEmp.includes(busqueda) || puesto.includes(busqueda);
         const pasaEmpresa  = !empresa  || empVal === empresa;
         const pasaGrupo    = !grupo    || _normGrupo(grpVal) === _normGrupo(grupo);
@@ -6145,7 +6157,10 @@ async function cargarDashboard(){
     const D=todos.filter(r=>{
         const emp=(r["EMPRESA"]||"").toString().trim();
         // Grupo: leer de la columna BD primero; luego catálogo; luego vacío
-        const grp=(r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa(emp);
+        // BUGFIX 07 jul 2026: catálogo primero (fuente de verdad), el valor
+        // guardado por empleado queda solo como respaldo si la empresa no
+        // está en el catálogo.
+        const grp=grupoDeEmpresa(emp) || (r["GRUPO COMERCIAL"]||"").toString().trim();
         if(hayFiltroEmp   && emp!==filtroEmp)   return false;
         if(hayFiltroGrupo && _normGrupo(grp)!==_normGrupo(filtroGrupo)) return false;
         return true;
