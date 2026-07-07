@@ -576,6 +576,20 @@ function grupoDeEmpresa(nombreEmpresa) {
     return found ? (found.grupo || "") : "";
 }
 
+// BUGFIX 07 jul 2026: el filtro de "Grupo Comercial" (dashboard y
+// Expedientes) comparaba con === estricto el valor guardado por
+// empleado contra el valor del catálogo (hoja EMPRESAS). Si alguna vez
+// se renombró un grupo en el catálogo, o hay diferencias de mayúsculas/
+// acentos/espacios entre ambos, la comparación fallaba en silencio y el
+// filtro regresaba 0 resultados para ese grupo aunque sí hubiera datos
+// — eso explicaba que un grupo funcionara bien y otro se viera vacío.
+// Se usa esta normalización en AMBOS lados de cada comparación de grupo.
+function _normGrupo(s) {
+    return (s || "").toString().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+        .toUpperCase();
+}
+
 // Devuelve lista única de grupos del catálogo
 function listaGrupos() {
     return [...new Set(catalogoEmpresas.map(e => e.grupo).filter(Boolean))].sort();
@@ -5831,7 +5845,7 @@ function aplicarFiltros() {
         const grpVal = (emp["GRUPO COMERCIAL"] || "").toString().trim() || grupoDeEmpresa(empVal);
         const pasaBusqueda = !busqueda || nombre.includes(busqueda) || noEmp.includes(busqueda) || puesto.includes(busqueda);
         const pasaEmpresa  = !empresa  || empVal === empresa;
-        const pasaGrupo    = !grupo    || grpVal === grupo;
+        const pasaGrupo    = !grupo    || _normGrupo(grpVal) === _normGrupo(grupo);
         const pasaEstatus  = !estatus  || (emp["ESTATUS"] || "").toString().trim() === estatus;
         return pasaBusqueda && pasaEmpresa && pasaGrupo && pasaEstatus;
     });
@@ -6133,7 +6147,7 @@ async function cargarDashboard(){
         // Grupo: leer de la columna BD primero; luego catálogo; luego vacío
         const grp=(r["GRUPO COMERCIAL"]||"").toString().trim() || grupoDeEmpresa(emp);
         if(hayFiltroEmp   && emp!==filtroEmp)   return false;
-        if(hayFiltroGrupo && grp!==filtroGrupo) return false;
+        if(hayFiltroGrupo && _normGrupo(grp)!==_normGrupo(filtroGrupo)) return false;
         return true;
     });
 
@@ -6960,18 +6974,17 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
   Swal.fire({ title: 'Generando contrato...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
   try {
-    // NOTA: generar_contrato es pesada (Drive + Docs + export PDF).
-    // Si tu enviarPeticion(action, payload, timeoutMs) acepta un tercer
-    // parámetro de timeout, pásale uno largo aquí, igual que hiciste
-    // para exportar_datos (45s + reintento). Ajusta el nombre del
-    // parámetro a como esté definido tu enviarPeticion real.
+    // generar_contrato es pesada (Drive + Docs + export PDF). Un contrato
+    // Administrativo crea 6 documentos en una sola llamada — 45s a veces
+    // no alcanza y se reportaba como error aunque terminara bien del lado
+    // del servidor (mismo patrón que subir_documento). Se sube a 90s.
     const r = await enviarPeticion("generar_contrato", {
       idInterno: idInterno,
       funcionesPuesto: formValues.funciones,
       descansoDiario: formValues.descanso,
       fechaInicioOverride: formValues.fInicio,
       fechaFinOverride: formValues.fFin
-    }, 45000);
+    }, 90000);
 
     if (r.status === "success") {
       mostrarToast('success', '¡Contrato generado!', `Tipo: ${r.tipoIngreso}`, 8000);
