@@ -98,18 +98,79 @@
   <style>
     /* Drawer */
     #drawer-editor{transition:transform .3s cubic-bezier(.4,0,.2,1)}
+    /* ─── REDISEÑO: Side Drawer de notificaciones ──────────────────
+       Antes era un dropdown flotante (`position:fixed` cerca de la
+       campana) que tapaba KPIs del dashboard y se cerraba mediante un
+       listener global en `document` — frágil ante nodos reemplazados a
+       mitad de un clic (ver nota en main.js). Ahora es un panel lateral
+       de altura completa con su propio backdrop dedicado. */
+
+    /* Backdrop: oscurece y desenfoca el fondo; solo él cierra el drawer */
+    #notif-backdrop{
+        background-color: rgba(15,23,42,0);
+        backdrop-filter: blur(0px);
+        -webkit-backdrop-filter: blur(0px);
+        opacity:0;
+        transition: background-color .35s cubic-bezier(.4,0,.2,1),
+                    backdrop-filter .35s cubic-bezier(.4,0,.2,1),
+                    opacity .35s cubic-bezier(.4,0,.2,1);
+        pointer-events:none;
+    }
+    #notif-backdrop.is-open{
+        background-color: rgba(15,23,42,.35);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+        opacity:1;
+        pointer-events:auto;
+    }
+
+    /* Drawer: se desliza desde el borde derecho con una curva "ease-out"
+       pronunciada (entra rápido, frena suave) — sensación más premium que
+       un simple ease-in-out. */
+    .notif-drawer{
+        transform: translateX(100%);
+        transition: transform .4s cubic-bezier(.16,1,.3,1);
+        will-change: transform;
+    }
+    .notif-drawer.is-open{ transform: translateX(0); }
+
+    .notif-tabs-scroll::-webkit-scrollbar{ height:0 }
+    .notif-lista-scroll::-webkit-scrollbar{ width:5px }
+    .notif-lista-scroll::-webkit-scrollbar-track{ background:transparent }
+    .notif-lista-scroll::-webkit-scrollbar-thumb{ background:#e2e8f0; border-radius:10px }
+
+    /* Píldoras de pestañas */
+    .notif-tab-btn{ transition: background-color .25s ease, color .25s ease, transform .15s ease; }
+    .notif-tab-btn:active{ transform: scale(.95); }
+    .notif-tab-count{
+        display:inline-flex; align-items:center; justify-content:center;
+        min-width:1.15rem; height:1.15rem; padding:0 .3rem;
+        border-radius:9999px; font-size:.65rem; font-weight:800;
+        margin-left:.35rem; vertical-align:middle;
+    }
+
+    /* Tarjetas de notificación: entrada en cascada (stagger) + microinteracción hover */
+    .notif-card{
+        opacity:0;
+        transform: translateY(10px);
+        animation: notifCardIn .45s cubic-bezier(.16,1,.3,1) forwards;
+        animation-delay: calc(var(--i, 0) * 45ms);
+        transition: transform .25s cubic-bezier(.34,1.56,.64,1),
+                    box-shadow .25s ease,
+                    background-color .2s ease;
+    }
+    .notif-card:hover{
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px -10px rgba(15,23,42,.18);
+    }
+    @keyframes notifCardIn{ to{ opacity:1; transform:translateY(0); } }
+    @media (prefers-reduced-motion: reduce){
+        .notif-card{ animation:none; opacity:1; transform:none; }
+        .notif-drawer, #notif-backdrop{ transition:none; }
+    }
     /* Toast container */
     #toast-container{position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none;overflow:hidden;max-width:22rem;clip:rect(auto,auto,auto,auto)}
     #toast-container>*{pointer-events:all}
-    /* Notif panel */
-    #notif-panel{max-height:80vh;display:flex;flex-direction:column}
-    /* BUGFIX: el selector por ID de arriba (especificidad 1,0,0) le ganaba
-       siempre a la clase .hidden de Tailwind (especificidad 0,1,0), así que
-       display:flex se aplicaba SIEMPRE sin importar si classList tenía
-       'hidden' o no — el panel se veía abierto todo el tiempo. Esta regla,
-       misma especificidad de ID + !important, es la que realmente gana. */
-    #notif-panel.hidden{display:none !important}
-    #notif-lista{overflow-y:auto;flex:1}
   /* Ocultar toasts que aún están fuera de pantalla esperando animación */
   #toast-container > * { overflow: hidden; }
   .translate-x-full { opacity: 0; }
@@ -1091,15 +1152,32 @@ if ('serviceWorker' in navigator) {
   </div>
 </div>
 
-<!-- Panel de notificaciones -->
-<div id="notif-panel" class="hidden fixed right-4 top-14 w-[26rem] max-w-[95vw] bg-white rounded-2xl border border-slate-200 shadow-2xl z-50 overflow-hidden">
-  <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50 flex-shrink-0">
-    <p class="text-sm font-bold text-slate-800">Notificaciones</p>
-    <button onclick="limpiarNotificaciones()" class="text-xs text-slate-400 hover:text-red-500 transition">Limpiar todo</button>
+<!-- Backdrop del panel de notificaciones (REDISEÑO: reemplaza el listener
+     global de "clic afuera" — ver nota junto a abrirCentroNotifs en main.js) -->
+<div id="notif-backdrop" class="notif-backdrop hidden fixed inset-0 z-40" onclick="cerrarCentroNotifs()"></div>
+
+<!-- Panel de notificaciones — Side Drawer -->
+<aside id="notif-panel" class="notif-drawer hidden fixed top-0 right-0 z-50 h-full w-full sm:w-[26rem] max-w-full bg-white/95 shadow-2xl flex flex-col">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-lg shadow-indigo-200 flex-shrink-0">
+        <i class="fas fa-bell text-white text-sm"></i>
+      </div>
+      <div class="min-w-0">
+        <p class="text-sm font-bold text-slate-800 leading-tight">Notificaciones</p>
+        <p id="notif-subtitulo" class="text-xs text-slate-400 leading-tight truncate">Sin novedades</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-1 flex-shrink-0">
+      <button onclick="limpiarNotificaciones()" class="text-xs font-medium text-slate-400 hover:text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition">Limpiar</button>
+      <button onclick="cerrarCentroNotifs()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+        <i class="fas fa-times text-sm"></i>
+      </button>
+    </div>
   </div>
-  <div id="notif-tabs" class="flex items-center gap-1 px-3 py-2 border-b border-slate-100 flex-shrink-0 overflow-x-auto"></div>
-  <div id="notif-lista"></div>
-</div>
+  <div id="notif-tabs" class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-100 flex-shrink-0 overflow-x-auto notif-tabs-scroll"></div>
+  <div id="notif-lista" class="flex-1 overflow-y-auto px-3 py-3 notif-lista-scroll"></div>
+</aside>
 
 <script>
 // API key de Google Places (New) — misma cuenta de Google Cloud
@@ -1107,6 +1185,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.10"></script>
+<script src="main.js?v=69.11"></script>
 </body>
 </html>

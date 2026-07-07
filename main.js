@@ -96,32 +96,37 @@ function cerrarToast(id){
 function agregarNotificacion(tipo, titulo, mensaje, empleadoId='', silencioso=false){
     const notif = {id: Date.now(), tipo, titulo, mensaje, empleadoId, leida: false, fecha: new Date().toISOString()};
     notificaciones.unshift(notif);
+    invalidarCacheNotifs();
     guardarNotifs();
     actualizarBadgeNotifs();
     if(!silencioso) mostrarToast(tipo, titulo, mensaje);
 }
 
-// Mapa de estilos por tipo de notificación
+// Mapa de estilos por tipo de notificación — REDISEÑO: badges cromáticos
+// con gradiente para la insignia del ícono (antes solo un color plano de
+// fondo), pensados para las nuevas tarjetas tipo "card" del side drawer.
 const NOTIF_ESTILOS = {
-    error:       { bg:'bg-red-50',    border:'border-red-200',    icon:'fa-circle-exclamation', iconColor:'text-red-500',    badge:'bg-red-100 text-red-700'    },
-    warning:     { bg:'bg-amber-50',  border:'border-amber-200',  icon:'fa-triangle-exclamation',iconColor:'text-amber-500', badge:'bg-amber-100 text-amber-700' },
-    contrato:    { bg:'bg-orange-50', border:'border-orange-200', icon:'fa-file-contract',       iconColor:'text-orange-500',badge:'bg-orange-100 text-orange-700'},
-    info:        { bg:'bg-blue-50',   border:'border-blue-200',   icon:'fa-circle-info',         iconColor:'text-blue-500',  badge:'bg-blue-100 text-blue-700'   },
-    success:     { bg:'bg-emerald-50',border:'border-emerald-200',icon:'fa-circle-check',        iconColor:'text-emerald-500',badge:'bg-emerald-100 text-emerald-700'},
-    cumple:      { bg:'bg-pink-50',   border:'border-pink-200',   icon:'fa-cake-candles',        iconColor:'text-pink-500',  badge:'bg-pink-100 text-pink-700'   },
-    aniversario: { bg:'bg-violet-50', border:'border-violet-200', icon:'fa-trophy',              iconColor:'text-violet-500',badge:'bg-violet-100 text-violet-700'},
+    error:       { bg:'bg-red-50/70',     border:'border-red-100',     icon:'fa-circle-exclamation',   iconBg:'bg-gradient-to-br from-red-400 to-rose-500',      badge:'bg-red-100 text-red-700'        },
+    warning:     { bg:'bg-amber-50/70',   border:'border-amber-100',   icon:'fa-triangle-exclamation', iconBg:'bg-gradient-to-br from-amber-400 to-orange-400', badge:'bg-amber-100 text-amber-700'    },
+    contrato:    { bg:'bg-orange-50/70',  border:'border-orange-100',  icon:'fa-file-contract',        iconBg:'bg-gradient-to-br from-orange-400 to-amber-500', badge:'bg-orange-100 text-orange-700'  },
+    info:        { bg:'bg-blue-50/70',    border:'border-blue-100',    icon:'fa-circle-info',          iconBg:'bg-gradient-to-br from-blue-400 to-indigo-500',  badge:'bg-blue-100 text-blue-700'      },
+    success:     { bg:'bg-emerald-50/70', border:'border-emerald-100', icon:'fa-circle-check',         iconBg:'bg-gradient-to-br from-emerald-400 to-teal-500', badge:'bg-emerald-100 text-emerald-700'},
+    cumple:      { bg:'bg-pink-50/70',    border:'border-pink-100',    icon:'fa-cake-candles',         iconBg:'bg-gradient-to-br from-pink-400 to-fuchsia-500', badge:'bg-pink-100 text-pink-700'      },
+    aniversario: { bg:'bg-violet-50/70',  border:'border-violet-100',  icon:'fa-trophy',               iconBg:'bg-gradient-to-br from-violet-400 to-purple-500',badge:'bg-violet-100 text-violet-700'  },
 };
 
 // ─── Pestañas del centro de notificaciones ───────────────────
 // Agrupa los tipos crudos (n.tipo) en 4 categorías visibles al usuario.
 // 'error' se incluye en 'contrato' porque app.js llegó a usar ese tipo
 // para contratos vencidos (inconsistencia histórica entre archivos).
+// REDISEÑO: cada pestaña ahora trae su propia clase de acento ('activo')
+// para pintarse como píldora de color sólido/gradiente cuando está activa.
 const NOTIF_TABS = [
-    { key:'todas',       label:'Todas',       tipos:null },
-    { key:'cumple',      label:'Cumpleaños',  tipos:['cumple'] },
-    { key:'aniversario', label:'Aniversario', tipos:['aniversario'] },
-    { key:'contrato',    label:'Contrato',    tipos:['contrato','error'] },
-    { key:'otros',       label:'Otros',       tipos:['warning','info','success'] }
+    { key:'todas',       label:'Todas',            tipos:null,                          activo:'bg-slate-800 text-white' },
+    { key:'cumple',      label:'🎂 Cumpleaños',     tipos:['cumple'],                    activo:'bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white' },
+    { key:'aniversario', label:'🏆 Aniversario',    tipos:['aniversario'],               activo:'bg-gradient-to-r from-violet-500 to-purple-500 text-white' },
+    { key:'contrato',    label:'Contrato',         tipos:['contrato','error'],          activo:'bg-gradient-to-r from-orange-500 to-amber-500 text-white' },
+    { key:'otros',       label:'Otros',            tipos:['warning','info','success'],  activo:'bg-gradient-to-r from-blue-500 to-indigo-500 text-white' }
 ];
 let notifTabActiva = 'todas';
 
@@ -130,6 +135,32 @@ function categoriaDeNotif(tipo){
         if(t.tipos && t.tipos.includes(tipo)) return t.key;
     }
     return 'otros';
+}
+
+// ─── Cache de agrupación por categoría (FIX DE RENDIMIENTO) ───────────
+// ANTES: cada clic en una pestaña reconstruía el contador de las 5
+// pestañas recorriendo el array completo de notificaciones una vez POR
+// PESTAÑA (5 × N), además de reconstruir toda la lista de tarjetas de
+// forma síncrona en el mismo tick del evento click — con ~494
+// notificaciones eso bloqueaba el hilo principal lo suficiente como para
+// que el navegador "congelara" el repintado (la pantalla se veía tenue/
+// blanca un instante) antes de reaccionar, y en el peor caso el panel
+// llegaba a cerrarse por una carrera con el listener de "clic afuera".
+// AHORA: se agrupa UNA sola vez cuando el array de notificaciones cambia
+// (alta nueva, limpiar todo) y se cachea. Cambiar de pestaña es una
+// simple lectura O(1) del cache — no vuelve a recorrer las 494.
+let _notifGrupos = null;
+function invalidarCacheNotifs(){ _notifGrupos = null; }
+function obtenerNotifsPorCategoria(){
+    if(_notifGrupos) return _notifGrupos;
+    const grupos = { todas:[], cumple:[], aniversario:[], contrato:[], otros:[] };
+    for(let i=0;i<notificaciones.length;i++){
+        const n = notificaciones[i];
+        grupos.todas.push(n);
+        grupos[categoriaDeNotif(n.tipo)].push(n);
+    }
+    _notifGrupos = grupos;
+    return grupos;
 }
 
 
@@ -145,90 +176,140 @@ function actualizarBadgeNotifs(){
     }
 }
 
+// ─── Side Drawer de notificaciones ────────────────────────────
+// REDISEÑO: antes era un dropdown flotante que tapaba el dashboard y se
+// cerraba con un listener global en `document` que comparaba
+// `panel.contains(e.target)` — frágil, porque si el propio clic (ej. en
+// una pestaña) disparaba un re-render que reemplazaba esos nodos del DOM
+// ANTES de que el evento terminara de burbujear, `e.target` quedaba
+// "huérfano" (desconectado del documento) y `contains()` devolvía false,
+// cerrando el panel aunque el clic fuera claramente adentro. Ahora se usa
+// un backdrop dedicado (`#notif-backdrop`) que solo se cierra con su
+// propio clic — ya no depende de la burbuja de eventos ni de que el DOM
+// interno permanezca intacto durante el evento.
+function abrirCentroNotifs(){
+    const panel = document.getElementById('notif-panel');
+    const backdrop = document.getElementById('notif-backdrop');
+    if(!panel || !backdrop) return;
+    panel.classList.remove('hidden');
+    backdrop.classList.remove('hidden');
+    renderizarNotificaciones();
+    // Doble rAF: deja que el navegador pinte el estado inicial (fuera de
+    // pantalla) antes de agregar la clase que dispara la transición de
+    // entrada — si se agrega en el mismo frame, el navegador colapsa
+    // ambos estados y la animación de deslizamiento no se ve.
+    requestAnimationFrame(()=>{
+        requestAnimationFrame(()=>{
+            panel.classList.add('is-open');
+            backdrop.classList.add('is-open');
+        });
+    });
+}
+function cerrarCentroNotifs(){
+    const panel = document.getElementById('notif-panel');
+    const backdrop = document.getElementById('notif-backdrop');
+    if(!panel || !backdrop) return;
+    panel.classList.remove('is-open');
+    backdrop.classList.remove('is-open');
+}
 function toggleCentroNotifs(){
     const panel = document.getElementById('notif-panel');
     if(!panel) return;
-    panel.classList.toggle('hidden');
-    if(!panel.classList.contains('hidden')) renderizarNotificaciones();
+    if(panel.classList.contains('is-open')) cerrarCentroNotifs();
+    else abrirCentroNotifs();
 }
 
 function renderizarNotificaciones(){
-    const lista=document.getElementById('notif-lista');
-    const tabsCont=document.getElementById('notif-tabs');
+    renderizarPestanasNotifs();
+    renderizarListaNotifs();
+}
+
+// ─── Barra de pestañas (barato: máx. 5 botones, lee del cache O(1)) ───
+function renderizarPestanasNotifs(){
+    const tabsCont = document.getElementById('notif-tabs');
+    if(!tabsCont) return;
+    const grupos = obtenerNotifsPorCategoria();
+
+    tabsCont.innerHTML = NOTIF_TABS.map(function(t){
+        const cuenta = grupos[t.key].length;
+        const activa = notifTabActiva === t.key;
+        return '<button data-tab="'+t.key+'" class="notif-tab-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap '
+            + (activa ? t.activo : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
+            + '">'+t.label
+            + (cuenta>0 ? '<span class="notif-tab-count '+(activa?'bg-white/25 text-white':'bg-white text-slate-500')+'">'+(cuenta>99?'99+':cuenta)+'</span>' : '')
+            + '</button>';
+    }).join('');
+
+    // onclick= (no addEventListener): se reemplaza en cada render, nunca
+    // se acumula. e.stopPropagation() asegura que el clic en una pestaña
+    // JAMÁS se propague hacia afuera del drawer (defensivo: con el
+    // backdrop dedicado ya no debería cerrar nada, pero evita que algún
+    // otro listener ancestro reaccione al clic).
+    tabsCont.onclick = function(e){
+        e.stopPropagation();
+        const btn = e.target.closest('.notif-tab-btn');
+        if(!btn || btn.dataset.tab === notifTabActiva) return;
+        notifTabActiva = btn.dataset.tab;
+        renderizarPestanasNotifs();                     // repinta pestañas: barato, instantáneo
+        requestAnimationFrame(renderizarListaNotifs);    // difiere la lista (lo "pesado") al siguiente frame
+    };
+}
+
+// ─── Lista de tarjetas (lee del cache O(1); solo pinta hasta 30) ──────
+function renderizarListaNotifs(){
+    const lista = document.getElementById('notif-lista');
     if(!lista) return;
+    const grupos = obtenerNotifsPorCategoria();
+    const filtradas = grupos[notifTabActiva] || [];
 
-    // ─── Renderizar la barra de pestañas con conteo por categoría ───
-    if(tabsCont){
-        tabsCont.innerHTML = NOTIF_TABS.map(function(t){
-            const cuenta = t.key==='todas'
-                ? notificaciones.length
-                : notificaciones.filter(n=>categoriaDeNotif(n.tipo)===t.key).length;
-            const activa = notifTabActiva===t.key;
-            return '<button data-tab="'+t.key+'" class="notif-tab-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition '
-                + (activa ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
-                + '">'+t.label+(cuenta>0 ? ' <span class="opacity-70">('+cuenta+')</span>' : '')+'</button>';
-        }).join('');
-
-        // onclick= en vez de addEventListener: se reemplaza en cada render,
-        // no se acumula (antes esto causaba múltiples ejecuciones duplicadas
-        // al abrir/cerrar el panel varias veces).
-        tabsCont.onclick = function(e){
-            const btn = e.target.closest('.notif-tab-btn');
-            if(!btn) return;
-            notifTabActiva = btn.dataset.tab;
-            renderizarNotificaciones();
-        };
-    }
-
-    // ─── Filtrar por la pestaña activa ───
-    const filtradas = notifTabActiva==='todas'
-        ? notificaciones
-        : notificaciones.filter(n=>categoriaDeNotif(n.tipo)===notifTabActiva);
+    const subt = document.getElementById('notif-subtitulo');
+    if(subt) subt.textContent = filtradas.length ? (filtradas.length+' notificaci'+(filtradas.length===1?'ón':'ones')) : 'Sin novedades';
 
     if(!filtradas.length){
         const msg = notifTabActiva==='todas' ? 'Sin notificaciones' : 'Sin notificaciones en esta categoría';
-        lista.innerHTML='<div class="text-center py-10"><i class="fas fa-bell-slash text-slate-200 text-3xl mb-2 block"></i><p class="text-slate-400 text-sm">'+msg+'</p></div>';
+        lista.innerHTML = '<div class="flex flex-col items-center justify-center h-full py-16 text-center">'
+            + '<i class="fas fa-bell-slash text-slate-200 text-4xl mb-3"></i>'
+            + '<p class="text-slate-400 text-sm">'+msg+'</p></div>';
         return;
     }
-    lista.innerHTML=filtradas.slice(0,30).map(function(n){
+
+    // Solo se construyen tarjetas para las primeras 30 (igual que antes) —
+    // el cache ya nos ahorró filtrar las 494 de más, así que este map()
+    // trabaja sobre un array pequeño sin importar cuántas notificaciones
+    // totales existan.
+    lista.innerHTML = filtradas.slice(0,30).map(function(n, idx){
         const est = NOTIF_ESTILOS[n.tipo] || NOTIF_ESTILOS.info;
         const empBtn = n.empleadoId
-            ? '<button data-empid="'+n.empleadoId+'" class="notif-emp-btn text-xs text-blue-600 hover:underline mt-1 font-semibold">Ver empleado →</button>'
+            ? '<button data-empid="'+n.empleadoId+'" class="notif-emp-btn text-xs text-blue-600 hover:underline mt-1.5 font-semibold">Ver empleado →</button>'
             : '';
         const fecha = new Date(n.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
-        // Etiqueta visible: antes 'warning' decía "Contrato" por error (eran
-        // notificaciones de entrevistas 15/45 días, no de contratos).
         const tipoLabel = {
             error:'Contrato', warning:'Seguimiento', contrato:'Contrato',
-            info:'Info', success:'OK', cumple:'🎂 Cumple', aniversario:'🏆 Aniversario'
+            info:'Info', success:'OK', cumple:'Cumple', aniversario:'Aniversario'
         }[n.tipo]||n.tipo;
-        return '<div class="p-3 border-b border-slate-100 '+(n.leida?'opacity-55':'')+' hover:bg-slate-50 transition">'
-            +'<div class="flex gap-2.5 items-start">'
-            +'<div class="w-8 h-8 rounded-lg '+est.bg+' border '+est.border+' flex items-center justify-center flex-shrink-0 mt-0.5">'
-            +'<i class="fas '+est.icon+' '+est.iconColor+' text-sm"></i></div>'
+        // --i alimenta la animación de entrada en cascada (stagger) definida
+        // en CSS: cada tarjeta se retrasa `idx * 45ms` respecto a la anterior.
+        return '<div style="--i:'+idx+'" class="notif-card '+(n.leida?'opacity-60':'')+' flex gap-3 items-start p-3.5 mb-2 rounded-2xl border '+est.border+' '+est.bg+'">'
+            +'<div class="w-9 h-9 rounded-xl '+est.iconBg+' flex items-center justify-center flex-shrink-0 shadow-sm">'
+            +'<i class="fas '+est.icon+' text-white text-sm"></i></div>'
             +'<div class="flex-1 min-w-0">'
             +'<div class="flex items-center gap-1.5 mb-0.5 flex-wrap">'
-            +'<span class="text-xs font-semibold text-slate-700 leading-tight">'+n.titulo+'</span>'
-            +'<span class="px-1.5 py-0.5 rounded-full text-xs font-bold flex-shrink-0 '+est.badge+'">'+tipoLabel+'</span>'
+            +'<span class="text-xs font-bold text-slate-700 leading-tight">'+n.titulo+'</span>'
+            +'<span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 '+est.badge+'">'+tipoLabel+'</span>'
             +'</div>'
-            +'<p class="text-xs text-slate-500 leading-tight">'+n.mensaje+'</p>'
-            +'<p class="text-xs text-slate-300 mt-1">'+fecha+'</p>'
+            +'<p class="text-xs text-slate-500 leading-snug">'+n.mensaje+'</p>'
+            +'<p class="text-[10px] text-slate-300 mt-1">'+fecha+'</p>'
             +empBtn
-            +'</div></div></div>';
+            +'</div></div>';
     }).join('');
 
-    // onclick= en vez de addEventListener({once:true}): antes cada apertura
-    // del panel agregaba un listener nuevo sin quitar los anteriores, y al
-    // primer clic en "Ver empleado" TODOS se disparaban a la vez (drawer
-    // abriéndose varias veces). Con onclick= se reemplaza, nunca se acumula.
     lista.onclick = function(e){
         const btn = e.target.closest('.notif-emp-btn');
         if(!btn) return;
         const empId = btn.dataset.empid;
         if(!empId) return;
 
-        const panel = document.getElementById('notif-panel');
-        if(panel) panel.classList.add('hidden');
+        cerrarCentroNotifs();
 
         const emp = cacheGlobal.find(function(e){
             return (e['ID INTERNO']||'').toString().trim() === empId ||
@@ -258,14 +339,14 @@ function renderizarNotificaciones(){
     };
 
     // Marcar como leídas DESPUÉS de pintar (así se ve resaltada la primera
-    // vez que se abre el panel). Antes nunca se marcaban como leídas en
-    // absoluto: el badge se quedaba con el mismo conteo para siempre.
+    // vez que se abre el panel).
     if(notificaciones.some(n=>!n.leida)){
         notificaciones.forEach(n=>n.leida=true);
         guardarNotifs();
         actualizarBadgeNotifs();
     }
 }
+
 
 function tiempoRelativo(iso){
     const diff = (Date.now() - new Date(iso)) / 1000;
@@ -277,6 +358,7 @@ function tiempoRelativo(iso){
 
 function limpiarNotificaciones(){
     notificaciones=[];guardarNotifs();actualizarBadgeNotifs();
+    invalidarCacheNotifs();
     renderizarNotificaciones();
 }
 
@@ -6154,24 +6236,11 @@ async function initApp(){
     poblarCatalogos();
     if(cacheGlobal.length)evaluarAlertas(cacheGlobal);
     initAutocomplete();
-    // Cerrar panel de notificaciones al hacer click fuera
-    registrarCierreNotifsAlClickAfuera();
-}
-// BUGFIX: initApp() puede llamarse más de una vez en la misma carga de
-// página (login manual + arrancarApp con sesión existente). Antes el
-// addEventListener('click', ...) se registraba dentro de initApp() y se
-// acumulaba un listener nuevo cada vez (no rompía nada visualmente porque
-// todos hacían lo mismo, pero era una fuga de listeners). Con esta bandera
-// se registra una sola vez por carga de página.
-let _clickAfueraNotifsRegistrado = false;
-function registrarCierreNotifsAlClickAfuera(){
-    if(_clickAfueraNotifsRegistrado) return;
-    _clickAfueraNotifsRegistrado = true;
-    document.addEventListener('click',e=>{
-        const panel=document.getElementById('notif-panel');
-        const btn=document.getElementById('btn-notif');
-        if(panel&&!panel.contains(e.target)&&btn&&!btn.contains(e.target))panel.classList.add('hidden');
-    });
+    // REDISEÑO: ya no se registra un listener global de "clic afuera" —
+    // el nuevo #notif-backdrop se encarga de cerrar el drawer con su
+    // propio onclick, eliminando de raíz el bug de nodos huérfanos que
+    // cerraba el panel al hacer clic en las pestañas (ver nota junto a
+    // abrirCentroNotifs/cerrarCentroNotifs).
 }
 // ─── PWA INSTALL ─────────────────────────────────────────────
 let deferredPrompt = null;
