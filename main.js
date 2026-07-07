@@ -2309,9 +2309,10 @@ function cerrarEditor(){
     document.getElementById('drawer-overlay').classList.add('hidden');
     setTimeout(()=>{ drawer.classList.add('hidden'); }, 200);
     empleadoEdicion=null;
-    // Ocultar historial para la próxima apertura
-    const hw = document.getElementById('sec-historial-wrapper');
-    if(hw) hw.style.display='none';
+    // Limpiar la vista previa de archivos para la próxima apertura
+    // (evita ver un momento el expediente anterior mientras carga el nuevo)
+    const archivosEl = document.getElementById('tab-documentos-archivos');
+    if(archivosEl) archivosEl.innerHTML='';
 }
 
 // Helper: formatea fechas construidas con Date.UTC sin desfase de timezone
@@ -4986,7 +4987,7 @@ async function subirFotoPerfil(){
         nombreArchivo: 'foto_perfil_'+idParaNombre+'.'+file.name.split('.').pop(),
         mimeType: file.type,
         data: b64
-    });
+    }, 45000); // timeout largo: puede implicar crear carpeta+subcarpeta en Drive antes de subir
     console.log('[subirFotoPerfil] Respuesta backend:', JSON.stringify(resp));
     if(resp.status === 'success'){
         mostrarToast('success','Foto guardada','Foto subida a Drive. Carpeta: '+(resp.folderUrl||'existente'));
@@ -5236,7 +5237,14 @@ function renderizarDrawer(emp){
         ?'<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4"><div class="flex items-center gap-3"><i class="fas fa-folder-open text-blue-500 text-xl flex-shrink-0"></i><div class="flex-1 min-w-0"><p class="text-sm font-bold text-blue-800">Expediente en Drive</p><p class="text-xs text-blue-600 truncate">'+url+'</p></div><a href="'+url+'" target="_blank" rel="noopener" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0"><i class="fas fa-external-link-alt mr-1"></i>Abrir</a></div></div>'
         :'<div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4"><div class="flex items-center gap-3 mb-3"><i class="fas fa-folder text-amber-400 text-xl flex-shrink-0"></i><div class="flex-1"><p class="text-sm font-bold text-amber-800">Sin expediente en Drive</p><p class="text-xs text-amber-600">Este empleado no tiene carpeta asignada en Drive.</p></div></div><button onclick="crearExpedienteEnDrive()" class="w-full text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 py-2.5 rounded-xl transition flex items-center justify-center gap-2"><i class="fas fa-folder-plus"></i> Crear carpeta de expediente</button></div>'
     ));
-    document.getElementById("drawer-cuerpo").innerHTML = _p1+_p2+_p3+_p4+_p5+_p6+_p7+_p8+_p9+_p10+_p11;
+    // REDISEÑO: en vez de un solo contenedor de 2 columnas, cada sección
+    // se reparte en su pestaña correspondiente. Los inputs quedan igual
+    // en el DOM (mismos ids) — guardarCambiosEditor() no se ve afectado.
+    document.getElementById("tab-panel-personal").innerHTML   = _p3+_p4+_p5;
+    document.getElementById("tab-panel-laboral").innerHTML    = _p2+_p6+_p8+_p10+_p9;
+    document.getElementById("tab-historial-reingreso").innerHTML = _p1;
+    document.getElementById("tab-panel-contratos").innerHTML  = _p7;
+    document.getElementById("tab-documentos-drive").innerHTML = _p11;
 
     const eval360val = E["FECHA EVALUACIÓN 360"]||"";
     if(eval360val){const el=document.getElementById("ed_eval360");if(el)el.value=parsearFecha(eval360val);}
@@ -5287,14 +5295,102 @@ function renderizarDrawer(emp){
     }
 
     // ── Sección Historial de Carrera ──────────────────────────
-    // Solo mostrar si hay ID_PERSONA asignado
+    // Solo mostrar la tarjeta de historial si hay ID_PERSONA asignado;
+    // si no, se muestra el aviso "sin ID de historial" en su lugar.
+    const cardHistEl = document.getElementById('tab-historial-card');
+    const sinIdEl    = document.getElementById('tab-historial-sin-id');
     if(idPersonaEd){
-        const secHistEl = document.getElementById('sec-historial-wrapper');
-        if(secHistEl){
-            secHistEl.style.display = '';
-            // Cargar historial en segundo plano
-            setTimeout(()=>cargarHistorialPersona(idPersonaEd), 300);
+        if(cardHistEl) cardHistEl.classList.remove('hidden');
+        if(sinIdEl) sinIdEl.classList.add('hidden');
+        // Cargar historial en segundo plano
+        setTimeout(()=>cargarHistorialPersona(idPersonaEd), 300);
+    } else {
+        if(cardHistEl) cardHistEl.classList.add('hidden');
+        if(sinIdEl) sinIdEl.classList.remove('hidden');
+    }
+
+    // ── Indicador de Baja en la pestaña "Datos Laborales" ──────
+    const bajaDot = document.getElementById('tab-baja-dot');
+    if(bajaDot) bajaDot.classList.toggle('hidden', est!=="Baja");
+
+    // ── Pestaña "Expediente Digital": cargar miniaturas de Drive ──
+    // Solo si ya existe carpeta (si no, _p11 ya muestra el botón para
+    // crearla y no hay nada que listar todavía).
+    const archivosEl = document.getElementById('tab-documentos-archivos');
+    if(archivosEl){
+        if(url && url.indexOf("http")===0){
+            cargarArchivosExpediente(url);
+        } else {
+            archivosEl.innerHTML = '';
         }
+    }
+
+    // Siempre reabrir el expediente mostrando la primera pestaña
+    cambiarTabDrawer('personal');
+}
+
+// ─── Sistema de pestañas del modal de expediente ─────────────
+function cambiarTabDrawer(tab){
+    document.querySelectorAll('.drawer-tab-panel').forEach(function(p){
+        p.classList.toggle('hidden', p.id !== ('tab-panel-'+tab));
+    });
+    document.querySelectorAll('.drawer-tab').forEach(function(b){
+        b.classList.toggle('drawer-tab-activa', b.dataset.tab === tab);
+    });
+    const scrollEl = document.getElementById('drawer-body-scroll');
+    if(scrollEl) scrollEl.scrollTop = 0;
+}
+
+// ─── Miniaturas de archivos del expediente (pestaña "Expediente Digital") ──
+// Solo lectura: ver y abrir en Drive. No borra ni reemplaza archivos.
+function _iconoPorMime(mime){
+    if(!mime) return 'fa-file text-slate-400';
+    if(mime.indexOf('image/')===0) return 'fa-file-image text-blue-400';
+    if(mime==='application/pdf') return 'fa-file-pdf text-red-400';
+    if(mime.indexOf('word')!==-1) return 'fa-file-word text-blue-600';
+    if(mime.indexOf('sheet')!==-1 || mime.indexOf('excel')!==-1) return 'fa-file-excel text-emerald-600';
+    if(mime.indexOf('presentation')!==-1) return 'fa-file-powerpoint text-orange-500';
+    return 'fa-file text-slate-400';
+}
+async function cargarArchivosExpediente(folderUrl){
+    const cont = document.getElementById('tab-documentos-archivos');
+    if(!cont) return;
+    const match = (folderUrl||'').match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if(!match){ cont.innerHTML=''; return; }
+    const folderId = match[1];
+
+    cont.innerHTML = '<div class="text-xs text-slate-400 text-center py-4"><i class="fas fa-spinner fa-spin mr-1"></i>Cargando archivos del expediente...</div>';
+    try{
+        const r = await enviarPeticion('listar_archivos_expediente', { folderId });
+        if(r.status !== 'success'){
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No se pudieron cargar los archivos: '+(r.message||'')+'</p>';
+            return;
+        }
+        const archivos = r.archivos || [];
+        if(!archivos.length){
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Esta carpeta aún no tiene archivos.</p>';
+            return;
+        }
+        cont.innerHTML =
+            '<p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">'
+            +'<i class="fas fa-images text-blue-400"></i>Archivos en el expediente ('+archivos.length+')</p>'
+            +'<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">'
+            +archivos.map(function(a){
+                const fecha = a.fecha ? new Date(a.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '';
+                const previewInner = a.thumbnailUrl
+                    ? '<img src="'+a.thumbnailUrl+'" loading="lazy" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML=\'<i class=&quot;fas '+_iconoPorMime(a.mimeType)+' text-3xl&quot;></i>\'">'
+                    : '<i class="fas '+_iconoPorMime(a.mimeType)+' text-3xl"></i>';
+                return '<a href="'+a.urlVer+'" target="_blank" rel="noopener" class="group block rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-sm transition overflow-hidden bg-white">'
+                    +'<div class="h-24 bg-slate-50 flex items-center justify-center overflow-hidden">'+previewInner+'</div>'
+                    +'<div class="px-2 py-1.5">'
+                    +'<p class="text-xs font-semibold text-slate-700 truncate group-hover:text-blue-600" title="'+a.nombre+'">'+a.nombre+'</p>'
+                    +'<p class="text-[10px] text-slate-400">'+fecha+'</p>'
+                    +'</div></a>';
+            }).join('')
+            +'</div>';
+    }catch(e){
+        console.error('cargarArchivosExpediente:', e);
+        cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No se pudo conectar para cargar los archivos.</p>';
     }
 }
 
@@ -5312,11 +5408,11 @@ async function guardarCambiosEditor(){
             "EMPRESA":                 document.getElementById('ed_empresa')?.value||undefined,
             "GRUPO COMERCIAL":         document.getElementById('ed_grupoComercial')?.value||undefined,
             "PUESTO":                  document.getElementById('ed_puesto')?.value||undefined,
-            "DEPARTAMENTO":            document.getElementById('ed_depto')?.value||undefined,
+            "DEPARTAMENTO":            document.getElementById('ed_departamento')?.value||undefined,
             "TIPO DE INGRESO":         document.getElementById('ed_tipoIngreso')?.value||undefined,
             "SUELDO MENSUAL":          document.getElementById('ed_sueldo')?.value||undefined,
             "FRECUENCIA DE PAGO":      document.getElementById('ed_frecPago')?.value||undefined,
-            "FUENTE DE CONTRATACIÓN":  document.getElementById('ed_fuente')?.value||undefined,
+            "FUENTE DE CONTRATACIÓN":  document.getElementById('ed_fuenteCont')?.value||undefined,
             "CURP":                    document.getElementById('ed_curp')?.value||undefined,
             "RFC":                     document.getElementById('ed_rfc')?.value||undefined,
             "NSS":                     document.getElementById('ed_nss')?.value||undefined,
@@ -5936,7 +6032,7 @@ async function subirDocumentosExpediente() {
                 nombreArchivo:  file.name,
                 mimeType:       file.type || 'application/octet-stream',
                 data:           b64
-            });
+            }, 45000); // timeout largo: la primera subida a un empleado sin carpeta aún crea carpeta+subcarpeta en Drive
             if (resp.status === 'success') subidos++;
             else { errores++; console.warn(file.name, resp.message); }
         } catch(e) { errores++; }
@@ -6700,10 +6796,24 @@ async function actualizarBarraDrive() {
         console.warn('[Drive]', e);
     }
 }
+// DESACTIVADO 07 jul 2026: esta función se disparaba sola 3s después de
+// cada carga de página y luego cada 5 min, pero el elemento HTML
+// (#drive-storage-bar) ya no existe en index.html — no mostraba nada a
+// nadie. Mientras tanto, DriveApp.getStorageUsed() puede colgarse del
+// lado del servidor (sospecha de política de Workspace, ver
+// ESTADO_PROYECTO.md), y una ejecución de Apps Script colgada ocupa un
+// cupo de ejecución concurrente para *todo el proyecto* — no solo para
+// esta función. Eso hacía fallar de forma intermitente y aparentemente
+// aleatoria otras acciones sin relación (dashboard en ceros, crear Baja,
+// generar contrato), porque todas comparten el mismo despliegue de GAS.
+// Si en el futuro se agrega una barra de almacenamiento visible, mejor
+// que se cargue bajo demanda (un botón), nunca automática ni en loop.
+/*
 window.addEventListener('load', function(){
     setTimeout(actualizarBarraDrive, 3000);
     setInterval(actualizarBarraDrive, 5 * 60 * 1000);
 });
+*/
 
 // ════════════════════════════════════════════════════════════
 // MAYÚSCULAS GLOBALES — todos los inputs de texto
