@@ -6441,11 +6441,12 @@ async function cargarHistorialPersona(idPersona) {
     }
 }
 
-async function registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues) {
+async function registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues, fecha) {
     const usuario = document.getElementById('header-user')?.innerText || '';
     const r = await enviarPeticion('registrar_movimiento', {
         idPersona, tipo, descripcion: desc,
         valorAntes: valAntes, valorDespues: valDespues,
+        fecha: fecha || '',
         registradoPor: usuario
     });
     if (r.status === 'success') {
@@ -6457,54 +6458,178 @@ async function registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDe
     }
 }
 
+// ── Campos dinámicos del formulario de "Nuevo movimiento" según tipo ──
+// Antes el modal pedía siempre los mismos 3 campos genéricos ("Valor
+// anterior" / "Valor nuevo" / "Descripción") sin importar el tipo de
+// movimiento, lo cual era confuso (¿"valor anterior" de qué?). Ahora cada
+// tipo pide justo lo que necesita, reutilizando catálogos reales de la
+// BD (catalogoPuestos, catalogoDeptos, empresas) y precargando el dato
+// actual del empleado (puesto/sueldo/empresa/departamento) como referencia.
+const _LBL = 'style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase"';
+const _INP = 'style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box"';
+const _INP_RO = 'style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box;background:#f8fafc;color:#94a3b8"';
+
+function _camposMovimientoHTML(tipo, emp) {
+    const puestoAct  = (emp && emp['PUESTO']) || '—';
+    const deptoAct    = (emp && emp['DEPARTAMENTO']) || '—';
+    const empresaAct = (emp && emp['EMPRESA']) || '—';
+    const sueldoAct  = (emp && emp['SUELDO MENSUAL']) ? Number(emp['SUELDO MENSUAL']).toLocaleString('es-MX') : '—';
+    const listaPuestos = (catalogoPuestos||[]).map(p=>'<option value="'+p+'">').join('');
+    const listaDeptos  = (catalogoDeptos||[]).map(d=>'<option value="'+d+'">').join('');
+    const listaEmpresas = (typeof empresas!=='undefined'?empresas:[]).filter(e=>e!==empresaAct)
+        .map(e=>'<option value="'+e+'">'+e+'</option>').join('');
+
+    if (tipo === 'Aumento') {
+        return '<div><label '+_LBL+'>Sueldo actual (MXN)</label>'
+            + '<input value="$'+sueldoAct+'" disabled '+_INP_RO+'></div>'
+            + '<div><label '+_LBL+'>Sueldo nuevo (MXN) <span style="color:#ef4444">*</span></label>'
+            + '<input id="mov-sueldo-nuevo" type="number" step="0.01" placeholder="0.00" '+_INP+'></div>'
+            + '<div><label '+_LBL+'>Motivo del aumento</label>'
+            + '<select id="mov-motivo-aumento" '+_INP+'>'
+            + '<option value="Revisión de desempeño">Revisión de desempeño</option>'
+            + '<option value="Ajuste de mercado">Ajuste de mercado</option>'
+            + '<option value="Antigüedad">Antigüedad</option>'
+            + '<option value="Ajuste por cambio de puesto">Ajuste por cambio de puesto</option>'
+            + '<option value="Otro">Otro</option>'
+            + '</select></div>';
+    }
+    if (tipo === 'Cambio de Puesto' || tipo === 'Promoción') {
+        var sueldoBlock = tipo === 'Promoción'
+            ? '<div><label '+_LBL+'>Sueldo actual (MXN)</label>'
+              + '<input value="$'+sueldoAct+'" disabled '+_INP_RO+'></div>'
+              + '<div><label '+_LBL+'>Sueldo nuevo (MXN) — opcional</label>'
+              + '<input id="mov-sueldo-nuevo" type="number" step="0.01" placeholder="Déjalo vacío si no cambia" '+_INP+'></div>'
+            : '';
+        return '<div><label '+_LBL+'>Puesto actual</label>'
+            + '<input value="'+puestoAct+'" disabled '+_INP_RO+'></div>'
+            + '<div><label '+_LBL+'>Puesto nuevo <span style="color:#ef4444">*</span></label>'
+            + '<input id="mov-puesto-nuevo" list="mov-list-puestos" placeholder="Escribe o elige de la lista" '+_INP+'>'
+            + '<datalist id="mov-list-puestos">'+listaPuestos+'</datalist></div>'
+            + sueldoBlock;
+    }
+    if (tipo === 'Cambio de Empresa') {
+        return '<div><label '+_LBL+'>Empresa actual</label>'
+            + '<input value="'+empresaAct+'" disabled '+_INP_RO+'></div>'
+            + '<div><label '+_LBL+'>Empresa nueva <span style="color:#ef4444">*</span></label>'
+            + '<select id="mov-empresa-nueva" '+_INP+'><option value="">Seleccione...</option>'+listaEmpresas+'</select></div>'
+            + '<p style="font-size:11px;color:#94a3b8;margin-top:2px">Esto solo queda registrado en el historial de carrera; no mueve automáticamente el expediente activo. Si el cambio de empresa es definitivo, actualiza también el campo "Empresa" del expediente.</p>';
+    }
+    if (tipo === 'Cambio de Departamento') {
+        return '<div><label '+_LBL+'>Departamento actual</label>'
+            + '<input value="'+deptoAct+'" disabled '+_INP_RO+'></div>'
+            + '<div><label '+_LBL+'>Departamento nuevo <span style="color:#ef4444">*</span></label>'
+            + '<input id="mov-depto-nuevo" list="mov-list-deptos" placeholder="Escribe o elige de la lista" '+_INP+'>'
+            + '<datalist id="mov-list-deptos">'+listaDeptos+'</datalist></div>';
+    }
+    // "Otro" — el único caso donde sí tiene sentido pedir campos libres,
+    // porque no hay una estructura predecible.
+    return '<div><label '+_LBL+'>Valor anterior</label>'
+        + '<input id="mov-antes" placeholder="Ej: valor previo" '+_INP+'></div>'
+        + '<div><label '+_LBL+'>Valor nuevo</label>'
+        + '<input id="mov-despues" placeholder="Ej: valor nuevo" '+_INP+'></div>';
+}
+
+// Lee los campos dinámicos ya renderizados y arma {valAntes, valDespues, desc} según el tipo
+function _leerCamposMovimiento(tipo, emp) {
+    const puestoAct  = (emp && emp['PUESTO']) || '';
+    const deptoAct   = (emp && emp['DEPARTAMENTO']) || '';
+    const empresaAct = (emp && emp['EMPRESA']) || '';
+    const sueldoAct  = (emp && emp['SUELDO MENSUAL']) || '';
+    const comentario = document.getElementById('mov-comentario')?.value || '';
+
+    if (tipo === 'Aumento') {
+        const nuevo = document.getElementById('mov-sueldo-nuevo')?.value || '';
+        if (!nuevo) return { error: 'Captura el sueldo nuevo' };
+        const motivo = document.getElementById('mov-motivo-aumento')?.value || '';
+        return { valAntes: '$'+Number(sueldoAct||0).toLocaleString('es-MX'), valDespues: '$'+Number(nuevo).toLocaleString('es-MX'),
+                 desc: (motivo ? motivo+'. ' : '') + comentario };
+    }
+    if (tipo === 'Cambio de Puesto' || tipo === 'Promoción') {
+        const puestoNuevo = document.getElementById('mov-puesto-nuevo')?.value || '';
+        if (!puestoNuevo) return { error: 'Captura el puesto nuevo' };
+        const sueldoNuevo = document.getElementById('mov-sueldo-nuevo')?.value || '';
+        let valAntes = puestoAct || '—', valDespues = puestoNuevo;
+        if (tipo === 'Promoción' && sueldoNuevo) {
+            valAntes   += ' · $'+Number(sueldoAct||0).toLocaleString('es-MX');
+            valDespues += ' · $'+Number(sueldoNuevo).toLocaleString('es-MX');
+        }
+        return { valAntes, valDespues, desc: comentario };
+    }
+    if (tipo === 'Cambio de Empresa') {
+        const nueva = document.getElementById('mov-empresa-nueva')?.value || '';
+        if (!nueva) return { error: 'Selecciona la empresa nueva' };
+        return { valAntes: empresaAct || '—', valDespues: nueva, desc: comentario };
+    }
+    if (tipo === 'Cambio de Departamento') {
+        const nuevo = document.getElementById('mov-depto-nuevo')?.value || '';
+        if (!nuevo) return { error: 'Captura el departamento nuevo' };
+        return { valAntes: deptoAct || '—', valDespues: nuevo, desc: comentario };
+    }
+    // Otro
+    return { valAntes: document.getElementById('mov-antes')?.value || '',
+             valDespues: document.getElementById('mov-despues')?.value || '',
+             desc: comentario };
+}
+
 function abrirModalMovimiento(idPersona, nombreEmpleado) {
+    const emp = (typeof empleadoEdicion !== 'undefined') ? empleadoEdicion : null;
+    const hoyISO = new Date().toISOString().slice(0,10);
+
     Swal.fire({
         title: 'Registrar movimiento de carrera',
         html: `
             <div style="text-align:left;display:flex;flex-direction:column;gap:10px;margin-top:8px">
                 <div>
-                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Tipo de movimiento</label>
-                    <select id="mov-tipo" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px">
+                    <label ${_LBL}>Tipo de movimiento</label>
+                    <select id="mov-tipo" ${_INP}>
                         <option value="">Seleccione...</option>
                         <option value="Aumento">Aumento de sueldo</option>
                         <option value="Cambio de Puesto">Cambio de puesto</option>
-                        <option value="Promoción">Promoción</option>
+                        <option value="Promoción">Promoción (puesto + sueldo)</option>
                         <option value="Cambio de Empresa">Cambio de empresa (intragrupo)</option>
                         <option value="Cambio de Departamento">Cambio de departamento</option>
                         <option value="Otro">Otro</option>
                     </select>
                 </div>
+                <div id="mov-campos-dinamicos"><p style="font-size:12px;color:#94a3b8;text-align:center;padding:12px 0">Selecciona un tipo de movimiento para continuar.</p></div>
                 <div>
-                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Valor anterior</label>
-                    <input id="mov-antes" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Ej: $9,000 / Auxiliar General">
+                    <label ${_LBL}>Fecha efectiva</label>
+                    <input id="mov-fecha" type="date" value="${hoyISO}" ${_INP}>
                 </div>
                 <div>
-                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Valor nuevo</label>
-                    <input id="mov-despues" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Ej: $11,000 / Ejecutivo">
-                </div>
-                <div>
-                    <label style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase">Descripción (opcional)</label>
-                    <input id="mov-desc" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;font-size:13px;margin-top:4px;box-sizing:border-box" placeholder="Motivo o comentario">
+                    <label ${_LBL}>Comentario (opcional)</label>
+                    <input id="mov-comentario" placeholder="Contexto adicional" ${_INP}>
                 </div>
             </div>`,
         showCancelButton: true,
         confirmButtonText: 'Guardar movimiento',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#7c3aed',
+        didOpen: () => {
+            const sel = document.getElementById('mov-tipo');
+            const cont = document.getElementById('mov-campos-dinamicos');
+            sel.addEventListener('change', () => {
+                cont.innerHTML = sel.value ? _camposMovimientoHTML(sel.value, emp)
+                    : '<p style="font-size:12px;color:#94a3b8;text-align:center;padding:12px 0">Selecciona un tipo de movimiento para continuar.</p>';
+            });
+        },
         preConfirm: () => {
             const tipo = document.getElementById('mov-tipo').value;
             if (!tipo) { Swal.showValidationMessage('Selecciona el tipo de movimiento'); return false; }
+            const lect = _leerCamposMovimiento(tipo, emp);
+            if (lect.error) { Swal.showValidationMessage(lect.error); return false; }
             return {
                 tipo,
-                desc:       document.getElementById('mov-desc').value,
-                valAntes:   document.getElementById('mov-antes').value,
-                valDespues: document.getElementById('mov-despues').value
+                desc:       lect.desc,
+                valAntes:   lect.valAntes,
+                valDespues: lect.valDespues,
+                fecha:      document.getElementById('mov-fecha')?.value || ''
             };
         }
     }).then(res => {
         if (res.isConfirmed && res.value) {
-            const { tipo, desc, valAntes, valDespues } = res.value;
-            registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues);
+            const { tipo, desc, valAntes, valDespues, fecha } = res.value;
+            registrarMovimientoCarrera(idPersona, tipo, desc, valAntes, valDespues, fecha);
         }
     });
 }
