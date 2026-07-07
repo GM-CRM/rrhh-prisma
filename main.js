@@ -6580,30 +6580,69 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
 
   const { value: formValues, isConfirmed } = await Swal.fire({
     title: 'Datos para el contrato',
+    // REDISEÑO + FIX: antes los campos usaban las clases nativas
+    // `.swal2-input`/`.swal2-textarea` de SweetAlert2. Esas clases están
+    // pensadas para el sistema `input:` propio de SweetAlert2 (que agrega
+    // una clase de tipo específica vía JS para controlar su `display`);
+    // al usarlas en HTML libre (`html:`) sin pasar por ese sistema, más
+    // los `<label>` sin `display:block` explícito, el navegador terminaba
+    // recorriendo el texto de cada etiqueta junto al campo equivocado
+    // (se veía como si "Descanso diario" flotara sobre el textarea de
+    // arriba, "Fecha de inicio" junto al campo de descanso, etc.).
+    // Ahora el formulario usa sus propias clases (`gc-*`) con estructura
+    // explícita en columna — no hay ambigüedad posible de layout.
     html: `
-      <div style="text-align:left">
-        <label style="font-weight:600;font-size:13px;">Funciones del puesto</label>
-        <textarea id="swal-funciones" class="swal2-textarea" style="margin-top:4px;"
-          placeholder="Ej. Ejecutar en campo el plan semanal de producción; controlar avance físico de obra; ..."></textarea>
+      <style>
+        .gc-form{ text-align:left; display:flex; flex-direction:column; gap:16px; margin-top:2px; }
+        .gc-field{ display:flex; flex-direction:column; gap:6px; }
+        .gc-field label{ display:block; font-weight:600; font-size:13px; color:#334155; }
+        .gc-field label .gc-hint{ font-weight:400; color:#94a3b8; font-size:11.5px; }
+        .gc-input, .gc-textarea{
+          display:block; width:100%; box-sizing:border-box;
+          border:1.5px solid #e2e8f0; border-radius:12px;
+          padding:10px 12px; font-size:14px; font-family:inherit; color:#1e293b;
+          background:#fff; transition:border-color .2s ease, box-shadow .2s ease;
+        }
+        .gc-input:focus, .gc-textarea:focus{
+          outline:none; border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.15);
+        }
+        .gc-textarea{ min-height:112px; resize:vertical; line-height:1.5; }
+        .gc-row{ display:flex; gap:12px; }
+        .gc-row .gc-field{ flex:1; min-width:0; }
+        @media (max-width:480px){ .gc-row{ flex-direction:column; } }
+      </style>
+      <div class="gc-form">
+        <div class="gc-field">
+          <label for="swal-funciones">Funciones del puesto</label>
+          <textarea id="swal-funciones" class="gc-textarea"
+            placeholder="Ej. Ejecutar en campo el plan semanal de producción; controlar avance físico de obra; ..."></textarea>
+        </div>
 
-        <label style="font-weight:600;font-size:13px;">Descanso diario</label>
-        <input id="swal-descanso" class="swal2-input" style="margin:4px 0 12px;"
-          value="${_escHtml('30 minutos')}" placeholder="Ej. 30 minutos">
+        <div class="gc-field">
+          <label for="swal-descanso">Descanso diario</label>
+          <input id="swal-descanso" type="text" class="gc-input"
+            value="${_escHtml('30 minutos')}" placeholder="Ej. 30 minutos">
+        </div>
 
-        <label style="font-weight:600;font-size:13px;">Fecha de inicio</label>
-        <input id="swal-fecha-inicio" type="date" class="swal2-input" style="margin:4px 0 12px;"
-          value="${_escHtml(prefill.fechaInicio)}">
-
-        <label style="font-weight:600;font-size:13px;">Fecha de fin de periodo (prueba/capacitación)</label>
-        <input id="swal-fecha-fin" type="date" class="swal2-input" style="margin:4px 0 4px;"
-          value="${_escHtml(prefill.fechaFin)}">
+        <div class="gc-row">
+          <div class="gc-field">
+            <label for="swal-fecha-inicio">Fecha de inicio</label>
+            <input id="swal-fecha-inicio" type="date" class="gc-input"
+              value="${_escHtml(prefill.fechaInicio)}">
+          </div>
+          <div class="gc-field">
+            <label for="swal-fecha-fin">Fin de periodo <span class="gc-hint">(prueba/capacitación)</span></label>
+            <input id="swal-fecha-fin" type="date" class="gc-input"
+              value="${_escHtml(prefill.fechaFin)}">
+          </div>
+        </div>
       </div>
     `,
     focusConfirm: false,
     showCancelButton: true,
     confirmButtonText: 'Generar contrato',
     cancelButtonText: 'Cancelar',
-    width: 520,
+    width: 560,
     preConfirm: () => {
       const funciones = document.getElementById('swal-funciones').value.trim();
       const descanso  = document.getElementById('swal-descanso').value.trim();
