@@ -113,15 +113,6 @@
   <style>
     /* Drawer */
     #drawer-editor{transition:transform .3s cubic-bezier(.4,0,.2,1)}
-    /* REDISEÑO modal de expediente: sistema de pestañas.
-       Los inputs de las 5 pestañas permanecen siempre en el DOM (solo
-       se oculta el panel con .hidden) para que guardarCambiosEditor()
-       pueda leer campos de pestañas que el usuario no visitó. */
-    #drawer-tabs{ scrollbar-width:thin; }
-    #drawer-tabs::-webkit-scrollbar{ height:4px; }
-    .drawer-tab{ color:#94a3b8; border-color:transparent; }
-    .drawer-tab:hover{ color:#475569; background:#f8fafc; }
-    .drawer-tab.drawer-tab-activa{ color:#2563eb; border-color:#2563eb; background:rgba(37,99,235,.04); }
     /* ─── REDISEÑO: Side Drawer de notificaciones ──────────────────
        Antes era un dropdown flotante (`position:fixed` cerca de la
        campana) que tapaba KPIs del dashboard y se cerraba mediante un
@@ -1174,7 +1165,7 @@ if ('serviceWorker' in navigator) {
 <div id="drawer-editor" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col pointer-events-auto opacity-0 scale-95 transition-all duration-200" id="drawer-inner">
 
-    <!-- Header modal (fijo) -->
+    <!-- Header modal -->
     <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl flex-shrink-0">
       <div class="flex items-center gap-3 flex-1 min-w-0" id="drawer-titulo"></div>
       <button onclick="cerrarEditor()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition flex-shrink-0">
@@ -1182,41 +1173,13 @@ if ('serviceWorker' in navigator) {
       </button>
     </div>
 
-    <!-- Barra de pestañas (fija) -->
-    <div class="flex-shrink-0 border-b border-slate-100 bg-white overflow-x-auto">
-      <div class="flex gap-1 px-4 min-w-max" id="drawer-tabs">
-        <button type="button" onclick="cambiarTabDrawer('personal')" data-tab="personal"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-id-card"></i>Personal y Contacto
-        </button>
-        <button type="button" onclick="cambiarTabDrawer('laboral')" data-tab="laboral"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap relative">
-          <i class="fas fa-briefcase"></i>Datos Laborales
-          <span id="tab-baja-dot" class="hidden absolute top-2 right-1 w-2 h-2 rounded-full bg-red-500"></span>
-        </button>
-        <button type="button" onclick="cambiarTabDrawer('historial')" data-tab="historial"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-timeline"></i>Historial de Carrera
-        </button>
-        <button type="button" onclick="cambiarTabDrawer('contratos')" data-tab="contratos"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-file-contract"></i>Contratos
-        </button>
-        <button type="button" onclick="cambiarTabDrawer('documentos')" data-tab="documentos"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-folder-open"></i>Expediente Digital
-        </button>
-      </div>
-    </div>
+    <!-- Cuerpo modal — dos columnas -->
+    <div class="flex-1 overflow-y-auto">
+      <div id="drawer-cuerpo" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
 
-    <!-- Cuerpo modal — un panel visible por pestaña -->
-    <div class="flex-1 overflow-y-auto" id="drawer-body-scroll">
-      <div id="tab-panel-personal" class="drawer-tab-panel p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
-      <div id="tab-panel-laboral" class="drawer-tab-panel hidden p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
-
-      <div id="tab-panel-historial" class="drawer-tab-panel hidden p-6">
-        <div id="tab-historial-reingreso"></div>
-        <div id="tab-historial-card" class="bg-white rounded-2xl border border-violet-100 p-4">
+      <!-- Historial de carrera (se muestra si tiene ID_PERSONA) -->
+      <div id="sec-historial-wrapper" style="display:none" class="px-6 pb-4">
+        <div class="bg-white rounded-2xl border border-violet-100 p-4">
           <div class="flex items-center justify-between mb-3">
             <p class="text-xs font-bold text-violet-600 uppercase tracking-wide flex items-center gap-1.5">
               <i class="fas fa-timeline"></i>Historial de Carrera
@@ -1230,20 +1193,10 @@ if ('serviceWorker' in navigator) {
             <div class="text-xs text-slate-400 text-center py-3">Cargando...</div>
           </div>
         </div>
-        <div id="tab-historial-sin-id" class="hidden text-xs text-slate-400 text-center py-6">
-          Esta persona aún no tiene un ID de historial asignado.
-        </div>
-      </div>
-
-      <div id="tab-panel-contratos" class="drawer-tab-panel hidden p-6"></div>
-
-      <div id="tab-panel-documentos" class="drawer-tab-panel hidden p-6">
-        <div id="tab-documentos-drive"></div>
-        <div id="tab-documentos-archivos" class="mt-5"></div>
       </div>
     </div>
 
-    <!-- Footer modal (fijo, visible sin importar la pestaña) -->
+    <!-- Footer modal -->
     <div class="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex-shrink-0">
       <button onclick="cerrarEditor()" class="flex-1 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl transition">Cancelar</button>
       <button onclick="guardarCambiosEditor()" class="flex-1 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 py-2.5 rounded-xl transition shadow-sm">
@@ -1287,6 +1240,6 @@ if ('serviceWorker' in navigator) {
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.19"></script>
+<script src="main.js?v=69.17"></script>
 </body>
 </html>
