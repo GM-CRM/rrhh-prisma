@@ -30,6 +30,33 @@ const API_URL    = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6
 // ─── UI BÁSICA ───────────────────────────────────────────────
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}
 function activarNav(btn){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('is-active'));btn.classList.add('is-active');}
+
+// ── REDISEÑO: grupos colapsables del sidebar ("Gestión de Personal",
+// "Mi Organización", "Administración"). Solo pliega/despliega visualmente
+// y recuerda la preferencia en localStorage; no toca showModule/activarNav
+// ni ningún endpoint — los botones internos conservan su onclick original.
+const CLAVE_NAV_COLAPSADOS = 'gm_nav_grupos_colapsados';
+function toggleNavGroup(nombre){
+    const wrap = document.querySelector('.nav-group-items[data-group-items="'+nombre+'"]');
+    if(!wrap) return;
+    const grupo = wrap.closest('.nav-group');
+    const colapsado = grupo.classList.toggle('is-collapsed');
+    try{
+        const estado = JSON.parse(localStorage.getItem(CLAVE_NAV_COLAPSADOS)||'{}');
+        estado[nombre] = colapsado;
+        localStorage.setItem(CLAVE_NAV_COLAPSADOS, JSON.stringify(estado));
+    }catch(e){}
+}
+function restaurarEstadoNavGroups(){
+    try{
+        const estado = JSON.parse(localStorage.getItem(CLAVE_NAV_COLAPSADOS)||'{}');
+        Object.keys(estado).forEach(function(nombre){
+            if(!estado[nombre]) return;
+            const wrap = document.querySelector('.nav-group-items[data-group-items="'+nombre+'"]');
+            if(wrap) wrap.closest('.nav-group').classList.add('is-collapsed');
+        });
+    }catch(e){}
+}
 let dashboardCargado=false;
 let moduloActivo='';
 function showModule(id){
@@ -437,11 +464,30 @@ function evaluarAlertas(datos){
     });
 
 
-    // ── Cumpleaños y Aniversarios (próximos 7 días) ────────────
+    // ── Cumpleaños y Aniversarios (ventana: 3 días atrás → 7 días adelante) ──
     const hoyFull = new Date();
-    const hoyDia  = hoyFull.getDate();
-    const hoyMes  = hoyFull.getMonth() + 1;
     const hoyYear = hoyFull.getFullYear();
+    const hoyUTC  = new Date(Date.UTC(hoyFull.getFullYear(), hoyFull.getMonth(), hoyFull.getDate()));
+
+    // BUGFIX (cumpleaños "silenciosos"): la versión anterior SOLO miraba hacia
+    // adelante — si el evento (mes/día) ya había ocurrido este año, saltaba
+    // directo al del año que viene (~365 días), así que si nadie abría la
+    // campana justo el día exacto, la alerta se perdía para siempre y nunca
+    // se volvía a mostrar. Ahora se evalúan los 3 años candidatos (año-1,
+    // año, año+1) y se elige la ocurrencia más cercana a hoy que caiga
+    // dentro de la ventana permitida [-DIAS_GRACIA_ATRAS, +DIAS_ALERTA_ADELANTE],
+    // así un evento de ayer (o de hace 2-3 días) todavía dispara aviso hoy.
+    const DIAS_GRACIA_ATRAS   = 3; // cuántos días "hacia atrás" seguimos avisando
+    const DIAS_ALERTA_ADELANTE = 7; // cuántos días "hacia adelante" empezamos a avisar
+    function _proximaOcurrencia(mes, dia){
+        var candidatos = [-1,0,1].map(function(offset){
+            var f = new Date(Date.UTC(hoyYear+offset, mes-1, dia));
+            return { fecha:f, dias: Math.round((f - hoyUTC)/86400000) };
+        }).filter(function(c){ return c.dias>=-DIAS_GRACIA_ATRAS && c.dias<=DIAS_ALERTA_ADELANTE; });
+        if(!candidatos.length) return null;
+        candidatos.sort(function(a,b){ return Math.abs(a.dias)-Math.abs(b.dias); });
+        return candidatos[0];
+    }
 
     // Filtrar por empresas permitidas del usuario (Auxiliares solo ven sus empresas)
     const datosPermitidos = filtrarPorEmpresasPermitidas(datos);
@@ -454,42 +500,49 @@ function evaluarAlertas(datos){
         const fNac = parseFechaFlexible(emp['FECHA DE NACIMIENTO']);
         if(fNac && !isNaN(fNac)){
             const fm=fNac.getUTCMonth()+1, fd=fNac.getUTCDate();
-            const edad=hoyYear-fNac.getUTCFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
-            // Próximo cumpleaños (UTC puro para evitar conversión local)
-            var fC=new Date(Date.UTC(hoyYear,fm-1,fd));
-            var hoyUTC=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
-            if(fC < hoyUTC) fC = new Date(Date.UTC(hoyYear+1,fm-1,fd));
-            const dC=Math.round((fC - hoyUTC) / 86400000);
-            // BUGFIX: antes la clave era la misma para el aviso anticipado
-            // ("en 5 días") y el del día exacto ("¡hoy!"), así que una vez
-            // notificado el aviso anticipado, alertasVistas[clC] quedaba
-            // marcado para todo el año y el aviso del día exacto JAMÁS
-            // volvía a dispararse. Ahora cada uno tiene su propia clave.
-            const clC = dC===0 ? ('cumpleHOY_'+id2+'_'+hoyYear) : ('cumple_'+id2+'_'+hoyYear);
-            if(!alertasVistas[clC] && dC<=7){
-                agregarNotificacion('cumple',
-                    dC===0?'🎂 ¡Hoy cumpleaños! — '+pNom:'🎂 Cumpleaños en '+dC+' día(s) — '+pNom,
-                    nom2+(dC===0?' cumple '+edad+' años hoy. ¡Felicítale!':', cumple '+edad+' años el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.'),
-                    id2, true);
-                alertasVistas[clC]='1'; nuevas++;
+            const ocurrC = _proximaOcurrencia(fm, fd);
+            if(ocurrC){
+                const dC = ocurrC.dias;
+                const edad = ocurrC.fecha.getUTCFullYear() - fNac.getUTCFullYear();
+                // Clave por año + ocurrencia (evita que un aviso anticipado bloquee
+                // el del día exacto, y que el del día exacto bloquee el "atrasado")
+                const clC = 'cumple_'+id2+'_'+ocurrC.fecha.getUTCFullYear();
+                if(!alertasVistas[clC]){
+                    var tit, msg;
+                    if(dC===0){
+                        tit='🎂 ¡Hoy cumpleaños! — '+pNom;
+                        msg=nom2+' cumple '+edad+' años hoy. ¡Felicítale!';
+                    } else if(dC>0){
+                        tit='🎂 Cumpleaños en '+dC+' día(s) — '+pNom;
+                        msg=nom2+', cumple '+edad+' años el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.';
+                    } else {
+                        tit='🎂 Cumpleaños hace '+Math.abs(dC)+' día(s) — '+pNom;
+                        msg=nom2+' cumplió '+edad+' años el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.';
+                    }
+                    agregarNotificacion('cumple', tit, msg, id2, true);
+                    alertasVistas[clC]='1'; nuevas++;
+                }
             }
         }
 
-        // Aniversario laboral — usar getUTC* igualmente
+        // Aniversario laboral — misma ventana con gracia hacia atrás
         const fIng2 = parseFechaFlexible(emp['FECHA DE INGRESO']);
         if(fIng2 && !isNaN(fIng2)){
             const fm=fIng2.getUTCMonth()+1, fd=fIng2.getUTCDate();
-            const anos=hoyYear-fIng2.getUTCFullYear()-(hoyMes<fm||(hoyMes===fm&&hoyDia<fd)?1:0);
-            if(anos>0){
-                var hoyUTC2=new Date(Date.UTC(hoyFull.getFullYear(),hoyFull.getMonth(),hoyFull.getDate()));
-                var fA=new Date(Date.UTC(hoyYear,fm-1,fd));
-                if(fA < hoyUTC2) fA = new Date(Date.UTC(hoyYear+1,fm-1,fd));
-                const dA=Math.round((fA - hoyUTC2) / 86400000);
-                const clA = 'aniv_'+id2+'_'+hoyYear;
-                var tA = dA===0 ? 'Hoy' : 'En '+dA+' día(s)';
-                var mA = nom2 + ' cumple ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.');
-                var titA = '🏆 Aniversario ' + tA + ' — ' + pNom;
-                if(!alertasVistas[clA] && dA<=7){ agregarNotificacion('aniversario', titA, mA, id2, true); alertasVistas[clA]='1'; nuevas++; }
+            const ocurrA = _proximaOcurrencia(fm, fd);
+            if(ocurrA){
+                const anos = ocurrA.fecha.getUTCFullYear() - fIng2.getUTCFullYear();
+                if(anos>0){
+                    const dA = ocurrA.dias;
+                    const clA = 'aniv_'+id2+'_'+ocurrA.fecha.getUTCFullYear();
+                    if(!alertasVistas[clA]){
+                        var tA = dA===0 ? 'Hoy' : (dA>0 ? 'En '+dA+' día(s)' : 'Hace '+Math.abs(dA)+' día(s)');
+                        var verbo = dA<0 ? 'cumplió' : 'cumple';
+                        var mA = nom2 + ' ' + verbo + ' ' + anos + (anos>1?' años':' año') + (dA===0?' en la empresa hoy.':' el '+String(fd).padStart(2,'0')+'/'+String(fm).padStart(2,'0')+'.');
+                        var titA = '🏆 Aniversario ' + tA + ' — ' + pNom;
+                        agregarNotificacion('aniversario', titA, mA, id2, true); alertasVistas[clA]='1'; nuevas++;
+                    }
+                }
             }
         }
     });
@@ -2750,7 +2803,7 @@ function activarTabPersonas(tab, btnEl) {
               return '<button onclick="filtrarPersonasPorGrupo(\''+g.replace(/'/g,"\\'")+'\',this)" class="px-3 py-1 rounded-full text-xs font-semibold transition '+(grupoActual===g?'bg-violet-600 text-white':'bg-slate-100 text-slate-600 hover:bg-violet-50')+'">'+g+'</button>';
           }).join('')+'</div>'
         : '';
-    cont.innerHTML = segHtml + '<div id="personas-tab-contenido"><div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div></div>';
+    cont.innerHTML = segHtml + '<div id="personas-tab-contenido" class="tab-fade"><div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div></div>';
     window._personasTabActual = tab;
     const subcont = document.getElementById('personas-tab-contenido');
     if(tab==='directorio')    renderDirectorio(subcont);
@@ -3475,6 +3528,9 @@ function activarTabEval(tab, btnEl) {
     const cont = document.getElementById('eval-contenido');
     if(!cont) return;
     cont.innerHTML = '<div class="flex justify-center py-16"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i></div>';
+    // Reinicia la animación de entrada en cada cambio de pestaña (el div es
+    // persistente, así que solo agregar la clase no la vuelve a disparar)
+    cont.classList.remove('tab-fade'); void cont.offsetWidth; cont.classList.add('tab-fade');
 
     if(tab==='miseval')  renderMisEvaluaciones(cont);
     else if(tab==='equipo')  renderMiEquipoEval(cont);
@@ -4295,6 +4351,9 @@ async function activarTabEncuesta(encId, btnEl){
     }
     const cont = document.getElementById('enc-contenido');
     if(!cont) return;
+    // Reinicia la animación de entrada en cada cambio de pestaña (el div es
+    // persistente, así que solo agregar la clase no la vuelve a disparar)
+    cont.classList.remove('tab-fade'); void cont.offsetWidth; cont.classList.add('tab-fade');
 
     // Usar cache si tiene menos de 5 minutos
     const ahora = Date.now();
@@ -6230,6 +6289,7 @@ async function initApp(){
     pasoActual=0;altaData={};
     actualizarBadgeNotifs();
     renderizarStepper();
+    restaurarEstadoNavGroups();
     await cargarCatalogoEmpresas();
     const datos=await cargarDashboard();
     actualizarListaEmpresas();
