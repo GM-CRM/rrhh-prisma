@@ -5,7 +5,7 @@
 //  Solo usa caché como fallback si no hay red disponible.
 // ============================================================
 
-const CACHE_NAME = 'prisma-rh-v98';
+const CACHE_NAME = 'prisma-rh-v99';
 const ASSETS_ESTATICOS = [
     '/manifest.json',
     '/icon.svg'

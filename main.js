@@ -2356,6 +2356,7 @@ function badgeContrato(val){
 // ─── CREAR EXPEDIENTE EN DRIVE DESDE EL DRAWER ───────────────
 async function crearExpedienteEnDrive() {
     if (!empleadoEdicion) return;
+    const idInterno = (empleadoEdicion["ID INTERNO"] || "").toString();
     const id  = (empleadoEdicion["NO. EMPLEADO"] || "").toString();
     const nom = empleadoEdicion["NOMBRE DEL TRABAJADOR"] || "Sin Nombre";
     const emp = empleadoEdicion["EMPRESA"] || "";
@@ -2367,18 +2368,26 @@ async function crearExpedienteEnDrive() {
     }
 
     try {
+        // BUGFIX 07 jul 2026: ahora se manda idInterno (identificador único
+        // real) además del combo NO. EMPLEADO + EMPRESA — el backend ya
+        // busca por ID INTERNO primero, que es más confiable para
+        // reingresos o altas sin NO. EMPLEADO. Timeout extendido a 45s,
+        // mismo criterio que subir_documento (puede implicar crear
+        // carpeta de empresa + subcarpeta si es la primera del grupo).
         const r = await enviarPeticion('crear_expediente', {
+            idInterno:       idInterno,
             numeroEmpleado:  id,
             nombreTrabajador: nom,
             empresa:         emp
-        });
+        }, 45000);
 
         if (r.status === 'success') {
-            // Actualizar el cache local con la URL nueva
-            const empCache = cacheGlobal.find(e =>
-                (e["NO. EMPLEADO"] || "").toString() === id &&
-                (e["EMPRESA"] || "").trim() === emp.trim()
-            );
+            // Actualizar el cache local con la URL nueva — ID INTERNO primero
+            const empCache = cacheGlobal.find(e => (e["ID INTERNO"] || "").toString() === idInterno && idInterno)
+                || cacheGlobal.find(e =>
+                    (e["NO. EMPLEADO"] || "").toString() === id &&
+                    (e["EMPRESA"] || "").trim() === emp.trim()
+                );
             if (empCache) empCache["URL EXPEDIENTE"] = r.url;
             if (empleadoEdicion) empleadoEdicion["URL EXPEDIENTE"] = r.url;
 
