@@ -2930,7 +2930,21 @@ function avatarColor(nombre) {
 async function renderDirectorio(cont) {
     const todos = await getPersonasData();
     // Filtrar por empresas permitidas
-    const data = filtrarPorEmpresasPermitidas(todos);
+    let data = filtrarPorEmpresasPermitidas(todos);
+
+    // BUGFIX 07 jul 2026: esta función nunca aplicaba la píldora de "Grupo"
+    // seleccionada arriba (window._personasGrupoFiltro) — por eso el
+    // Directorio seguía mostrando todos los colaboradores sin importar el
+    // grupo activo. Los objetos de getPersonasData() no traen el campo
+    // "grupo" (solo "empresa"), así que se deriva del catálogo EMPRESAS,
+    // igual que en el resto de la app.
+    const grupoFiltroDir = (window._personasGrupoFiltro || '').trim();
+    if(grupoFiltroDir){
+        data = data.filter(function(e){
+            const g = grupoDeEmpresa(e.empresa||'');
+            return _normGrupo(g) === _normGrupo(grupoFiltroDir);
+        });
+    }
 
     // Controles de filtro
     const empresasUnicas = [...new Set(data.map(e=>e.empresa).filter(Boolean))].sort();
@@ -3394,7 +3408,15 @@ function renderNodoHtml(nodos, nivel, empFiltro) {
 // ── INFORMES ──────────────────────────────────────────────────
 async function renderInformesPersonas(cont) {
     const todos = await getPersonasData();
-    const data  = filtrarPorEmpresasPermitidas(todos);
+    let data  = filtrarPorEmpresasPermitidas(todos);
+    // BUGFIX 07 jul 2026: igual que Directorio, esta pestaña tampoco
+    // aplicaba la píldora de "Grupo" seleccionada.
+    const grupoFiltroInf = (window._personasGrupoFiltro || '').trim();
+    if(grupoFiltroInf){
+        data = data.filter(function(e){
+            return _normGrupo(grupoDeEmpresa(e.empresa||'')) === _normGrupo(grupoFiltroInf);
+        });
+    }
     const act   = data.filter(function(e){ return e.estatus==='Activo'; });
     const bajas = data.filter(function(e){ return e.estatus!=='Activo'; });
 
@@ -3458,7 +3480,17 @@ async function renderInformesPersonas(cont) {
 // ── ADMINISTRACIÓN ────────────────────────────────────────────
 async function renderAdminPersonas(cont) {
     const todos = await getPersonasData();
-    const data  = filtrarPorEmpresasPermitidas(todos);
+    let data  = filtrarPorEmpresasPermitidas(todos);
+    // BUGFIX 07 jul 2026: igual que Directorio/Informes, esta pestaña
+    // tampoco aplicaba la píldora de "Grupo" seleccionada a sus catálogos
+    // de Departamentos/Puestos/Empresas (el bloque de Grupos Comerciales
+    // sí queda intencionalmente global, para que siempre se vean todos).
+    const grupoFiltroAdm = (window._personasGrupoFiltro || '').trim();
+    if(grupoFiltroAdm){
+        data = data.filter(function(e){
+            return _normGrupo(grupoDeEmpresa(e.empresa||'')) === _normGrupo(grupoFiltroAdm);
+        });
+    }
 
     // Catálogos únicos
     const deptos  = [...new Set(data.map(function(e){return e.depto;}).filter(Boolean))].sort();
