@@ -153,6 +153,8 @@ body::before{
 .sc-opt label .n{font-size:1.15rem;font-weight:800;color:#94a3b8;transition:color .2s;}
 .sc-opt label .l{font-size:.58rem;text-align:center;color:#94a3b8;line-height:1.2;transition:color .2s;}
 .sc-opt input:checked+label{transform:translateY(-2px);box-shadow:0 4px 12px rgba(124,58,237,.2);}
+.sc-opt[data-v="0"] input:checked+label{border-color:#dc2626;background:rgba(220,38,38,.06);}
+.sc-opt[data-v="0"] input:checked+label .n{color:#dc2626;}
 .sc-opt[data-v="1"] input:checked+label{border-color:#ef4444;background:rgba(239,68,68,.06);}
 .sc-opt[data-v="1"] input:checked+label .n{color:#ef4444;}
 .sc-opt[data-v="2"] input:checked+label{border-color:#f97316;background:rgba(249,115,22,.06);}
@@ -443,6 +445,42 @@ async function iniciarEncuesta(){
     }
   }
 
+  // ── NOM-035: asignación dinámica de cuestionario (Guía I / Guía II) ──
+  // Mismo link público para todos — aquí se decide, según cuántos activos
+  // tiene la RAZÓN SOCIAL (empresa) del empleado (no el Grupo Comercial),
+  // qué cuestionario mostrar: <50 activos → Guía I, >=50 → Guía II.
+  if (encId === 'NOM035') {
+    if (!empleadoId) {
+      mostrarError('No se pudo identificar tu empresa para asignar el cuestionario correcto. Verifica tu número de empleado.');
+      return;
+    }
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando cuestionario...';
+    try {
+      const rNom = await fetch(API_URL, { method:'POST', body: JSON.stringify({
+        action: 'obtener_estructura_nom035', payload: { idInterno: empleadoId }
+      })});
+      const dNom = await rNom.json();
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Comenzar encuesta';
+      if (dNom.status === 'success') {
+        window._nom035Tipo = dNom.tipoCuestionario; // 'guia1' | 'guia2' — se manda al guardar la respuesta
+        encuestaData = dNom.encuesta;
+        document.getElementById('enc-titulo').textContent = encuestaData.titulo;
+        document.getElementById('enc-desc').textContent = encuestaData.descripcion || '';
+        // Escala propia NOM-035: 0-4 (Nunca...Siempre), no la de 1-5 genérica
+        if (encuestaData.escala && encuestaData.escala.length === 5) {
+          ESCALA = encuestaData.escala.map(function(e){ return { v: e.valor, l: e.etiqueta }; });
+        }
+      } else {
+        mostrarError(dNom.message || 'No se pudo determinar el cuestionario correspondiente.');
+        return;
+      }
+    } catch(e) {
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Comenzar encuesta';
+      mostrarError('Error de conexión al preparar el cuestionario. Intenta de nuevo.');
+      return;
+    }
+  }
+
   document.getElementById('id-screen').style.display='none';
   document.getElementById('q-screen').style.display='block';
   document.getElementById('survey-footer').style.display='flex';
@@ -546,6 +584,7 @@ function recopilarRespuestas(){
 
 async function enviarEncuesta(){
   const respuestas=recopilarRespuestas();
+  if (encId === 'NOM035' && window._nom035Tipo) respuestas._guia = window._nom035Tipo;
   const total=document.querySelectorAll('.q-card').length;
   const resp=Object.keys(respuestas).length;
   if(resp<Math.ceil(total*.7)){

@@ -4393,6 +4393,7 @@ const ENC_TIPOS = {
   DESEMPE: { nombre:'Evaluación de Desempeño',   icono:'fa-chart-line',     color:'text-emerald-600'},
   CAPAC:   { nombre:'Detección de Capacitación', icono:'fa-graduation-cap', color:'text-amber-600'  },
   PULSO:   { nombre:'Encuesta de Pulso',         icono:'fa-heartbeat',      color:'text-rose-600'   },
+  NOM035:  { nombre:'NOM-035 (Riesgo Psicosocial)', icono:'fa-shield-heart', color:'text-red-600'    },
 };
 
 async function cargarModuloEncuestas(){
@@ -4419,6 +4420,11 @@ async function activarTabEncuesta(encId, btnEl){
     // Reinicia la animación de entrada en cada cambio de pestaña (el div es
     // persistente, así que solo agregar la clase no la vuelve a disparar)
     cont.classList.remove('tab-fade'); void cont.offsetWidth; cont.classList.add('tab-fade');
+
+    // NOM-035 tiene su propio flujo (endpoint dedicado que ya calcula
+    // puntajes/dominios/niveles con filtros del lado del servidor) — no
+    // usa el genérico listar_respuestas ni el cache _encCache.
+    if (encId === 'NOM035') { renderModuloNOM035(cont); return; }
 
     // Usar cache si tiene menos de 5 minutos
     const ahora = Date.now();
@@ -4457,6 +4463,294 @@ function renderizarResultadoEncuesta(encId, respuestas, cont){
     } else {
         renderizarDashboardEncuesta(encId, respuestas, cont);
     }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MÓDULO NOM-035 — Riesgo Psicosocial (Guía I / Guía II)
+// ══════════════════════════════════════════════════════════════
+// Colores/niveles espejo de Código.gs (NOM035_NIVELES) — se duplica aquí
+// porque el front necesita colorear promedios agregados (heatmap por
+// dominio) que el backend no devuelve pre-coloreados, solo los números.
+// Si алgún día cambian los cortes, actualizar en AMBOS lados.
+const NOM035_NIVELES_UI = [
+  { nivel:"Nulo o Despreciable", min:0,  max:20,  color:"#16a34a", bg:"#f0fdf4", borde:"#bbf7d0" },
+  { nivel:"Bajo",                min:21, max:45,  color:"#65a30d", bg:"#f7fee7", borde:"#d9f99d" },
+  { nivel:"Medio",               min:46, max:70,  color:"#d97706", bg:"#fffbeb", borde:"#fde68a" },
+  { nivel:"Alto",                min:71, max:90,  color:"#ea580c", bg:"#fff7ed", borde:"#fed7aa" },
+  { nivel:"Muy alto",            min:91, max:999999, color:"#dc2626", bg:"#fef2f2", borde:"#fecaca" },
+];
+function _nivelNOM035_UI(puntaje){
+  for (const n of NOM035_NIVELES_UI) if (puntaje >= n.min && puntaje <= n.max) return n;
+  return NOM035_NIVELES_UI[NOM035_NIVELES_UI.length-1];
+}
+
+// Estado del módulo (persiste al cambiar de sub-tab dentro de NOM035)
+window._nom035Sub = window._nom035Sub || 'dashboard'; // 'dashboard' | 'colormetria'
+window._nom035Filtros = window._nom035Filtros || { anio:'ALL', mes:'ALL', empresa:'ALL', grupo:'ALL', tipoCuestionario:'ALL' };
+window._nom035NivelFiltro = window._nom035NivelFiltro || ''; // filtro rápido desde las tarjetas de leyenda
+window._nom035Data = null; // último resultado del backend (cacheado hasta refrescar filtros)
+window._nom035ExpandidoId = null; // idInterno de la fila de empleado expandida en la tabla
+
+async function renderModuloNOM035(cont){
+    cont.innerHTML = '<div class="flex items-center justify-center py-16 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
+    const link = location.origin + '/encuesta.html?enc=NOM035';
+
+    const f = window._nom035Filtros;
+    const payload = {
+        token: getToken(),
+        anio:   f.anio  !== 'ALL' ? f.anio  : '',
+        mes:    f.mes   !== 'ALL' ? f.mes   : '',
+        empresa: f.empresa !== 'ALL' ? f.empresa : '',
+        grupoComercial: f.grupo !== 'ALL' ? f.grupo : '',
+        tipoCuestionario: f.tipoCuestionario !== 'ALL' ? f.tipoCuestionario : ''
+    };
+    const r = await enviarPeticion('resultados_nom035', payload);
+    if (r.status !== 'success') {
+        cont.innerHTML = '<p class="text-sm text-red-400 text-center py-12">'+r.message+'</p>';
+        return;
+    }
+    window._nom035Data = r;
+
+    // Años disponibles para el segmentador (de las respuestas ya traídas al
+    // menos una vez sin filtro de año — si el usuario ya filtró por año,
+    // usamos cacheGlobal como respaldo de años conocidos del sistema)
+    const aniosDisponibles = [...new Set((r.empleados||[]).map(e => e.fecha ? new Date(e.fecha).getFullYear() : null).filter(Boolean))].sort((a,b)=>b-a);
+
+    cont.innerHTML =
+      '<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-5">'
+      +'<div><h3 class="text-base font-bold text-slate-800 flex items-center gap-2">'
+      +'<i class="fas fa-shield-heart text-red-600"></i>NOM-035 — Riesgo Psicosocial</h3>'
+      +'<p class="text-xs text-slate-400 mt-0.5">'+r.total+' evaluación(es) · Guía I y Guía II combinadas según tamaño de cada razón social</p></div>'
+      +'<div class="flex flex-wrap gap-2">'
+      +'<button onclick="copiarLinkEncuesta(\''+link+'\')" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg transition"><i class="fas fa-link"></i> Copiar link</button>'
+      +'<a href="'+link+'" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg transition"><i class="fas fa-external-link-alt"></i> Ver encuesta</a>'
+      +'</div></div>'
+      // Sub-tabs internos (Dashboard / Colormetría)
+      +'<div class="flex gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">'
+      +'<button onclick="cambiarSubTabNOM035(\'dashboard\')" data-sub="dashboard" class="nom035-subtab px-4 py-2 rounded-lg text-xs font-bold transition">'
+      +'<i class="fas fa-chart-pie mr-1.5"></i>Dashboard General</button>'
+      +'<button onclick="cambiarSubTabNOM035(\'colormetria\')" data-sub="colormetria" class="nom035-subtab px-4 py-2 rounded-lg text-xs font-bold transition">'
+      +'<i class="fas fa-palette mr-1.5"></i>Colormetría y Resultados</button>'
+      +'</div>'
+      // Barra de segmentadores (compartida por ambos sub-tabs)
+      +'<div class="flex flex-wrap gap-2 mb-5 bg-white border border-slate-100 rounded-xl p-3 shadow-sm">'
+      +_selectNOM035('nom035-f-anio','anio', ['<option value="ALL">Todos los años</option>'].concat(aniosDisponibles.map(a=>'<option value="'+a+'" '+(f.anio==(''+a)?'selected':'')+'>'+a+'</option>')).join(''))
+      +_selectNOM035('nom035-f-mes','mes', '<option value="ALL">Todos los meses</option>'+['01','02','03','04','05','06','07','08','09','10','11','12'].map((m,i)=>'<option value="'+m+'" '+(f.mes===m?'selected':'')+'>'+['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][i]+'</option>').join(''))
+      +_selectNOM035('nom035-f-grupo','grupo', '<option value="ALL">Todos los grupos</option>'+listaGrupos().map(g=>'<option value="'+g+'" '+(f.grupo===g?'selected':'')+'>'+g+'</option>').join(''))
+      +_selectNOM035('nom035-f-empresa','empresa', '<option value="ALL">Todas las razones sociales</option>'+empresas.map(e=>'<option value="'+e+'" '+(f.empresa===e?'selected':'')+'>'+e+'</option>').join(''))
+      +_selectNOM035('nom035-f-tipo','tipoCuestionario', '<option value="ALL">Todos los cuestionarios</option><option value="guia1" '+(f.tipoCuestionario==='guia1'?'selected':'')+'>Guía I (&lt;50 trabajadores)</option><option value="guia2" '+(f.tipoCuestionario==='guia2'?'selected':'')+'>Guía II (&ge;50 trabajadores)</option>')
+      +'<button onclick="limpiarFiltrosNOM035()" class="text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5"><i class="fas fa-filter-circle-xmark text-xs"></i>Limpiar</button>'
+      +'</div>'
+      +'<div id="nom035-sub-contenido"></div>';
+
+    // Listeners de filtros — cualquier cambio vuelve a pedir al backend
+    ['anio','mes','grupo','empresa','tipo'].forEach(function(key){
+        const el = document.getElementById('nom035-f-'+key);
+        if(el) el.addEventListener('change', function(){
+            const map = { anio:'anio', mes:'mes', grupo:'grupo', empresa:'empresa', tipo:'tipoCuestionario' };
+            window._nom035Filtros[map[key]] = this.value;
+            renderModuloNOM035(document.getElementById('enc-contenido'));
+        });
+    });
+
+    marcarSubTabActivaNOM035();
+    renderSubContenidoNOM035();
+}
+
+function _selectNOM035(id, name, opciones){
+    return '<select id="'+id+'" class="text-xs border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:ring-2 focus:ring-red-400 outline-none">'+opciones+'</select>';
+}
+
+function limpiarFiltrosNOM035(){
+    window._nom035Filtros = { anio:'ALL', mes:'ALL', empresa:'ALL', grupo:'ALL', tipoCuestionario:'ALL' };
+    window._nom035NivelFiltro = '';
+    renderModuloNOM035(document.getElementById('enc-contenido'));
+}
+
+function cambiarSubTabNOM035(sub){
+    window._nom035Sub = sub;
+    marcarSubTabActivaNOM035();
+    renderSubContenidoNOM035();
+}
+
+function marcarSubTabActivaNOM035(){
+    document.querySelectorAll('.nom035-subtab').forEach(function(b){
+        const activo = b.dataset.sub === window._nom035Sub;
+        b.className = 'nom035-subtab px-4 py-2 rounded-lg text-xs font-bold transition '
+            + (activo ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500 hover:text-slate-700');
+    });
+}
+
+function renderSubContenidoNOM035(){
+    const cont = document.getElementById('nom035-sub-contenido');
+    if(!cont || !window._nom035Data) return;
+    if (window._nom035Sub === 'dashboard') renderNOM035Dashboard(window._nom035Data, cont);
+    else renderNOM035Colormetria(window._nom035Data, cont);
+}
+
+// ── Sub-tab 1: Dashboard General ───────────────────────────────
+function renderNOM035Dashboard(data, cont){
+    const total = data.total || 0;
+    const emp = data.empleados || [];
+    const puntajeProm = emp.length ? (emp.reduce((s,e)=>s+e.puntajeTotal,0)/emp.length) : 0;
+    const nivelGlobal = _nivelNOM035_UI(puntajeProm);
+
+    // % participación: evaluados vs. plantilla activa total que coincide con los filtros de empresa/grupo
+    let elegibles = filtrarPorEmpresasPermitidas(cacheGlobal).filter(function(r){
+        if((r["ESTATUS"]||"").trim()!=="Activo") return false;
+        const f = window._nom035Filtros;
+        if(f.empresa!=='ALL' && (r["EMPRESA"]||"").trim()!==f.empresa) return false;
+        if(f.grupo!=='ALL' && _normGrupo(grupoDeEmpresa(r["EMPRESA"]||""))!==_normGrupo(f.grupo)) return false;
+        return true;
+    }).length;
+    const pctPart = elegibles>0 ? Math.round(total/elegibles*100) : 0;
+
+    cont.innerHTML =
+      '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">'
+      +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
+        +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Evaluaciones completadas</p>'
+        +'<p class="text-3xl font-black text-slate-800 mt-1">'+total+'</p></div>'
+      +'<div class="rounded-xl p-4 border shadow-sm text-center" style="background:'+nivelGlobal.bg+';border-color:'+nivelGlobal.borde+'">'
+        +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Nivel de riesgo global</p>'
+        +'<p class="text-xl font-black mt-1" style="color:'+nivelGlobal.color+'">'+nivelGlobal.nivel+'</p>'
+        +'<p class="text-xs text-slate-400 mt-0.5">Puntaje promedio: '+puntajeProm.toFixed(1)+'</p></div>'
+      +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
+        +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">% Participación</p>'
+        +'<p class="text-3xl font-black text-slate-800 mt-1">'+pctPart+'%</p>'
+        +'<p class="text-xs text-slate-400 mt-0.5">'+total+' de '+elegibles+' elegibles</p></div>'
+      +'</div>'
+      +'<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">'
+      +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+        +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-chart-pie text-red-500 mr-2"></i>Distribución por Nivel de Riesgo</p>'
+        +'<div class="relative h-56"><canvas id="chartNOM035Dona"></canvas></div></div>'
+      +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
+        +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-table-cells text-red-500 mr-2"></i>Desglose por Dominio (promedio)</p>'
+        +'<div id="nom035-heatmap" class="space-y-2"></div></div>'
+      +'</div>';
+
+    // Gráfica de dona
+    if(window._chartNOM035) { try{window._chartNOM035.destroy();}catch(e){} }
+    const distEntries = Object.entries(data.distribucion||{});
+    const canvasDona = document.getElementById('chartNOM035Dona');
+    if(canvasDona && distEntries.some(([,v])=>v>0)){
+        window._chartNOM035 = new Chart(canvasDona.getContext('2d'), {
+            type:'doughnut',
+            data:{
+                labels: distEntries.map(([k])=>k),
+                datasets:[{ data: distEntries.map(([,v])=>v), backgroundColor: distEntries.map(([k])=>{
+                    const n = NOM035_NIVELES_UI.find(x=>x.nivel===k); return n?n.color:'#94a3b8';
+                }), borderWidth:2, borderColor:'#fff' }]
+            },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{size:10}, boxWidth:10, padding:8 } } } }
+        });
+    } else if(canvasDona){
+        canvasDona.parentElement.innerHTML = '<p class="text-xs text-slate-400 text-center pt-16">Sin evaluaciones registradas aún</p>';
+    }
+
+    // Heatmap por dominio (barra horizontal coloreada según nivel del promedio)
+    const heat = document.getElementById('nom035-heatmap');
+    const dominios = Object.entries(data.promediosDominio||{});
+    if(heat){
+        if(!dominios.length){
+            heat.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Sin datos suficientes.</p>';
+        } else {
+            const maxDom = Math.max(...dominios.map(([,v])=>v), 1);
+            heat.innerHTML = dominios.map(function([dom,val]){
+                const n = _nivelNOM035_UI(val);
+                const w = Math.round(val/maxDom*100);
+                return '<div>'
+                  +'<div class="flex justify-between items-center mb-1">'
+                  +'<span class="text-xs font-semibold text-slate-700">'+dom+'</span>'
+                  +'<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:'+n.color+';background:'+n.bg+';border:1px solid '+n.borde+'">'+val.toFixed(1)+' · '+n.nivel+'</span>'
+                  +'</div>'
+                  +'<div class="h-3 bg-slate-100 rounded-full overflow-hidden">'
+                  +'<div class="h-full rounded-full transition-all duration-500" style="width:'+w+'%;background:'+n.color+'"></div>'
+                  +'</div></div>';
+            }).join('');
+        }
+    }
+}
+
+// ── Sub-tab 2: Colormetría y Resultados por Empleado ───────────
+function renderNOM035Colormetria(data, cont){
+    let emp = data.empleados || [];
+    if (window._nom035NivelFiltro) emp = emp.filter(e => e.nivel === window._nom035NivelFiltro);
+
+    cont.innerHTML =
+      // Leyenda de colormetría — clicable como filtro rápido
+      '<div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-5">'
+      + (data.niveles||NOM035_NIVELES_UI).map(function(n){
+          const activo = window._nom035NivelFiltro === n.nivel;
+          return '<button onclick="toggleNivelFiltroNOM035(\''+n.nivel.replace(/'/g,"\\'")+'\')" '
+            +'class="text-left rounded-xl p-3 border-2 transition '+(activo?'ring-2 ring-offset-1':'')+'" '
+            +'style="background:'+n.colorBg+';border-color:'+n.colorBorde+';'+(activo?'box-shadow:0 0 0 2px '+n.color+'':'')+'">'
+            +'<p class="text-xs font-black" style="color:'+n.color+'">'+n.nivel+'</p>'
+            +'<p class="text-[11px] text-slate-500 mt-0.5">'+n.min+'–'+(n.max>9999?'∞':n.max)+' pts</p>'
+            +'<p class="text-[10px] text-slate-400 mt-1 leading-snug line-clamp-2">'+(n.acciones||'').substring(0,70)+'…</p>'
+            +'</button>';
+      }).join('')
+      +'</div>'
+      +(window._nom035NivelFiltro ? '<p class="text-xs text-slate-500 mb-3"><i class="fas fa-filter mr-1"></i>Filtrando por nivel: <strong>'+window._nom035NivelFiltro+'</strong> · <button onclick="toggleNivelFiltroNOM035(\''+window._nom035NivelFiltro.replace(/\'/g,"")+'\')" class="text-red-600 hover:underline">Quitar filtro</button></p>' : '')
+      // Tabla acordeón
+      +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">'
+      +'<div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">'
+      +'<p class="text-sm font-bold text-slate-700"><i class="fas fa-users text-slate-400 mr-2"></i>Resultados por Colaborador</p>'
+      +'<span class="text-xs text-slate-400">'+emp.length+' resultado(s)</span></div>'
+      +'<div id="nom035-tabla-empleados">'+_renderTablaNOM035(emp)+'</div>'
+      +'</div>';
+}
+
+function toggleNivelFiltroNOM035(nivel){
+    window._nom035NivelFiltro = (window._nom035NivelFiltro === nivel) ? '' : nivel;
+    renderSubContenidoNOM035();
+}
+
+function _renderTablaNOM035(emp){
+    if(!emp.length) return '<p class="text-xs text-slate-400 text-center py-10">Sin resultados para este filtro.</p>';
+    return emp.map(function(e, idx){
+        const ini = getIniciales(e.nombre)||'?';
+        const col = avatarColor(e.nombre);
+        const expandido = window._nom035ExpandidoId === (e.idInterno+'_'+idx);
+        const rowId = e.idInterno+'_'+idx;
+        const guiaLabel = e.tipoCuestionario==='guia1' ? 'Guía I' : 'Guía II';
+        return '<div class="border-b border-slate-50 last:border-0">'
+          +'<div class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer transition" onclick="toggleFilaNOM035(\''+rowId+'\')">'
+          +'<div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+col+'">'+ini+'</div>'
+          +'<div class="flex-1 min-w-0">'
+          +'<p class="text-sm font-semibold text-slate-800 truncate">'+e.nombre+'</p>'
+          +'<p class="text-xs text-slate-400 truncate">'+(e.empresa||'—')+' · <span class="italic">'+guiaLabel+'</span></p></div>'
+          +'<span class="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0 border" style="color:'+e.color+';background:'+e.colorBg+';border-color:'+e.colorBorde+'">'+e.nivel+' · '+e.puntajeTotal+' pts</span>'
+          +'<i class="fas fa-chevron-'+(expandido?'up':'down')+' text-slate-300 text-xs flex-shrink-0"></i>'
+          +'</div>'
+          +(expandido ? _renderDetalleNOM035(e) : '')
+          +'</div>';
+    }).join('');
+}
+
+function toggleFilaNOM035(rowId){
+    window._nom035ExpandidoId = (window._nom035ExpandidoId === rowId) ? null : rowId;
+    const cont = document.getElementById('nom035-tabla-empleados');
+    if(cont && window._nom035Data){
+        let emp = window._nom035Data.empleados || [];
+        if (window._nom035NivelFiltro) emp = emp.filter(e => e.nivel === window._nom035NivelFiltro);
+        cont.innerHTML = _renderTablaNOM035(emp);
+    }
+}
+
+function _renderDetalleNOM035(e){
+    const dominios = Object.entries(e.porDominio||{});
+    return '<div class="px-5 pb-4 pt-1 bg-slate-50" onclick="event.stopPropagation()">'
+      +'<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mb-3">'
+      + dominios.map(function([dom,d]){
+          return '<div class="rounded-lg p-2.5 border" style="background:'+d.colorBg+';border-color:'+(d.colorBorde||'#e2e8f0')+'">'
+            +'<p class="text-[11px] font-semibold text-slate-600 leading-snug">'+dom+'</p>'
+            +'<p class="text-sm font-black mt-0.5" style="color:'+d.color+'">'+d.puntaje+' pts · '+d.nivel+'</p></div>';
+      }).join('')
+      +'</div>'
+      +'<div class="rounded-lg p-3 border" style="background:'+e.colorBg+';border-color:'+e.colorBorde+'">'
+      +'<p class="text-xs font-bold mb-1" style="color:'+e.color+'"><i class="fas fa-clipboard-list mr-1.5"></i>Acciones requeridas ('+e.nivel+')</p>'
+      +'<p class="text-xs text-slate-600 leading-relaxed">'+e.acciones+'</p></div>'
+      +'</div>';
 }
 
 function renderizarDashboardEncuesta(encId, respuestas, container){
