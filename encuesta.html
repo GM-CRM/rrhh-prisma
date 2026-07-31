@@ -445,38 +445,39 @@ async function iniciarEncuesta(){
     }
   }
 
-  // ── NOM-035: asignación dinámica de cuestionario (Guía I / Guía II) ──
-  // Mismo link público para todos — aquí se decide, según cuántos activos
-  // tiene la RAZÓN SOCIAL (empresa) del empleado (no el Grupo Comercial),
-  // qué cuestionario mostrar: <50 activos → Guía I, >=50 → Guía II.
+  // ── NOM-035: flujo de 2 cuestionarios (Guia I obligatoria + Guia II/III segun grupo) ──
   if (encId === 'NOM035') {
     if (!empleadoId) {
-      mostrarError('No se pudo identificar tu empresa para asignar el cuestionario correcto. Verifica tu número de empleado.');
+      mostrarError('No se pudo identificar tu empresa para asignar el cuestionario correcto. Verifica tu numero de empleado.');
       return;
     }
-    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando cuestionario...';
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando cuestionarios...';
     try {
       const rNom = await fetch(API_URL, { method:'POST', body: JSON.stringify({
-        action: 'obtener_estructura_nom035', payload: { idInterno: empleadoId }
+        action: 'obtener_estructura_nom035', payload: { idInterno: empleadoId, token: '' }
       })});
       const dNom = await rNom.json();
       btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Comenzar encuesta';
       if (dNom.status === 'success') {
-        window._nom035Tipo = dNom.tipoCuestionario; // 'guia1' | 'guia2' — se manda al guardar la respuesta
-        encuestaData = dNom.encuesta;
-        document.getElementById('enc-titulo').textContent = encuestaData.titulo;
-        document.getElementById('enc-desc').textContent = encuestaData.descripcion || '';
-        // Escala propia NOM-035: 0-4 (Nunca...Siempre), no la de 1-5 genérica
-        if (encuestaData.escala && encuestaData.escala.length === 5) {
-          ESCALA = encuestaData.escala.map(function(e){ return { v: e.valor, l: e.etiqueta }; });
+        window._nom035Data = dNom;
+        window._nom035Tipo = dNom.tipoCuestionario;
+        window._nom035RespGI = {};
+        window._nom035Fase = 'guia1';
+        if (dNom.escala && dNom.escala.length === 5) {
+          ESCALA = dNom.escala.map(function(e){ return { v: e.valor, l: e.etiqueta }; });
         }
+        document.getElementById('id-screen').style.display='none';
+        document.getElementById('prog-wrap').style.display='none';
+        renderNOM035GuiaI(dNom.guia1);
+        window.scrollTo(0,0);
+        return;
       } else {
         mostrarError(dNom.message || 'No se pudo determinar el cuestionario correspondiente.');
         return;
       }
     } catch(e) {
       btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Comenzar encuesta';
-      mostrarError('Error de conexión al preparar el cuestionario. Intenta de nuevo.');
+      mostrarError('Error de conexion al preparar el cuestionario. Intenta de nuevo.');
       return;
     }
   }
@@ -584,7 +585,43 @@ function recopilarRespuestas(){
 
 async function enviarEncuesta(){
   const respuestas=recopilarRespuestas();
-  if (encId === 'NOM035' && window._nom035Tipo) respuestas._guia = window._nom035Tipo;
+  // NOM-035: usar endpoint dedicado con ambos cuestionarios
+  if (encId === 'NOM035' && window._nom035Tipo) {
+    respuestas._guia = window._nom035Tipo;
+    var itemsFRP = [];
+    var cuest = window._nom035Data ? window._nom035Data.cuestionarioFRP : null;
+    if (cuest && cuest.items) {
+      cuest.items.forEach(function(item, idx) {
+        var val = respuestas['q' + (idx + 1)];
+        if (val !== undefined) {
+          itemsFRP.push({ item: item.item, categoria: item.categoria, dominio: item.dominio, direccion: item.direccion, respuesta: val });
+        }
+      });
+    }
+    var btn2 = document.getElementById('btn-enviar');
+    btn2.disabled = true; btn2.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calificando...';
+    try {
+      var rNom2 = await fetch(API_URL, { method:'POST', body: JSON.stringify({
+        action: 'guardar_respuesta_nom035',
+        payload: { idInterno: empleadoId, tipoCuestionario: window._nom035Tipo, activosGrupo: window._nom035Data.activosGrupo, respuestasGI: window._nom035RespGI || {}, respuestasFRP: itemsFRP }
+      })});
+      var dNom2 = await rNom2.json();
+      if (dNom2.status === 'success') {
+        document.getElementById('q-screen').style.display = 'none';
+        document.getElementById('survey-footer').style.display = 'none';
+        document.getElementById('prog-wrap').style.display = 'none';
+        mostrarResultadoNOM035(dNom2);
+        window.scrollTo(0, 0);
+      } else {
+        alert('Error: ' + (dNom2.message || 'Intenta de nuevo.'));
+        btn2.disabled = false; btn2.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+      }
+    } catch(e2) {
+      alert('Error de conexion. Intenta de nuevo.');
+      btn2.disabled = false; btn2.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+    }
+    return;
+  }
   const total=document.querySelectorAll('.q-card').length;
   const resp=Object.keys(respuestas).length;
   if(resp<Math.ceil(total*.7)){
@@ -715,6 +752,132 @@ const ENCUESTA_SALIDA={
 };
 
 cargarEncuesta();
+
+// --- NOM-035: Render Guia I (Si/No) ---
+function renderNOM035GuiaI(guia1) {
+  var screen = document.getElementById('q-screen');
+  screen.style.display = 'block';
+  var html = '<div style="animation:fadeUp .4s ease both;">';
+  html += '<div style="text-align:center;margin-bottom:24px;">';
+  html += '<div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#dc2626,#f97316);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:1.5rem;box-shadow:0 6px 20px rgba(220,38,38,.3);">&#9888;</div>';
+  html += '<h2 style="font-size:1.2rem;font-weight:800;color:var(--ink);margin-bottom:6px;">' + guia1.titulo + '</h2>';
+  html += '<p style="font-size:.85rem;color:#64748b;line-height:1.5;max-width:500px;margin:0 auto;">' + guia1.descripcion + '</p>';
+  html += '</div>';
+  guia1.secciones.forEach(function(sec) {
+    html += '<div class="q-card" style="margin-bottom:16px;border-left:3px solid #7c3aed;">';
+    html += '<p style="font-size:.9rem;font-weight:800;color:var(--ink);margin-bottom:6px;">' + sec.titulo + '</p>';
+    if (sec.instruccion) html += '<p style="font-size:.8rem;color:#64748b;margin-bottom:14px;">' + sec.instruccion + '</p>';
+    sec.preguntas.forEach(function(p) {
+      html += '<div style="margin-bottom:12px;padding:10px 12px;background:#fafafa;border-radius:10px;border:1.5px solid #e2e8f0;">';
+      html += '<p style="font-size:.85rem;color:#334155;margin-bottom:8px;line-height:1.4;">' + p.texto + '</p>';
+      html += '<div style="display:flex;gap:10px;">';
+      html += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 14px;border-radius:8px;border:2px solid #e2e8f0;transition:all .2s;"><input type="radio" name="gi_' + p.id + '" value="Sí" style="accent-color:#7c3aed;"> <span style="font-size:.82rem;font-weight:600;">Sí</span></label>';
+      html += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 14px;border-radius:8px;border:2px solid #e2e8f0;transition:all .2s;"><input type="radio" name="gi_' + p.id + '" value="No" style="accent-color:#7c3aed;"> <span style="font-size:.82rem;font-weight:600;">No</span></label>';
+      html += '</div></div>';
+    });
+    html += '</div>';
+  });
+  html += '<button onclick="completarGuiaI()" class="btn-pry" style="margin-top:20px;"><i class="fas fa-arrow-right"></i> Continuar al siguiente cuestionario</button>';
+  html += '</div>';
+  screen.innerHTML = html;
+}
+
+// --- NOM-035: Recoger respuestas GI y pasar a GII/III ---
+function completarGuiaI() {
+  var guia1 = window._nom035Data.guia1;
+  var respGI = {};
+  var sinResponder = 0;
+  guia1.secciones.forEach(function(sec) {
+    sec.preguntas.forEach(function(p) {
+      var checked = document.querySelector('input[name="gi_' + p.id + '"]:checked');
+      if (checked) { respGI[p.id] = checked.value; } else { sinResponder++; }
+    });
+  });
+  var sec1Ids = guia1.secciones[0].preguntas.map(function(p){ return p.id; });
+  var sec1Faltantes = sec1Ids.filter(function(id){ return !respGI[id]; });
+  if (sec1Faltantes.length > 0) {
+    alert('Por favor responde todas las preguntas de la Seccion I antes de continuar.');
+    return;
+  }
+  var sec1Positiva = sec1Ids.some(function(id){ return respGI[id] === 'Sí'; });
+  if (sec1Positiva && sinResponder > 6) {
+    if (!confirm('Tienes ' + sinResponder + ' preguntas sin responder. Continuar?')) return;
+  }
+  window._nom035RespGI = respGI;
+  window._nom035Fase = 'frp';
+  var cuest = window._nom035Data.cuestionarioFRP;
+  encuestaData = { titulo: cuest.titulo, descripcion: cuest.descripcion, bloques: _convertirItemsABloques(cuest.items) };
+  document.getElementById('q-screen').innerHTML = '';
+  document.getElementById('q-screen').style.display = 'block';
+  document.getElementById('survey-footer').style.display = 'flex';
+  document.getElementById('prog-wrap').style.display = 'block';
+  renderPreguntas();
+  actualizarProgreso();
+  window.scrollTo(0, 0);
+}
+
+function _convertirItemsABloques(items) {
+  var map = {}; var orden = [];
+  items.forEach(function(it) {
+    var cat = it.categoria || 'General';
+    if (!map[cat]) { map[cat] = []; orden.push(cat); }
+    map[cat].push(it);
+  });
+  return orden.map(function(cat, idx) {
+    var iconos = ['&#127970;','&#9881;','&#9200;','&#128101;','&#127775;'];
+    return {
+      titulo: cat,
+      icono: iconos[idx % iconos.length] || '&#128203;',
+      preguntas: map[cat].map(function(it) {
+        var obj = { texto: it.pregunta, tipo: 'escala' };
+        if (it.condicional) obj.condicional = it.condicional;
+        return obj;
+      })
+    };
+  });
+}
+
+function mostrarResultadoNOM035(data) {
+  var rFRP = data.resultadoFRP || {};
+  var rGI = data.resultadoGI || {};
+  var colores = (window._nom035Data && window._nom035Data.colores) ? window._nom035Data.colores : {};
+  var color = colores[rFRP.nivelTotal] || { bg:'#f0f4ff', text:'#334155', hex:'#64748b' };
+  var html = '<div style="animation:fadeUp .5s ease both;padding:32px 20px;">';
+  html += '<div style="text-align:center;margin-bottom:24px;">';
+  html += '<div style="width:70px;height:70px;border-radius:50%;margin:0 auto 14px;background:' + color.bg + ';display:flex;align-items:center;justify-content:center;font-size:1.8rem;">&#128202;</div>';
+  html += '<h2 style="font-size:1.4rem;font-weight:800;color:var(--ink);margin-bottom:6px;">Resultados NOM-035</h2>';
+  html += '<p style="font-size:.85rem;color:#64748b;">Tu evaluacion ha sido registrada.</p></div>';
+  html += '<div style="background:' + color.bg + ';border:2px solid ' + color.hex + ';border-radius:16px;padding:20px;text-align:center;margin-bottom:20px;">';
+  html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:' + color.text + ';margin-bottom:6px;">Nivel de riesgo general</p>';
+  html += '<p style="font-size:1.6rem;font-weight:900;color:' + color.text + ';">' + (rFRP.nivelTotal || 'Sin datos') + '</p>';
+  html += '<p style="font-size:.8rem;color:' + color.text + ';margin-top:4px;">Puntaje: ' + (rFRP.totalPuntaje || 0) + '</p></div>';
+  if (rGI.requiereValoracion) {
+    html += '<div style="background:#fef2f2;border:2px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:16px;">';
+    html += '<p style="font-size:.82rem;font-weight:700;color:#991b1b;">&#9888; Guia I: Requiere valoracion clinica</p></div>';
+  } else {
+    html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:12px;margin-bottom:16px;">';
+    html += '<p style="font-size:.82rem;color:#166534;">&#10004; Guia I: No requiere valoracion clinica</p></div>';
+  }
+  if (rFRP.dominios && Object.keys(rFRP.dominios).length) {
+    html += '<p style="font-size:.78rem;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:10px;">Resultados por dominio</p>';
+    Object.keys(rFRP.dominios).forEach(function(d) {
+      var dom = rFRP.dominios[d];
+      var dc = colores[dom.nivel] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px;border-radius:10px;background:' + dc.bg + ';">';
+      html += '<span style="width:10px;height:10px;border-radius:50%;background:' + dc.hex + ';"></span>';
+      html += '<span style="flex:1;font-size:.8rem;font-weight:600;color:' + dc.text + ';">' + d + '</span>';
+      html += '<span style="font-size:.72rem;font-weight:700;color:' + dc.text + ';padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.6);">' + dom.nivel + ' (' + dom.puntaje + ')</span></div>';
+    });
+  }
+  if (rFRP.planAccion) {
+    html += '<div style="margin-top:20px;padding:14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;">';
+    html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Plan de accion recomendado</p>';
+    html += '<p style="font-size:.82rem;color:#334155;line-height:1.5;">' + rFRP.planAccion + '</p></div>';
+  }
+  html += '<p style="text-align:center;margin-top:24px;font-size:.78rem;color:#94a3b8;">Puedes cerrar esta ventana.</p></div>';
+  document.getElementById('ok-screen').innerHTML = html;
+  document.getElementById('ok-screen').style.display = 'block';
+}
 </script>
 </body>
 </html>
