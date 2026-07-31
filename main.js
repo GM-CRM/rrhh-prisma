@@ -5697,6 +5697,11 @@ function cambiarTabDrawer(tab){
     });
     const scrollEl = document.getElementById('drawer-body-scroll');
     if(scrollEl) scrollEl.scrollTop = 0;
+    // NOM-035: cargar resultados al abrir la pestana
+    if (tab === 'nom035' && window.empleadoEdicion) {
+        var idInt = (window.empleadoEdicion['ID INTERNO']||'').toString().trim();
+        if (idInt) cargarResultadosNOM035Drawer(idInt);
+    }
 }
 
 // ─── Miniaturas de archivos del expediente (pestaña "Expediente Digital") ──
@@ -7349,5 +7354,117 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
     }
   } catch (e) {
     Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo generar el contrato (timeout o error de red). Intenta de nuevo: ' + e.toString() });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOM-035: Pestana de resultados en el drawer del expediente
+// ═══════════════════════════════════════════════════════════════════════════════
+var _nom035DrawerColores = {
+  "Nulo":     { bg:"#d1fae5", text:"#065f46", hex:"#10b981", label:"Nulo" },
+  "Bajo":     { bg:"#dbeafe", text:"#1e40af", hex:"#3b82f6", label:"Bajo" },
+  "Medio":    { bg:"#fef9c3", text:"#854d0e", hex:"#eab308", label:"Medio" },
+  "Alto":     { bg:"#fed7aa", text:"#9a3412", hex:"#f97316", label:"Alto" },
+  "Muy alto": { bg:"#fecaca", text:"#991b1b", hex:"#ef4444", label:"Muy alto" }
+};
+
+async function cargarResultadosNOM035Drawer(idInterno) {
+  var cont = document.getElementById('nom035-drawer-content');
+  if (!cont) return;
+  cont.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i><p class="text-xs text-slate-400 mt-2">Consultando resultados...</p></div>';
+
+  try {
+    var r = await enviarPeticion('resultados_nom035', { idInterno: idInterno });
+    if (r.status !== 'success') {
+      cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-exclamation-circle text-2xl mb-2"></i><p class="text-sm">' + (r.message||'Error al cargar') + '</p></div>';
+      return;
+    }
+    var resultados = r.resultados || [];
+    if (!resultados.length) {
+      cont.innerHTML = '<div class="text-center py-10"><i class="fas fa-shield-heart text-slate-200 text-4xl mb-3"></i><p class="text-sm text-slate-400 font-semibold">Sin resultados NOM-035</p><p class="text-xs text-slate-300 mt-1">Este empleado no ha completado la encuesta NOM-035.</p></div>';
+      return;
+    }
+    // Mostrar el resultado mas reciente
+    var ultimo = resultados[resultados.length - 1];
+    var colores = r.colores || _nom035DrawerColores;
+    var nivelTotal = (ultimo.FRP_NIVEL_TOTAL || 'Sin datos').toString();
+    var color = colores[nivelTotal] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+    var puntaje = ultimo.FRP_PUNTAJE_TOTAL || 0;
+    var tipoGuia = (ultimo.TIPO_GUIA || '').toString();
+    var giReq = (ultimo.GI_REQUIERE_VALORACION || '').toString();
+    var fecha = ultimo.FECHA ? new Date(ultimo.FECHA).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '';
+
+    var html = '';
+    // Header con semaforo grande
+    html += '<div style="background:'+color.bg+';border:2px solid '+color.hex+';border-radius:16px;padding:20px;text-align:center;margin-bottom:16px;">';
+    html += '<p style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:'+color.text+';margin-bottom:4px;">Nivel de riesgo psicosocial</p>';
+    html += '<p style="font-size:1.5rem;font-weight:900;color:'+color.text+';">'+nivelTotal+'</p>';
+    html += '<p style="font-size:.78rem;color:'+color.text+';margin-top:3px;">Puntaje: '+puntaje+' | Guia '+(tipoGuia==='guia3'?'III':'II')+'</p>';
+    if (fecha) html += '<p style="font-size:.68rem;color:'+color.text+';margin-top:4px;opacity:.7;">Aplicado: '+fecha+'</p>';
+    html += '</div>';
+
+    // Guia I resultado
+    if (giReq === 'SI') {
+      html += '<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:12px;">';
+      html += '<p style="font-size:.8rem;font-weight:700;color:#991b1b;"><i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i>Guia I: REQUIERE valoracion clinica</p>';
+      html += '<p style="font-size:.72rem;color:#991b1b;margin-top:3px;">'+(ultimo.GI_MOTIVO||'')+'</p></div>';
+    } else {
+      html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:12px;">';
+      html += '<p style="font-size:.78rem;color:#166534;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Guia I: No requiere valoracion clinica</p></div>';
+    }
+
+    // Dominios
+    var dominios = ultimo.dominios || {};
+    if (Object.keys(dominios).length) {
+      html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:14px 0 8px;">Resultados por dominio</p>';
+      Object.keys(dominios).forEach(function(d) {
+        var dom = dominios[d];
+        var dc = colores[dom.nivel] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;border-radius:8px;background:'+dc.bg+';">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:'+dc.hex+';flex-shrink:0;"></span>';
+        html += '<span style="flex:1;font-size:.75rem;font-weight:600;color:'+dc.text+';">'+d+'</span>';
+        html += '<span style="font-size:.68rem;font-weight:700;color:'+dc.text+';padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.5);">'+dom.nivel+' ('+dom.puntaje+')</span></div>';
+      });
+    }
+
+    // Categorias
+    var categorias = ultimo.categorias || {};
+    if (Object.keys(categorias).length) {
+      html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:14px 0 8px;">Por categoria</p>';
+      Object.keys(categorias).forEach(function(c) {
+        var cat = categorias[c];
+        var cc = colores[cat.nivel] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;margin-bottom:5px;border-radius:8px;background:'+cc.bg+';">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:'+cc.hex+';flex-shrink:0;"></span>';
+        html += '<span style="flex:1;font-size:.75rem;font-weight:600;color:'+cc.text+';">'+c+'</span>';
+        html += '<span style="font-size:.68rem;font-weight:700;color:'+cc.text+';padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.5);">'+cat.nivel+' ('+cat.puntaje+')</span></div>';
+      });
+    }
+
+    // Plan de accion
+    var plan = ultimo.planAccionTexto || (r.planAccion ? r.planAccion[nivelTotal] : '') || '';
+    if (plan) {
+      html += '<div style="margin-top:14px;padding:12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;">';
+      html += '<p style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:5px;"><i class="fas fa-clipboard-list" style="margin-right:4px;"></i>Plan de accion</p>';
+      html += '<p style="font-size:.78rem;color:#334155;line-height:1.5;">'+plan+'</p></div>';
+    }
+
+    // Historial (si hay mas de 1 aplicacion)
+    if (resultados.length > 1) {
+      html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:16px 0 8px;">Historial de aplicaciones ('+resultados.length+')</p>';
+      resultados.slice().reverse().forEach(function(res, idx) {
+        var niv = (res.FRP_NIVEL_TOTAL||'').toString();
+        var hc = colores[niv] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+        var hFecha = res.FECHA ? new Date(res.FECHA).toLocaleDateString('es-MX') : '—';
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;border:1px solid #e2e8f0;">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:'+hc.hex+';"></span>';
+        html += '<span style="flex:1;font-size:.73rem;color:#334155;">'+hFecha+'</span>';
+        html += '<span style="font-size:.68rem;font-weight:700;color:'+hc.text+';">'+niv+' ('+res.FRP_PUNTAJE_TOTAL+')</span></div>';
+      });
+    }
+
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-wifi-slash text-2xl mb-2"></i><p class="text-sm">Error de conexion</p></div>';
   }
 }

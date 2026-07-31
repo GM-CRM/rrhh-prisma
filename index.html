@@ -1209,6 +1209,10 @@ if ('serviceWorker' in navigator) {
           class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
           <i class="fas fa-folder-open"></i>Expediente Digital
         </button>
+        <button type="button" onclick="cambiarTabDrawer('nom035')" data-tab="nom035"
+          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
+          <i class="fas fa-shield-heart"></i>NOM-035
+        </button>
       </div>
     </div>
 
@@ -1243,6 +1247,14 @@ if ('serviceWorker' in navigator) {
       <div id="tab-panel-documentos" class="drawer-tab-panel hidden p-6">
         <div id="tab-documentos-drive"></div>
         <div id="tab-documentos-archivos" class="mt-5"></div>
+      </div>
+      <div id="tab-panel-nom035" class="drawer-tab-panel hidden p-6">
+        <div id="nom035-drawer-content">
+          <div class="text-center py-8 text-slate-400">
+            <i class="fas fa-shield-heart text-3xl mb-3 text-slate-300"></i>
+            <p class="text-sm">Cargando resultados NOM-035...</p>
+          </div>
+        </div>
       </div>
     </div>
 
