@@ -7466,7 +7466,13 @@ async function cargarResultadosNOM035Drawer(idInterno) {
       });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-wifi-slash text-2xl mb-2"></i><p class="text-sm">Error de conexion</p></div>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // NOM-035: Exportar resultados a Excel
 // ═══════════════════════════════════════════════════════════════════════════════
 function exportarNOM035Excel() {
@@ -7610,11 +7616,4 @@ function mostrarEditorCuestionarioNOM035(tipo, estructura) {
       }
     }
   });
-}
-
-
-    cont.innerHTML = html;
-  } catch(e) {
-    cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-wifi-slash text-2xl mb-2"></i><p class="text-sm">Error de conexion</p></div>';
-  }
 }
