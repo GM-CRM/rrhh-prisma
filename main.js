@@ -4524,6 +4524,9 @@ async function renderModuloNOM035(cont){
       +'<div class="flex flex-wrap gap-2">'
       +'<button onclick="copiarLinkEncuesta(\''+link+'\')" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-lg transition"><i class="fas fa-link"></i> Copiar link</button>'
       +'<a href="'+link+'" target="_blank" class="flex items-center gap-1.5 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg transition"><i class="fas fa-external-link-alt"></i> Ver encuesta</a>'
+      +'<button onclick="exportarNOM035Excel()" class="flex items-center gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg transition"><i class="fas fa-file-excel"></i> Excel</button>'
++'<button onclick="exportarNOM035CSV()" class="flex items-center gap-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition"><i class="fas fa-file-csv"></i> CSV</button>'
++'<button onclick="abrirConfigNOM035()" class="flex items-center gap-1.5 text-xs font-semibold bg-slate-600 hover:bg-slate-700 text-white px-3 py-2 rounded-lg transition"><i class="fas fa-cog"></i> Config</button>'
       +'</div></div>'
       // Sub-tabs internos (Dashboard / Colormetría)
       +'<div class="flex gap-1 mb-5 bg-slate-100 rounded-xl p-1 w-fit">'
