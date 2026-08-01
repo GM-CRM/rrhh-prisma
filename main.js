@@ -4749,7 +4749,7 @@ function _renderDetalleNOM035(e){
       +'</div>'
       +'<div class="rounded-lg p-3 border" style="background:'+e.colorBg+';border-color:'+e.colorBorde+'">'
       +'<p class="text-xs font-bold mb-1" style="color:'+e.color+'"><i class="fas fa-clipboard-list mr-1.5"></i>Acciones requeridas ('+e.nivel+')</p>'
-      +'<p class="text-xs text-slate-600 leading-relaxed">'+e.acciones+'</p></div>'
+      +'<p class="text-xs text-slate-600 leading-relaxed">'+(e.planAccion||'Consultar plan de accion segun nivel de riesgo.')+'</p></div>'
       +'</div>';
 }
 
