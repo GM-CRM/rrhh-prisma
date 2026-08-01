@@ -7379,7 +7379,7 @@ async function cargarResultadosNOM035Drawer(idInterno) {
       cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-exclamation-circle text-2xl mb-2"></i><p class="text-sm">' + (r.message||'Error al cargar') + '</p></div>';
       return;
     }
-    var resultados = r.resultados || [];
+    var resultados = r.empleados || r.resultados || [];
     if (!resultados.length) {
       cont.innerHTML = '<div class="text-center py-10"><i class="fas fa-shield-heart text-slate-200 text-4xl mb-3"></i><p class="text-sm text-slate-400 font-semibold">Sin resultados NOM-035</p><p class="text-xs text-slate-300 mt-1">Este empleado no ha completado la encuesta NOM-035.</p></div>';
       return;
@@ -7414,7 +7414,7 @@ async function cargarResultadosNOM035Drawer(idInterno) {
     }
 
     // Dominios
-    var dominios = ultimo.dominios || {};
+    var dominios = ultimo.porDominio || ultimo.dominios || {};
     if (Object.keys(dominios).length) {
       html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:14px 0 8px;">Resultados por dominio</p>';
       Object.keys(dominios).forEach(function(d) {
