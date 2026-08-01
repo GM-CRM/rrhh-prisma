@@ -7387,12 +7387,12 @@ async function cargarResultadosNOM035Drawer(idInterno) {
     // Mostrar el resultado mas reciente
     var ultimo = resultados[resultados.length - 1];
     var colores = r.colores || _nom035DrawerColores;
-    var nivelTotal = (ultimo.FRP_NIVEL_TOTAL || 'Sin datos').toString();
+    var nivelTotal = (ultimo.nivel || 'Sin datos').toString();
     var color = colores[nivelTotal] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
-    var puntaje = ultimo.FRP_PUNTAJE_TOTAL || 0;
-    var tipoGuia = (ultimo.TIPO_GUIA || '').toString();
-    var giReq = (ultimo.GI_REQUIERE_VALORACION || '').toString();
-    var fecha = ultimo.FECHA ? new Date(ultimo.FECHA).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    var puntaje = ultimo.puntajeTotal || 0;
+    var tipoGuia = (ultimo.tipoCuestionario || '').toString();
+    var giReq = (ultimo.giRequiere || '').toString();
+    var fecha = ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '';
 
     var html = '';
     // Header con semaforo grande
@@ -7407,7 +7407,7 @@ async function cargarResultadosNOM035Drawer(idInterno) {
     if (giReq === 'SI') {
       html += '<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:12px;">';
       html += '<p style="font-size:.8rem;font-weight:700;color:#991b1b;"><i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i>Guia I: REQUIERE valoracion clinica</p>';
-      html += '<p style="font-size:.72rem;color:#991b1b;margin-top:3px;">'+(ultimo.GI_MOTIVO||'')+'</p></div>';
+      html += '<p style="font-size:.72rem;color:#991b1b;margin-top:3px;">'+(ultimo.giMotivo||'')+'</p></div>';
     } else {
       html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:12px;">';
       html += '<p style="font-size:.78rem;color:#166534;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Guia I: No requiere valoracion clinica</p></div>';
