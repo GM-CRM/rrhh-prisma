@@ -253,11 +253,12 @@ function renderFRPQuestion(){
   const cat=it.categoria||'General';
   const catItems=catMap[cat];
   const posInCat=catItems.indexOf(currentIdx)+1;
-  // Check if entering new category
-  if(posInCat===1 && currentIdx>0){
+  // Check if entering new category (show celebration only once)
+  if(posInCat===1 && currentIdx>0 && !window._nom035CelShown){
     var prevCat=allItems[currentIdx-1].categoria;
     if(prevCat!==cat){
-      showCelebration('\u00a1'+prevCat+' completada!','Siguiente: '+cat,function(){renderFRPQuestion()});
+      window._nom035CelShown=true;
+      showCelebration('\u00a1'+prevCat+' completada!','Siguiente: '+cat,function(){window._nom035CelShown=false;renderFRPQuestion()});
       return;
     }
   }
