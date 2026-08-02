@@ -2,366 +2,881 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NOM-035 — RRHH Prisma</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Encuesta — RRHH Prisma</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0d1b3e">
 <link rel="icon" href="icon.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --ink:#0d1b3e;--violet:#7c3aed;--violet2:#a855f7;--surface:#f8f7ff;--white:#fff;
-  --ease-out:cubic-bezier(0.16,1,0.3,1);
+  --ink:#0d1b3e; --ink2:#1e2d52; --violet:#7c3aed; --violet2:#a855f7;
+  --emerald:#10b981; --amber:#f59e0b; --rose:#f43f5e;
+  --surface:#f4f3ff; --white:#fff; --r:16px;
 }
-html{scroll-behavior:smooth}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;min-height:100dvh;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 10% 0%,rgba(124,58,237,.06),transparent 50%),radial-gradient(ellipse 50% 60% at 90% 100%,rgba(168,85,247,.04),transparent 50%)}
+html{scroll-behavior:smooth;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;overflow-x:hidden;}
+
+/* Fondo animado */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 5% 0%,rgba(124,58,237,.1) 0%,transparent 60%),
+    radial-gradient(ellipse 50% 70% at 95% 100%,rgba(168,85,247,.08) 0%,transparent 60%);
+}
 
 /* Header */
-.hdr{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,27,62,.97);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;gap:12px}
-.hdr-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.hdr-brand img{width:28px;height:28px;border-radius:7px}
-.hdr-brand span{font-size:.8rem;font-weight:800;color:#fff}
-.hdr-brand em{color:#a78bfa;font-style:normal}
-.hdr-progress{flex:1;max-width:280px}
-.hdr-prog-text{display:flex;justify-content:space-between;margin-bottom:3px}
-.hdr-prog-text span{font-size:.62rem;color:rgba(255,255,255,.5)}
-.hdr-prog-text strong{font-size:.62rem;color:#a78bfa}
-.hdr-prog-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
-.hdr-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .4s var(--ease-out)}
-.hdr-time{font-size:.65rem;color:rgba(255,255,255,.4);white-space:nowrap}
+.hdr{
+  position:sticky;top:0;z-index:100;
+  background:rgba(13,27,62,.97);backdrop-filter:blur(16px);
+  padding:10px 16px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 2px 20px rgba(0,0,0,.3);
+}
+.hdr-brand{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.hdr-brand img{width:30px;height:30px;border-radius:7px;}
+.hdr-brand span{font-size:.82rem;font-weight:800;color:#fff;letter-spacing:.02em;}
+.hdr-brand em{color:#a78bfa;font-style:normal;}
 
-/* Main container */
-.app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 16px 80px}
+/* Barra progreso header */
+.prog-wrap{flex:1;max-width:320px;}
+.prog-labels{display:flex;justify-content:space-between;margin-bottom:4px;}
+.prog-labels span{font-size:.65rem;color:rgba(255,255,255,.5);}
+.prog-labels strong{font-size:.65rem;color:#a78bfa;font-weight:700;}
+.prog-bg{background:rgba(255,255,255,.1);border-radius:99px;height:5px;overflow:hidden;}
+.prog-fill{
+  height:100%;border-radius:99px;
+  background:linear-gradient(90deg,#7c3aed,#a855f7,#f59e0b,#10b981,#a855f7,#7c3aed);
+  background-size:300% 100%;
+  animation:shimmer 2s linear infinite;
+  transition:width .5s cubic-bezier(.4,0,.2,1);
+}
+@keyframes shimmer{0%{background-position:300% 0;}100%{background-position:-300% 0;}}
 
-/* ID Screen */
-.id-card{background:var(--white);border-radius:20px;box-shadow:0 8px 40px rgba(124,58,237,.1);padding:32px 24px;max-width:420px;width:100%;text-align:center;animation:fadeUp .4s var(--ease-out) both}
-@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-.id-card img{width:64px;height:64px;border-radius:16px;margin:0 auto 14px;display:block;box-shadow:0 6px 24px rgba(124,58,237,.25)}
-.id-card h1{font-size:1.3rem;font-weight:800;margin-bottom:4px}
-.id-card p{font-size:.85rem;color:#64748b;line-height:1.5;margin-bottom:20px}
-.field{text-align:left;margin-bottom:12px}
-.field label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;display:block;margin-bottom:4px}
-.field input{width:100%;border:2px solid #e2e8f0;border-radius:10px;padding:12px 14px;font-size:.9rem;font-family:inherit;transition:border-color .2s}
-.field input:focus{outline:none;border-color:var(--violet)}
-.err-box{display:none;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:.8rem;color:#b91c1c;align-items:center;gap:6px}
-.err-box.show{display:flex}
-.btn-primary{width:100%;background:linear-gradient(135deg,var(--violet),var(--violet2));color:#fff;font-weight:700;font-size:.9rem;border:none;border-radius:10px;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(124,58,237,.25);transition:transform .15s}
-.btn-primary:hover{transform:translateY(-1px)}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* Contenedor */
+.wrap{position:relative;z-index:1;max-width:700px;margin:0 auto;padding:28px 14px 90px;}
 
-/* Wizard Card */
-.wizard{display:none;width:100%;max-width:500px}
-.wizard-meta{text-align:center;margin-bottom:16px;animation:fadeUp .3s var(--ease-out) both}
-.wizard-meta .cat-name{font-size:.75rem;font-weight:700;color:var(--violet);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
-.wizard-meta .cat-progress{font-size:.7rem;color:#94a3b8}
-.wizard-card{background:var(--white);border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:28px 24px;min-height:320px;display:flex;flex-direction:column;position:relative;overflow:hidden}
-.wizard-card.slide-left{animation:slideLeft .3s var(--ease-out) both}
-.wizard-card.slide-right{animation:slideRight .3s var(--ease-out) both}
-@keyframes slideLeft{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
-@keyframes slideRight{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
-.wizard-q{font-size:1rem;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:20px;flex-shrink:0}
-.wizard-q .q-num{font-size:.68rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px}
-.wizard-opts{display:flex;flex-direction:column;gap:8px;flex:1}
-.wizard-opt{display:flex;align-items:center;min-height:52px;padding:14px 18px;border:2px solid #e8e5f0;border-radius:12px;cursor:pointer;font-size:.9rem;font-weight:500;color:#475569;transition:all .2s var(--ease-out);-webkit-tap-highlight-color:transparent;user-select:none}
-.wizard-opt:hover{border-color:#c4b5fd;background:#faf8ff}
-.wizard-opt:active{transform:scale(.98)}
-.wizard-opt.selected{border-color:var(--violet);background:rgba(124,58,237,.08);color:var(--violet);font-weight:600}
-.wizard-opt .opt-check{width:20px;height:20px;border-radius:50%;border:2px solid #d4d0e0;margin-right:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.wizard-opt.selected .opt-check{border-color:var(--violet);background:var(--violet)}
-.wizard-opt.selected .opt-check::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
+/* Pantalla ID */
+.id-card{
+  background:var(--white);border-radius:24px;
+  box-shadow:0 8px 40px rgba(124,58,237,.12);
+  padding:36px 28px;text-align:center;
+  animation:fadeUp .5s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
 
-/* Condicional badge */
-.cond-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;font-size:.65rem;font-weight:700;border-radius:6px;padding:3px 8px;margin-bottom:10px}
+.id-logo{
+  width:80px;height:80px;border-radius:20px;margin:0 auto 16px;
+  box-shadow:0 8px 32px rgba(124,58,237,.35);
+  display:block;
+}
+.id-card h1{font-size:1.5rem;font-weight:800;color:var(--ink);margin-bottom:6px;line-height:1.2;}
+.id-card p{font-size:.88rem;color:#64748b;line-height:1.5;margin-bottom:24px;}
 
-/* Bottom nav */
-.wizard-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid #f1f0f5;padding:12px 20px;display:none;align-items:center;justify-content:space-between}
-.btn-back{font-size:.78rem;color:#94a3b8;background:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;transition:color .2s}
-.btn-back:hover{color:var(--violet)}
-.nav-counter{font-size:.72rem;color:#94a3b8}
+.field-group{display:grid;gap:14px;text-align:left;margin-bottom:22px;}
+.field-group label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;display:block;margin-bottom:5px;}
+.field-group input{
+  width:100%;border:2px solid #e2e8f0;border-radius:12px;
+  padding:13px 16px;font-size:.95rem;color:var(--ink);
+  background:#fafafa;transition:border-color .2s,background .2s;
+  font-family:inherit;
+}
+.field-group input:focus{outline:none;border-color:var(--violet);background:var(--white);}
 
-/* Category celebration */
-.celebration{display:none;text-align:center;padding:40px 20px;animation:fadeUp .4s var(--ease-out) both}
-.celebration .cel-icon{font-size:3rem;margin-bottom:12px}
-.celebration .cel-text{font-size:1.1rem;font-weight:700;color:var(--ink)}
-.celebration .cel-sub{font-size:.82rem;color:#64748b;margin-top:4px}
+/* Info precargado */
+.preloaded-badge{
+  background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(168,85,247,.05));
+  border:1.5px solid rgba(124,58,237,.2);border-radius:12px;
+  padding:12px 16px;text-align:left;
+}
+.preloaded-badge p.tag{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--violet);margin-bottom:2px;}
+.preloaded-badge p.val{font-size:.9rem;font-weight:700;color:var(--ink);}
+.preloaded-badge p.hint{font-size:.75rem;color:#64748b;margin-top:3px;}
 
-/* Success screen */
-.success{display:none;text-align:center;padding:40px 20px;max-width:420px;animation:fadeUp .5s var(--ease-out) both}
-.success .s-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2rem;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.3)}
-.success h2{font-size:1.4rem;font-weight:800;margin-bottom:8px}
-.success p{font-size:.88rem;color:#64748b;line-height:1.5}
+/* Error box */
+.err-box{
+  display:none;background:#fef2f2;border:1.5px solid #fecaca;
+  border-radius:10px;padding:10px 14px;margin-bottom:14px;
+  font-size:.82rem;color:#b91c1c;text-align:left;
+  align-items:center;gap:8px;
+}
+.err-box.show{display:flex;}
 
-/* Result card in success */
-.result-card{margin-top:20px;background:var(--white);border-radius:14px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.06);text-align:left}
-.result-card .rc-level{text-align:center;padding:12px;border-radius:10px;margin-bottom:14px}
-.result-card .rc-level p:first-child{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
-.result-card .rc-level p:last-child{font-size:1.3rem;font-weight:900}
-.result-card .rc-gi{font-size:.78rem;padding:8px 12px;border-radius:8px;margin-bottom:10px}
-.result-card .rc-domains{display:flex;flex-direction:column;gap:4px}
-.result-card .rc-dom{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:.75rem}
-.result-card .rc-dom .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* Btn primary */
+.btn-pry{
+  width:100%;background:linear-gradient(135deg,var(--violet),var(--violet2));
+  color:#fff;font-weight:700;font-size:.95rem;border:none;border-radius:12px;
+  padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 16px rgba(124,58,237,.3);transition:transform .15s,box-shadow .15s;
+}
+.btn-pry:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(124,58,237,.4);}
+.btn-pry:active{transform:scale(.98);}
+.btn-pry:disabled{opacity:.6;cursor:not-allowed;transform:none;}
 
+/* Bloque */
+.block-hdr{display:flex;align-items:center;gap:11px;margin:32px 0 16px;animation:fadeUp .4s ease both;}
+.block-num{
+  width:38px;height:38px;border-radius:11px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--violet),var(--violet2));
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+  box-shadow:0 4px 12px rgba(124,58,237,.3);
+}
+.block-name{font-size:1rem;font-weight:800;color:var(--ink);}
+
+/* Tarjeta pregunta */
+.q-card{
+  background:var(--white);border-radius:14px;padding:20px;margin-bottom:10px;
+  border:1.5px solid #ede9ff;box-shadow:0 2px 10px rgba(124,58,237,.05);
+  transition:border-color .2s,box-shadow .2s;animation:fadeUp .35s ease both;
+}
+.q-card:hover{border-color:rgba(124,58,237,.25);box-shadow:0 4px 18px rgba(124,58,237,.1);}
+.q-card.answered{border-color:rgba(16,185,129,.3);background:linear-gradient(135deg,#fff,#f0fdf4);}
+
+.q-num{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--violet);margin-bottom:7px;}
+.q-text{font-size:.93rem;font-weight:600;color:var(--ink);line-height:1.55;margin-bottom:14px;}
+.open-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  background:rgba(245,158,11,.1);color:#b45309;
+  font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  border-radius:99px;padding:2px 8px;margin-bottom:7px;
+}
+
+/* Escala */
+.scale-row{display:flex;gap:7px;flex-wrap:wrap;}
+.sc-opt{flex:1;min-width:54px;cursor:pointer;}
+.sc-opt input{display:none;}
+.sc-opt label{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 4px;border-radius:11px;border:2px solid #e2e8f0;
+  cursor:pointer;background:#fafafa;transition:all .2s;
+}
+.sc-opt label .n{font-size:1.15rem;font-weight:800;color:#94a3b8;transition:color .2s;}
+.sc-opt label .l{font-size:.58rem;text-align:center;color:#94a3b8;line-height:1.2;transition:color .2s;}
+.sc-opt input:checked+label{transform:translateY(-2px);box-shadow:0 4px 12px rgba(124,58,237,.2);}
+.sc-opt[data-v="0"] input:checked+label{border-color:#dc2626;background:rgba(220,38,38,.06);}
+.sc-opt[data-v="0"] input:checked+label .n{color:#dc2626;}
+.sc-opt[data-v="1"] input:checked+label{border-color:#ef4444;background:rgba(239,68,68,.06);}
+.sc-opt[data-v="1"] input:checked+label .n{color:#ef4444;}
+.sc-opt[data-v="2"] input:checked+label{border-color:#f97316;background:rgba(249,115,22,.06);}
+.sc-opt[data-v="2"] input:checked+label .n{color:#f97316;}
+.sc-opt[data-v="3"] input:checked+label{border-color:#f59e0b;background:rgba(245,158,11,.06);}
+.sc-opt[data-v="3"] input:checked+label .n{color:#f59e0b;}
+.sc-opt[data-v="4"] input:checked+label{border-color:#22c55e;background:rgba(34,197,94,.06);}
+.sc-opt[data-v="4"] input:checked+label .n{color:#22c55e;}
+.sc-opt[data-v="5"] input:checked+label{border-color:#10b981;background:rgba(16,185,129,.06);}
+.sc-opt[data-v="5"] input:checked+label .n{color:#10b981;}
+
+/* Múltiple */
+.multi-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.multi-opt{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;
+  border:2px solid #e2e8f0;border-radius:10px;background:#fafafa;
+  cursor:pointer;font-size:.82rem;font-weight:500;transition:all .2s;
+}
+.multi-opt input{display:none;}
+.chk{
+  width:18px;height:18px;border-radius:5px;border:2px solid #cbd5e1;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:.68rem;transition:all .2s;
+}
+.multi-opt.sel{border-color:var(--violet);background:rgba(124,58,237,.06);}
+.multi-opt.sel .chk{background:var(--violet);border-color:var(--violet);color:#fff;}
+
+/* Abierta */
+.open-ta{
+  width:100%;border:2px solid #e2e8f0;border-radius:11px;
+  padding:11px 14px;font-size:.9rem;color:var(--ink);
+  resize:vertical;min-height:90px;font-family:inherit;
+  background:#fafafa;transition:border-color .2s;line-height:1.5;
+}
+.open-ta:focus{outline:none;border-color:var(--violet);background:var(--white);}
+
+/* Footer */
+.survey-footer{
+  position:fixed;bottom:0;left:0;right:0;z-index:100;
+  background:rgba(255,255,255,.97);backdrop-filter:blur(14px);
+  border-top:1px solid #ede9ff;padding:12px 18px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.footer-info{font-size:.78rem;color:#64748b;}
+.footer-info strong{color:var(--violet);font-weight:700;}
+.btn-send{
+  display:inline-flex;align-items:center;gap:7px;
+  background:linear-gradient(135deg,var(--violet),var(--violet2));
+  color:#fff;font-weight:700;font-size:.88rem;border:none;
+  border-radius:11px;padding:11px 26px;cursor:pointer;
+  box-shadow:0 4px 14px rgba(124,58,237,.3);transition:transform .15s,box-shadow .15s;white-space:nowrap;
+}
+.btn-send:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(124,58,237,.4);}
+.btn-send:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+
+/* Éxito */
+.success-screen{
+  display:none;text-align:center;padding:56px 28px;
+  background:var(--white);border-radius:24px;
+  box-shadow:0 8px 40px rgba(124,58,237,.12);
+  animation:fadeUp .5s ease both;
+}
+.success-icon{
+  width:80px;height:80px;border-radius:50%;margin:0 auto 18px;
+  background:linear-gradient(135deg,#10b981,#059669);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;color:#fff;
+  box-shadow:0 8px 24px rgba(16,185,129,.3);
+  animation:popIn .5s cubic-bezier(.4,0,.2,1) .2s both;
+}
+@keyframes popIn{from{transform:scale(0);}to{transform:scale(1);}}
+.success-screen h2{font-size:1.6rem;font-weight:800;color:var(--ink);margin-bottom:10px;}
+.success-screen p{font-size:.92rem;color:#64748b;line-height:1.6;}
+
+/* Responsive */
 @media(max-width:480px){
-  .app{padding:64px 12px 72px}
-  .wizard-card{padding:22px 18px;min-height:280px}
-  .wizard-q{font-size:.92rem}
-  .wizard-opt{min-height:48px;padding:12px 14px;font-size:.85rem}
+  .wrap{padding:16px 10px 88px;}
+  .id-card{padding:26px 18px;}
+  .scale-row{gap:5px;}
+  .sc-opt label{padding:8px 3px;}
+  .sc-opt label .n{font-size:1rem;}
+  .sc-opt label .l{font-size:.55rem;}
+  .multi-grid{grid-template-columns:1fr;}
+  .prog-wrap{display:none;}
 }
 </style>
 </head>
 <body>
 
+<!-- HEADER -->
 <header class="hdr">
-  <div class="hdr-brand"><img src="icon.png" alt=""><span>RRHH <em>Prisma</em></span></div>
-  <div class="hdr-progress" id="hdr-progress" style="display:none">
-    <div class="hdr-prog-text"><span id="prog-label">0 / 0</span><strong id="prog-pct">0%</strong></div>
-    <div class="hdr-prog-bar"><div class="hdr-prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="hdr-brand">
+    <img src="icon.png" alt="Prisma">
+    <span>RRHH <em>Prisma</em></span>
   </div>
-  <span class="hdr-time" id="hdr-time" style="display:none"></span>
+  <div class="prog-wrap" id="prog-wrap" style="display:none">
+    <div class="prog-labels">
+      <span id="prog-label">0 de 0</span>
+      <strong id="prog-pct">0%</strong>
+    </div>
+    <div class="prog-bg"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
 </header>
 
-<div class="app" id="app">
-  <!-- ID Screen -->
-  <div class="id-card" id="id-screen">
-    <img src="icon.png" alt="Prisma">
-    <h1 id="enc-titulo">NOM-035</h1>
-    <p id="enc-desc">Evaluacion de factores de riesgo psicosocial. Confidencial.</p>
-    <div class="err-box" id="err-box"><i class="fas fa-exclamation-circle"></i><span id="err-msg"></span></div>
-    <div class="field"><label>Numero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
-    <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
-    <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
+<!-- CONTENIDO -->
+<div class="wrap" id="wrap">
+
+  <!-- PANTALLA 1: Identificación -->
+  <div id="id-screen" class="id-card">
+    <img src="icon.png" class="id-logo" alt="Logo">
+    <h1 id="enc-titulo">Cargando...</h1>
+    <p id="enc-desc">Por favor espera un momento.</p>
+
+    <div class="err-box" id="err-box">
+      <i class="fas fa-exclamation-circle"></i>
+      <span id="err-msg"></span>
+    </div>
+
+    <!-- Campos modo general -->
+    <div class="field-group" id="campos-generales">
+      <div>
+        <label>Número de empleado</label>
+        <input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218"
+          onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()">
+      </div>
+      <div>
+        <label>Nombre completo</label>
+        <input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)"
+          onkeydown="if(event.key==='Enter')iniciarEncuesta()">
+      </div>
+    </div>
+
+    <!-- Info precargada (modo baja) -->
+    <div class="preloaded-badge" id="precargado-box" style="display:none;margin-bottom:16px;">
+      <p class="tag"><i class="fas fa-user-check" style="margin-right:4px;"></i>Empleado identificado</p>
+      <p class="val" id="precargado-val">—</p>
+      <p class="hint">Solo confirma tu nombre completo para continuar.</p>
+    </div>
+    <div class="field-group" id="campo-nombre-solo" style="display:none;margin-bottom:16px;">
+      <div>
+        <label>Confirma tu nombre completo</label>
+        <input type="text" id="inp-nombre-solo" placeholder="Apellidos y Nombre(s)"
+          onkeydown="if(event.key==='Enter')iniciarEncuesta()">
+      </div>
+    </div>
+
+    <button class="btn-pry" id="btn-iniciar" onclick="iniciarEncuesta()">
+      <i class="fas fa-play"></i> Comenzar encuesta
+    </button>
   </div>
 
-  <!-- Wizard -->
-  <div class="wizard" id="wizard">
-    <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
-    <div class="wizard-card" id="wizard-card"></div>
+  <!-- PANTALLA 2: Preguntas -->
+  <div id="q-screen" style="display:none;"></div>
+
+  <!-- PANTALLA 3: Éxito -->
+  <div class="success-screen" id="ok-screen">
+    <div class="success-icon"><i class="fas fa-check"></i></div>
+    <h2>¡Muchas gracias!</h2>
+    <p>Tus respuestas han sido registradas.<br>Tu opinión contribuye a mejorar nuestra organización.</p>
   </div>
-
-  <!-- Category celebration -->
-  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Seccion completada</p><p class="cel-sub" id="cel-sub"></p></div>
-
-  <!-- Success -->
-  <div class="success" id="success-screen"></div>
 </div>
 
-<div class="wizard-nav" id="wizard-nav">
-  <button class="btn-back" id="btn-prev" onclick="prevQuestion()"><i class="fas fa-chevron-left"></i> Anterior</button>
-  <span class="nav-counter" id="nav-counter"></span>
+<!-- FOOTER -->
+<div class="survey-footer" id="survey-footer" style="display:none">
+  <div class="footer-info">
+    Respondidas: <strong id="ft-resp">0</strong> de <strong id="ft-total">0</strong>
+  </div>
+  <button class="btn-send" id="btn-enviar" onclick="enviarEncuesta()">
+    <i class="fas fa-paper-plane"></i> Enviar
+  </button>
 </div>
 
 <script>
-const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
-const params=new URLSearchParams(location.search);
-let empleadoId='',empleadoNombre='',empleadoEmpresa='';
-let nom035Data=null,allItems=[],respuestas={},currentIdx=0,fase='id';
-let categories=[],catMap={};
+const API_URL = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
+const params       = new URLSearchParams(location.search);
+const encId        = (params.get('enc') || 'SALIDA').toUpperCase();
+const preIdInterno = params.get('idInterno') || '';
+const modoPrec     = !!preIdInterno;
 
-function showErr(msg){const b=document.getElementById('err-box');b.classList.add('show');document.getElementById('err-msg').textContent=msg}
-function hideErr(){document.getElementById('err-box').classList.remove('show')}
+let encuestaData    = null;
+let empleadoId      = '';
+let empleadoNombre  = '';
+let empleadoEmpresa = '';
+
+let ESCALA = [
+  {v:1,l:'Totalmente\nen desacuerdo'},
+  {v:2,l:'En\ndesacuerdo'},
+  {v:3,l:'Ni de acuerdo\nni en desacuerdo'},
+  {v:4,l:'De\nacuerdo'},
+  {v:5,l:'Totalmente\nde acuerdo'},
+];
+
+const ESCALA_CLIMA = [
+  {v:1,l:'Total\\ndesacuerdo'},
+  {v:2,l:'En\\ndesacuerdo'},
+  {v:3,l:'Neutral'},
+  {v:4,l:'De\\nacuerdo'},
+  {v:5,l:'Muy de\\nacuerdo'},
+];
+
+function mostrarError(msg){
+  const b=document.getElementById('err-box');
+  const m=document.getElementById('err-msg');
+  if(b){b.classList.add('show');}
+  if(m) m.textContent=msg;
+}
+function ocultarError(){
+  const b=document.getElementById('err-box');
+  if(b) b.classList.remove('show');
+}
+
+async function cargarEncuesta(){
+  try{
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_encuesta',payload:{encId}})});
+    const d=await r.json();
+    if(d.status==='success'){
+      encuestaData=d.encuesta;
+      document.getElementById('enc-titulo').textContent=encuestaData.titulo;
+      document.getElementById('enc-desc').textContent=encuestaData.descripcion||'Responde con honestidad. Es confidencial.';
+      // Ajustar escala según el tipo de encuesta
+      if(encId==='CLIMA') ESCALA=ESCALA_CLIMA;
+      else if(encuestaData.escala&&encuestaData.escala.length===5){
+        ESCALA=encuestaData.escala.map(function(e){return{v:e.valor,l:e.etiqueta};});
+      }
+    } else { encuestaData=ENCUESTA_SALIDA; setTituloFallback(); }
+  }catch(e){ encuestaData=ENCUESTA_SALIDA; setTituloFallback(); }
+
+  if(modoPrec){
+    document.getElementById('campos-generales').style.display='none';
+    document.getElementById('precargado-box').style.display='block';
+    document.getElementById('campo-nombre-solo').style.display='block';
+    try{
+      const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_empleado_por_id',payload:{idInterno:preIdInterno}})});
+      const d=await r.json();
+      if(d.status==='success'&&d.empleado){
+        const e=d.empleado;
+        empleadoId=preIdInterno; empleadoEmpresa=e.empresa||'';
+        document.getElementById('precargado-val').textContent='#'+e.noEmpleado+' · '+e.empresa;
+        document.getElementById('inp-nombre-solo').value=e.nombre||'';
+      } else {
+        empleadoId=preIdInterno;
+        document.getElementById('precargado-val').textContent='ID: '+preIdInterno;
+      }
+    }catch(e){ empleadoId=preIdInterno; document.getElementById('precargado-val').textContent='ID: '+preIdInterno; }
+  }
+}
+
+function setTituloFallback(){
+  document.getElementById('enc-titulo').textContent=encuestaData.titulo;
+  document.getElementById('enc-desc').textContent=encuestaData.descripcion;
+}
 
 async function iniciarEncuesta(){
-  hideErr();
-  const noemp=document.getElementById('inp-noemp').value.trim();
-  const nombre=document.getElementById('inp-nombre').value.trim();
-  if(!noemp){showErr('Ingresa tu numero de empleado.');return}
-  if(!nombre){showErr('Ingresa tu nombre completo.');return}
-  empleadoNombre=nombre;
+  ocultarError();
   const btn=document.getElementById('btn-iniciar');
-  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
-  try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}})});
-    const d=await r.json();
-    if(d.status==='success'||d.status==='warning'){empleadoId=d.empleado.idInterno||noemp;empleadoEmpresa=d.empleado.empresa||''}
-    else{btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d.message||'Empleado no encontrado.');return}
-  }catch(e){empleadoId=noemp}
-  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
-  try{
-    const r2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:{idInterno:empleadoId}})});
-    const d2=await r2.json();
-    if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
-    nom035Data=d2;
-    iniciarGuiaI(d2.guia1);
-  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexion.')}
-}
+  let nombre='';
 
-// ===== GUIA I (Si/No Wizard) =====
-let gi_items=[],gi_resp={},gi_idx=0;
-function iniciarGuiaI(guia1){
-  document.getElementById('id-screen').style.display='none';
-  gi_items=[];
-  guia1.secciones.forEach(function(sec){sec.preguntas.forEach(function(p){gi_items.push({id:p.id,texto:p.texto,seccion:sec.titulo})})});
-  gi_resp={};gi_idx=0;fase='gi';
-  document.getElementById('wizard').style.display='block';
-  document.getElementById('wizard-nav').style.display='flex';
-  document.getElementById('hdr-progress').style.display='block';
-  document.getElementById('hdr-time').style.display='block';
-  renderGIQuestion();
-}
-function renderGIQuestion(){
-  if(gi_idx>=gi_items.length){completarGI();return}
-  const it=gi_items[gi_idx];
-  updateProgress(gi_idx,gi_items.length);
-  document.getElementById('wiz-cat').textContent=it.seccion;
-  document.getElementById('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
-  const card=document.getElementById('wizard-card');
-  card.className='wizard-card slide-left';
-  card.innerHTML='<p class="wizard-q"><span class="q-num">Guia I — Pregunta '+(gi_idx+1)+'</span>'+it.texto+'</p>'
-    +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Si</div>'
-    +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
-    +'</div>';
-  document.getElementById('nav-counter').textContent=(gi_idx+1)+' / '+gi_items.length;
-  document.getElementById('btn-prev').style.visibility=gi_idx>0?'visible':'hidden';
-}
-function selectGI(id,val){
-  gi_resp[id]=val;
-  setTimeout(function(){gi_idx++;renderGIQuestion()},250);
-}
-function completarGI(){
-  // Check section I
-  var sec1Positive=false;
-  for(var i=1;i<=6;i++){if(gi_resp['s1_'+i]==='Si'){sec1Positive=true;break}}
-  if(!sec1Positive){
-    // Sections II-IV not needed if Section I is negative
-    // Still save whatever was answered
+  if(modoPrec){
+    nombre=(document.getElementById('inp-nombre-solo').value||'').trim();
+    if(!nombre){mostrarError('Por favor confirma tu nombre completo.');return;}
+    empleadoNombre=nombre;
+  } else {
+    const noemp=(document.getElementById('inp-noemp').value||'').trim();
+    nombre=(document.getElementById('inp-nombre').value||'').trim();
+    if(!noemp){mostrarError('Ingresa tu número de empleado.');return;}
+    if(!nombre){mostrarError('Ingresa tu nombre completo.');return;}
+    empleadoNombre=nombre;
+
+    // Buscar ID INTERNO por número + nombre
+    btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
+    try{
+      const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+        action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}
+      })});
+      const d=await r.json();
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Comenzar encuesta';
+      if(d.status==='success'||d.status==='warning'){
+        empleadoId=d.empleado.idInterno||noemp;
+        empleadoEmpresa=d.empleado.empresa||'';
+        if(d.status==='warning') mostrarError(d.message+' Continuando de todas formas.');
+      } else {
+        mostrarError(d.message||'No se encontró tu registro. Verifica tus datos.');
+        return;
+      }
+    }catch(e){
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Comenzar encuesta';
+      empleadoId=noemp; // fallback
+    }
   }
-  showCelebration('Guia I completada','Continuamos con el cuestionario de riesgo psicosocial...',function(){iniciarFRP()});
-}
 
-// ===== GUIA II/III (FRP Wizard) =====
-function iniciarFRP(){
-  const cuest=nom035Data.cuestionarioFRP;
-  allItems=cuest.items||[];
-  // Build category groups
-  catMap={};categories=[];
-  allItems.forEach(function(it,idx){
-    var cat=it.categoria||'General';
-    if(!catMap[cat]){catMap[cat]=[];categories.push(cat)}
-    catMap[cat].push(idx);
-  });
-  respuestas={};currentIdx=0;fase='frp';
-  document.getElementById('celebration').style.display='none';
-  document.getElementById('wizard').style.display='block';
-  renderFRPQuestion();
-}
-function renderFRPQuestion(){
-  if(currentIdx>=allItems.length){enviarResultados();return}
-  const it=allItems[currentIdx];
-  const cat=it.categoria||'General';
-  const catItems=catMap[cat];
-  const posInCat=catItems.indexOf(currentIdx)+1;
-  // Check if entering new category
-  if(posInCat===1 && currentIdx>0){
-    var prevCat=allItems[currentIdx-1].categoria;
-    if(prevCat!==cat){
-      showCelebration('\u00a1'+prevCat+' completada!','Siguiente: '+cat,function(){renderFRPQuestion()});
+  // ── NOM-035: flujo de 2 cuestionarios (Guia I obligatoria + Guia II/III segun grupo) ──
+  if (encId === 'NOM035') {
+    if (!empleadoId) {
+      mostrarError('No se pudo identificar tu empresa para asignar el cuestionario correcto. Verifica tu numero de empleado.');
+      return;
+    }
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparando cuestionarios...';
+    try {
+      const rNom = await fetch(API_URL, { method:'POST', body: JSON.stringify({
+        action: 'obtener_estructura_nom035', payload: { idInterno: empleadoId, token: '' }
+      })});
+      const dNom = await rNom.json();
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Comenzar encuesta';
+      if (dNom.status === 'success') {
+        window._nom035Data = dNom;
+        window._nom035Tipo = dNom.tipoCuestionario;
+        window._nom035RespGI = {};
+        window._nom035Fase = 'guia1';
+        if (dNom.escala && dNom.escala.length === 5) {
+          ESCALA = dNom.escala.map(function(e){ return { v: e.valor, l: e.etiqueta }; });
+        }
+        document.getElementById('id-screen').style.display='none';
+        document.getElementById('prog-wrap').style.display='none';
+        renderNOM035GuiaI(dNom.guia1);
+        window.scrollTo(0,0);
+        return;
+      } else {
+        mostrarError(dNom.message || 'No se pudo determinar el cuestionario correspondiente.');
+        return;
+      }
+    } catch(e) {
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-play"></i> Comenzar encuesta';
+      mostrarError('Error de conexion al preparar el cuestionario. Intenta de nuevo.');
       return;
     }
   }
-  updateProgress(currentIdx,allItems.length);
-  document.getElementById('wiz-cat').textContent=cat;
-  document.getElementById('wiz-catprog').textContent='Pregunta '+posInCat+' de '+catItems.length;
-  const card=document.getElementById('wizard-card');
-  card.className='wizard-card slide-left';
-  var html='<p class="wizard-q"><span class="q-num">'+(currentIdx+1)+' de '+allItems.length+'</span>';
-  if(it.condicional) html+='<span class="cond-badge"><i class="fas fa-info-circle"></i> '+it.condicional+'</span><br>';
-  html+=it.pregunta+'</p><div class="wizard-opts">';
-  var opciones=['Siempre','Casi siempre','Algunas veces','Casi nunca','Nunca'];
-  opciones.forEach(function(op,idx){
-    var sel=respuestas[currentIdx]===idx?' selected':'';
-    html+='<div class="wizard-opt'+sel+'" onclick="selectFRP('+idx+')"><span class="opt-check"></span>'+op+'</div>';
-  });
-  html+='</div>';
-  card.innerHTML=html;
-  document.getElementById('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
-  document.getElementById('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
-}
-function selectFRP(val){
-  respuestas[currentIdx]=val;
-  setTimeout(function(){currentIdx++;renderFRPQuestion()},250);
-}
-function prevQuestion(){
-  if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
-  else if(fase==='frp'&&currentIdx>0){currentIdx--;const card=document.getElementById('wizard-card');card.className='wizard-card slide-right';setTimeout(renderFRPQuestion,50)}
+
+  document.getElementById('id-screen').style.display='none';
+  document.getElementById('q-screen').style.display='block';
+  document.getElementById('survey-footer').style.display='flex';
+  document.getElementById('prog-wrap').style.display='block';
+  renderPreguntas();
+  actualizarProgreso();
+  window.scrollTo(0,0);
 }
 
-// ===== Progress & Time =====
-function updateProgress(current,total){
-  const pct=Math.round(current/total*100);
+function renderPreguntas(){
+  if(!encuestaData) return;
+  let html=''; let gq=0;
+  encuestaData.bloques.forEach(function(bloque,bi){
+    html+=`<div class="block-hdr" style="animation-delay:${bi*.04}s">
+      <div class="block-num">${bloque.icono||(bi+1)}</div>
+      <div class="block-name">${bloque.titulo}</div>
+    </div>`;
+    (bloque.preguntas||[]).forEach(function(preg,pi){
+      gq++;
+      const delay=(bi*5+pi)*.025;
+      html+=`<div class="q-card" id="qc-${gq}" style="animation-delay:${delay}s">`;
+      html+=`<div class="q-num">Pregunta ${gq}</div>`;
+      if(preg.tipo==='abierta') html+=`<div class="open-tag"><i class="fas fa-pen-line"></i> Respuesta abierta</div>`;
+      html+=`<div class="q-text">${preg.texto}</div>`;
+      if(preg.tipo==='escala'){
+        html+='<div class="scale-row">';
+        ESCALA.forEach(function(e){
+          html+=`<div class="sc-opt" data-v="${e.v}">
+            <input type="radio" name="q${gq}" id="q${gq}_${e.v}" value="${e.v}" onchange="onResp(${gq})">
+            <label for="q${gq}_${e.v}">
+              <span class="n">${e.v}</span>
+              <span class="l">${e.l.replace('\n','<br>')}</span>
+            </label></div>`;
+        });
+        html+='</div>';
+      } else if(preg.tipo==='multiple'){
+        html+='<div class="multi-grid">';
+        (preg.opciones||[]).forEach(function(op,oi){
+          html+=`<label class="multi-opt" id="mo-${gq}-${oi}" onclick="toggleMulti(${gq},${oi},this)">
+            <input type="checkbox" name="q${gq}" value="${op}">
+            <span class="chk" id="chk-${gq}-${oi}"><i class="fas fa-check" style="display:none"></i></span>
+            ${op}</label>`;
+        });
+        html+='</div>';
+      } else {
+        html+=`<textarea class="open-ta" id="qa-${gq}" placeholder="Escribe tu respuesta..." oninput="onResp(${gq})" rows="3"></textarea>`;
+      }
+      html+='</div>';
+    });
+  });
+  document.getElementById('q-screen').innerHTML=html;
+  document.getElementById('ft-total').textContent=gq;
+}
+
+function onResp(qn){
+  const c=document.getElementById('qc-'+qn);
+  if(c) c.classList.add('answered');
+  actualizarProgreso();
+}
+
+function toggleMulti(qn,oi,lbl){
+  const inp=lbl.querySelector('input');
+  inp.checked=!inp.checked;
+  lbl.classList.toggle('sel',inp.checked);
+  const ico=document.getElementById('chk-'+qn+'-'+oi)?.querySelector('i');
+  if(ico) ico.style.display=inp.checked?'block':'none';
+  onResp(qn);
+}
+
+function actualizarProgreso(){
+  const cards=document.querySelectorAll('.q-card');
+  let resp=0;
+  cards.forEach(function(c,i){
+    const n=i+1;
+    const radios=document.querySelectorAll(`input[name="q${n}"]:checked`);
+    const ta=document.getElementById('qa-'+n);
+    if(radios.length>0||(ta&&ta.value.trim())) resp++;
+  });
+  const total=cards.length;
+  const pct=total>0?Math.round(resp/total*100):0;
   document.getElementById('prog-fill').style.width=pct+'%';
   document.getElementById('prog-pct').textContent=pct+'%';
-  document.getElementById('prog-label').textContent=current+' / '+total;
-  const remaining=total-current;
-  const mins=Math.ceil(remaining*5/60);// ~5 sec per question
-  document.getElementById('hdr-time').textContent='\u23f1 ~'+mins+' min';
+  document.getElementById('prog-label').textContent=resp+' de '+total;
+  document.getElementById('ft-resp').textContent=resp;
 }
 
-// ===== Celebration =====
-function showCelebration(text,sub,callback){
-  document.getElementById('wizard').style.display='none';
-  const cel=document.getElementById('celebration');
-  document.getElementById('cel-text').textContent=text;
-  document.getElementById('cel-sub').textContent=sub;
-  cel.style.display='block';
-  setTimeout(function(){cel.style.display='none';if(callback)callback()},1500);
-}
-
-// ===== Submit =====
-async function enviarResultados(){
-  document.getElementById('wizard').style.display='none';
-  document.getElementById('wizard-nav').style.display='none';
-  document.getElementById('hdr-progress').style.display='none';
-  document.getElementById('hdr-time').style.display='none';
-  // Build FRP payload
-  var itemsFRP=[];
-  allItems.forEach(function(it,idx){
-    if(respuestas[idx]!==undefined){
-      itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,direccion:it.direccion,respuesta:respuestas[idx]});
-    }
+function recopilarRespuestas(){
+  const cards=document.querySelectorAll('.q-card');
+  const resp={};
+  cards.forEach(function(c,i){
+    const n=i+1;
+    const radios=document.querySelectorAll(`input[type="radio"][name="q${n}"]:checked`);
+    const checks=document.querySelectorAll(`input[type="checkbox"][name="q${n}"]:checked`);
+    const ta=document.getElementById('qa-'+n);
+    if(radios.length>0) resp['q'+n]=radios[0].value;
+    else if(checks.length>0) resp['q'+n]=Array.from(checks).map(function(c){return c.value;});
+    else if(ta&&ta.value.trim()) resp['q'+n]=ta.value.trim();
   });
-  // Show loading
-  const suc=document.getElementById('success-screen');
-  suc.style.display='block';
-  suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>Calculando resultados...</h2><p>Espera un momento</p>';
+  return resp;
+}
+
+async function enviarEncuesta(){
+  const respuestas=recopilarRespuestas();
+  // NOM-035: usar endpoint dedicado con ambos cuestionarios
+  if (encId === 'NOM035' && window._nom035Tipo) {
+    respuestas._guia = window._nom035Tipo;
+    var itemsFRP = [];
+    var cuest = window._nom035Data ? window._nom035Data.cuestionarioFRP : null;
+    if (cuest && cuest.items) {
+      cuest.items.forEach(function(item, idx) {
+        var val = respuestas['q' + (idx + 1)];
+        if (val !== undefined) {
+          itemsFRP.push({ item: item.item, categoria: item.categoria, dominio: item.dominio, direccion: item.direccion, respuesta: val });
+        }
+      });
+    }
+    var btn2 = document.getElementById('btn-enviar');
+    btn2.disabled = true; btn2.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calificando...';
+    try {
+      var rNom2 = await fetch(API_URL, { method:'POST', body: JSON.stringify({
+        action: 'guardar_respuesta_nom035',
+        payload: { idInterno: empleadoId, tipoCuestionario: window._nom035Tipo, activosGrupo: window._nom035Data.activosGrupo, respuestasGI: window._nom035RespGI || {}, respuestasFRP: itemsFRP }
+      })});
+      var dNom2 = await rNom2.json();
+      if (dNom2.status === 'success') {
+        document.getElementById('q-screen').style.display = 'none';
+        document.getElementById('survey-footer').style.display = 'none';
+        document.getElementById('prog-wrap').style.display = 'none';
+        mostrarResultadoNOM035(dNom2);
+        window.scrollTo(0, 0);
+      } else {
+        alert('Error: ' + (dNom2.message || 'Intenta de nuevo.'));
+        btn2.disabled = false; btn2.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+      }
+    } catch(e2) {
+      alert('Error de conexion. Intenta de nuevo.');
+      btn2.disabled = false; btn2.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar';
+    }
+    return;
+  }
+  const total=document.querySelectorAll('.q-card').length;
+  const resp=Object.keys(respuestas).length;
+  if(resp<Math.ceil(total*.7)){
+    if(!confirm(`Has respondido ${resp} de ${total} preguntas. ¿Enviar de todas formas?`)) return;
+  }
+  const btn=document.getElementById('btn-enviar');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Enviando...';
   try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{idInterno:empleadoId,tipoCuestionario:nom035Data.tipoCuestionario,activosGrupo:nom035Data.activosGrupo,respuestasGI:gi_resp,respuestasFRP:itemsFRP}})});
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+      action:'guardar_respuesta',
+      payload:{encId,empleadoId,empleadoNombre,empleadoEmpresa,respuestas,fechaRespuesta:new Date().toISOString()}
+    })});
     const d=await r.json();
-    if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-times"></i></div><h2>Error</h2><p>'+(d.message||'Intenta de nuevo')+'</p>';
+    if(d.status==='success'){
+      document.getElementById('q-screen').style.display='none';
+      document.getElementById('survey-footer').style.display='none';
+      document.getElementById('prog-wrap').style.display='none';
+      document.getElementById('ok-screen').style.display='block';
+      window.scrollTo(0,0);
+    } else {
+      alert('Error: '+(d.message||'Intenta de nuevo.'));
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar';
+    }
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-wifi"></i></div><h2>Error de conexion</h2><p>Verifica tu internet e intenta de nuevo.</p>';
+    alert('Error de conexión. Verifica tu internet.');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-paper-plane"></i> Enviar';
   }
 }
-function mostrarResultado(data){
-  const rFRP=data.resultadoFRP||{};
-  const rGI=data.resultadoGI||{};
-  const colores=nom035Data.colores||{};
-  const color=colores[rFRP.nivelTotal]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
-  var html='<div class="s-icon"><i class="fas fa-check"></i></div>';
-  html+='<h2>Evaluacion completada</h2>';
-  html+='<p>Tus respuestas han sido registradas de forma confidencial.</p>';
-  html+='<div class="result-card">';
-  html+='<div class="rc-level" style="background:'+color.bg+';color:'+color.text+'">';
-  html+='<p>Nivel de riesgo</p><p>'+rFRP.nivelTotal+'</p></div>';
-  if(rGI.requiereValoracion){
-    html+='<div class="rc-gi" style="background:#fef2f2;color:#991b1b"><i class="fas fa-exclamation-triangle"></i> Guia I: Requiere valoracion clinica</div>';
-  }else{
-    html+='<div class="rc-gi" style="background:#f0fdf4;color:#166534"><i class="fas fa-check-circle"></i> Guia I: Sin hallazgos</div>';
-  }
-  var doms=rFRP.dominios||{};
-  if(Object.keys(doms).length){
-    html+='<div class="rc-domains">';
-    Object.keys(doms).forEach(function(d){
-      var dv=doms[d];var dc=colores[dv.nivel]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
-      html+='<div class="rc-dom" style="background:'+dc.bg+'"><span class="dot" style="background:'+dc.hex+'"></span><span style="flex:1;color:'+dc.text+'">'+d+'</span><span style="font-weight:700;color:'+dc.text+'">'+dv.nivel+'</span></div>';
+
+// ── Encuesta de Salida hardcodeada (fallback si GAS falla) ────
+const ENCUESTA_SALIDA={
+  titulo:"Encuesta de Salida",
+  descripcion:"Tus respuestas son confidenciales y nos ayudan a mejorar. Gracias por tu tiempo.",
+  bloques:[
+    {icono:"💰",titulo:"Compensación y Beneficios",preguntas:[
+      {tipo:"escala",texto:"Mi salario era competitivo en comparación con el mercado."},
+      {tipo:"escala",texto:"Considero que mi compensación era justa en relación con mis responsabilidades."},
+      {tipo:"escala",texto:"Los beneficios ofrecidos cubrían adecuadamente mis necesidades."},
+      {tipo:"escala",texto:"Los incentivos y bonos estaban alineados con mi desempeño."},
+      {tipo:"escala",texto:"Existía equidad salarial dentro de mi área."},
+      {tipo:"escala",texto:"¿Influyó la falta de algún beneficio específico (seguro, bonos, vales) en tu decisión de salir?"},
+      {tipo:"abierta",texto:"¿Qué prestación, beneficio o aspecto de tu compensación total crees que podríamos mejorar para retener talento?"}
+    ]},
+    {icono:"👔",titulo:"Liderazgo y Gestión",preguntas:[
+      {tipo:"escala",texto:"Mi jefe directo comunicaba claramente las expectativas del puesto."},
+      {tipo:"escala",texto:"Recibía retroalimentación útil y oportuna."},
+      {tipo:"escala",texto:"Me sentía apoyado(a) por mi líder para realizar mi trabajo."},
+      {tipo:"escala",texto:"¿Considera que la relación de su Jefe Inmediato con el personal a su cargo era buena?"},
+      {tipo:"escala",texto:"Mi jefe promovía un ambiente de respeto y confianza."},
+      {tipo:"escala",texto:"Las decisiones del liderazgo eran coherentes y justas."},
+      {tipo:"abierta",texto:"¿Qué aspectos del liderazgo influyeron en tu decisión de salida?"}
+    ]},
+    {icono:"🚀",titulo:"Desarrollo y Crecimiento Profesional",preguntas:[
+      {tipo:"escala",texto:"Contaba con oportunidades reales de crecimiento dentro de la organización."},
+      {tipo:"escala",texto:"Existía claridad sobre mi plan de carrera."},
+      {tipo:"escala",texto:"¿Cuando ingresó a la empresa recibió el curso de inducción?"},
+      {tipo:"escala",texto:"La empresa invertía en mi desarrollo profesional."},
+      {tipo:"escala",texto:"Tenía acceso a capacitación relevante para mi puesto."},
+      {tipo:"escala",texto:"Se promovía la movilidad interna."},
+      {tipo:"abierta",texto:"¿Qué tipo de capacitación o desarrollo crees que habría mejorado tu desempeño?"}
+    ]},
+    {icono:"🌱",titulo:"Clima y Cultura Organizacional",preguntas:[
+      {tipo:"escala",texto:"El ambiente laboral era positivo."},
+      {tipo:"escala",texto:"Me sentía respetado(a) por mis compañeros."},
+      {tipo:"escala",texto:"La cultura organizacional era coherente con sus valores declarados."},
+      {tipo:"escala",texto:"Me sentía parte importante de la organización."},
+      {tipo:"escala",texto:"La empresa promovía la inclusión y diversidad."},
+      {tipo:"abierta",texto:"Describe el ambiente de trabajo en la organización."}
+    ]},
+    {icono:"⚖️",titulo:"Carga de Trabajo y Organización",preguntas:[
+      {tipo:"escala",texto:"Mi carga de trabajo era razonable."},
+      {tipo:"escala",texto:"Contaba con los recursos necesarios para cumplir mis funciones."},
+      {tipo:"escala",texto:"Los procesos internos eran eficientes."},
+      {tipo:"escala",texto:"El nivel de estrés era manejable."},
+      {tipo:"escala",texto:"Las responsabilidades estaban bien definidas."},
+      {tipo:"abierta",texto:"¿Qué cambios harías en la organización del trabajo?"}
+    ]},
+    {icono:"💬",titulo:"Comunicación Interna",preguntas:[
+      {tipo:"escala",texto:"La información importante se comunicaba de manera clara y oportuna."},
+      {tipo:"escala",texto:"¿El trabajo en equipo y la comunicación entre compañeros eran efectivos?"},
+      {tipo:"escala",texto:"Podía expresar mis opiniones libremente."},
+      {tipo:"escala",texto:"¿Los canales de comunicación utilizados eran los adecuados?"},
+      {tipo:"escala",texto:"¿Los líderes estaban abiertos a recibir retroalimentación?"},
+      {tipo:"abierta",texto:"¿Hubo algún momento en que la falta de comunicación afectara tu motivación?"}
+    ]},
+    {icono:"⭐",titulo:"Reconocimiento y Motivación",preguntas:[
+      {tipo:"escala",texto:"Mi trabajo era reconocido adecuadamente."},
+      {tipo:"escala",texto:"El desempeño era evaluado de manera justa."},
+      {tipo:"escala",texto:"Sentía que mi trabajo aportaba valor a la organización."},
+      {tipo:"abierta",texto:"¿Qué hubiera incrementado tu nivel de motivación?"}
+    ]},
+    {icono:"🏢",titulo:"Condiciones de Trabajo",preguntas:[
+      {tipo:"escala",texto:"Las herramientas tecnológicas eran adecuadas."},
+      {tipo:"escala",texto:"Las instalaciones eran seguras y limpias."},
+      {tipo:"escala",texto:"Me sentía seguro(a) en mi entorno laboral."},
+      {tipo:"escala",texto:"¿El equipo de protección fue el adecuado?"},
+      {tipo:"abierta",texto:"¿Qué mejorarías en tus condiciones físicas de trabajo?"}
+    ]},
+    {icono:"🌿",titulo:"Balance Vida-Trabajo",preguntas:[
+      {tipo:"escala",texto:"Tenía un buen equilibrio entre mi vida personal y laboral."},
+      {tipo:"escala",texto:"La empresa respetaba mis tiempos personales."},
+      {tipo:"escala",texto:"Existía flexibilidad cuando la necesitaba."},
+      {tipo:"escala",texto:"Disponía de tiempo para descansar y/o consumir mis alimentos."},
+      {tipo:"escala",texto:"¿El balance vida-trabajo influyó en tu decisión de salida?"}
+    ]},
+    {icono:"🎯",titulo:"Experiencia General",preguntas:[
+      {tipo:"escala",texto:"En general, mi experiencia en la empresa fue positiva."},
+      {tipo:"escala",texto:"Recomendaría la empresa como un buen lugar para trabajar."},
+      {tipo:"escala",texto:"Consideraría regresar a trabajar aquí en el futuro."},
+      {tipo:"abierta",texto:"¿Cuál fue el principal motivo de tu decisión de salida?"},
+      {tipo:"abierta",texto:"¿Qué debería hacer la empresa para retener talento como tú?"},
+      {tipo:"abierta",texto:"Si pudiera cambiar algo dentro de la empresa, ¿qué condición sería?"},
+      {tipo:"abierta",texto:"¿Cómo se sintió durante el tiempo que laboró con nosotros?"},
+      {tipo:"abierta",texto:"Observaciones, comentarios y sugerencias que quiera realizar a la empresa."}
+    ]},
+    {icono:"📋",titulo:"Razón Principal de Salida",preguntas:[
+      {tipo:"multiple",texto:"Selecciona la(s) razón(es) principal(es) de tu salida:",opciones:[
+        "Mala relación con jefe directo","Mala relación con compañeros","Carga de trabajo",
+        "Discriminación / acoso / hostigamiento","Distancia entre trabajo y domicilio",
+        "Falta de herramientas para desempeñar trabajo","Horario de trabajo","Trabajo riesgoso",
+        "Capacitación","Oportunidades de desarrollo","Estudios que demandan el 100% de mi tiempo",
+        "Necesidad de estudiar y trabajar al mismo tiempo","Sueldo","Prestaciones",
+        "Enfermedad personal","Enfermedad de familiar (necesidad de cuidarlo)","Problemas legales",
+        "Matrimonio","Necesidad de atender a los hijos","Cambio de residencia","Otro"
+      ]}
+    ]}
+  ]
+};
+
+cargarEncuesta();
+
+// --- NOM-035: Render Guia I (Si/No) ---
+function renderNOM035GuiaI(guia1) {
+  var screen = document.getElementById('q-screen');
+  screen.style.display = 'block';
+  var html = '<div style="animation:fadeUp .4s ease both;">';
+  html += '<div style="text-align:center;margin-bottom:24px;">';
+  html += '<div style="width:60px;height:60px;border-radius:16px;background:linear-gradient(135deg,#dc2626,#f97316);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:1.5rem;box-shadow:0 6px 20px rgba(220,38,38,.3);">&#9888;</div>';
+  html += '<h2 style="font-size:1.2rem;font-weight:800;color:var(--ink);margin-bottom:6px;">' + guia1.titulo + '</h2>';
+  html += '<p style="font-size:.85rem;color:#64748b;line-height:1.5;max-width:500px;margin:0 auto;">' + guia1.descripcion + '</p>';
+  html += '</div>';
+  guia1.secciones.forEach(function(sec) {
+    html += '<div class="q-card" style="margin-bottom:16px;border-left:3px solid #7c3aed;">';
+    html += '<p style="font-size:.9rem;font-weight:800;color:var(--ink);margin-bottom:6px;">' + sec.titulo + '</p>';
+    if (sec.instruccion) html += '<p style="font-size:.8rem;color:#64748b;margin-bottom:14px;">' + sec.instruccion + '</p>';
+    sec.preguntas.forEach(function(p) {
+      html += '<div style="margin-bottom:12px;padding:10px 12px;background:#fafafa;border-radius:10px;border:1.5px solid #e2e8f0;">';
+      html += '<p style="font-size:.85rem;color:#334155;margin-bottom:8px;line-height:1.4;">' + p.texto + '</p>';
+      html += '<div style="display:flex;gap:10px;">';
+      html += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 14px;border-radius:8px;border:2px solid #e2e8f0;transition:all .2s;"><input type="radio" name="gi_' + p.id + '" value="Sí" style="accent-color:#7c3aed;"> <span style="font-size:.82rem;font-weight:600;">Sí</span></label>';
+      html += '<label style="display:flex;align-items:center;gap:5px;cursor:pointer;padding:6px 14px;border-radius:8px;border:2px solid #e2e8f0;transition:all .2s;"><input type="radio" name="gi_' + p.id + '" value="No" style="accent-color:#7c3aed;"> <span style="font-size:.82rem;font-weight:600;">No</span></label>';
+      html += '</div></div>';
     });
-    html+='</div>';
+    html += '</div>';
+  });
+  html += '<button onclick="completarGuiaI()" class="btn-pry" style="margin-top:20px;"><i class="fas fa-arrow-right"></i> Continuar al siguiente cuestionario</button>';
+  html += '</div>';
+  screen.innerHTML = html;
+}
+
+// --- NOM-035: Recoger respuestas GI y pasar a GII/III ---
+function completarGuiaI() {
+  var guia1 = window._nom035Data.guia1;
+  var respGI = {};
+  var sinResponder = 0;
+  guia1.secciones.forEach(function(sec) {
+    sec.preguntas.forEach(function(p) {
+      var checked = document.querySelector('input[name="gi_' + p.id + '"]:checked');
+      if (checked) { respGI[p.id] = checked.value; } else { sinResponder++; }
+    });
+  });
+  var sec1Ids = guia1.secciones[0].preguntas.map(function(p){ return p.id; });
+  var sec1Faltantes = sec1Ids.filter(function(id){ return !respGI[id]; });
+  if (sec1Faltantes.length > 0) {
+    alert('Por favor responde todas las preguntas de la Seccion I antes de continuar.');
+    return;
   }
-  html+='</div>';
-  document.getElementById('success-screen').innerHTML=html;
+  var sec1Positiva = sec1Ids.some(function(id){ return respGI[id] === 'Sí'; });
+  if (sec1Positiva && sinResponder > 6) {
+    if (!confirm('Tienes ' + sinResponder + ' preguntas sin responder. Continuar?')) return;
+  }
+  window._nom035RespGI = respGI;
+  window._nom035Fase = 'frp';
+  var cuest = window._nom035Data.cuestionarioFRP;
+  encuestaData = { titulo: cuest.titulo, descripcion: cuest.descripcion, bloques: _convertirItemsABloques(cuest.items) };
+  document.getElementById('q-screen').innerHTML = '';
+  document.getElementById('q-screen').style.display = 'block';
+  document.getElementById('survey-footer').style.display = 'flex';
+  document.getElementById('prog-wrap').style.display = 'block';
+  renderPreguntas();
+  actualizarProgreso();
+  window.scrollTo(0, 0);
+}
+
+function _convertirItemsABloques(items) {
+  var map = {}; var orden = [];
+  items.forEach(function(it) {
+    var cat = it.categoria || 'General';
+    if (!map[cat]) { map[cat] = []; orden.push(cat); }
+    map[cat].push(it);
+  });
+  return orden.map(function(cat, idx) {
+    var iconos = ['&#127970;','&#9881;','&#9200;','&#128101;','&#127775;'];
+    return {
+      titulo: cat,
+      icono: iconos[idx % iconos.length] || '&#128203;',
+      preguntas: map[cat].map(function(it) {
+        var obj = { texto: it.pregunta, tipo: 'escala' };
+        if (it.condicional) obj.condicional = it.condicional;
+        return obj;
+      })
+    };
+  });
+}
+
+function mostrarResultadoNOM035(data) {
+  var rFRP = data.resultadoFRP || {};
+  var rGI = data.resultadoGI || {};
+  var colores = (window._nom035Data && window._nom035Data.colores) ? window._nom035Data.colores : {};
+  var color = colores[rFRP.nivelTotal] || { bg:'#f0f4ff', text:'#334155', hex:'#64748b' };
+  var html = '<div style="animation:fadeUp .5s ease both;padding:32px 20px;">';
+  html += '<div style="text-align:center;margin-bottom:24px;">';
+  html += '<div style="width:70px;height:70px;border-radius:50%;margin:0 auto 14px;background:' + color.bg + ';display:flex;align-items:center;justify-content:center;font-size:1.8rem;">&#128202;</div>';
+  html += '<h2 style="font-size:1.4rem;font-weight:800;color:var(--ink);margin-bottom:6px;">Resultados NOM-035</h2>';
+  html += '<p style="font-size:.85rem;color:#64748b;">Tu evaluacion ha sido registrada.</p></div>';
+  html += '<div style="background:' + color.bg + ';border:2px solid ' + color.hex + ';border-radius:16px;padding:20px;text-align:center;margin-bottom:20px;">';
+  html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:' + color.text + ';margin-bottom:6px;">Nivel de riesgo general</p>';
+  html += '<p style="font-size:1.6rem;font-weight:900;color:' + color.text + ';">' + (rFRP.nivelTotal || 'Sin datos') + '</p>';
+  html += '<p style="font-size:.8rem;color:' + color.text + ';margin-top:4px;">Puntaje: ' + (rFRP.totalPuntaje || 0) + '</p></div>';
+  if (rGI.requiereValoracion) {
+    html += '<div style="background:#fef2f2;border:2px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:16px;">';
+    html += '<p style="font-size:.82rem;font-weight:700;color:#991b1b;">&#9888; Guia I: Requiere valoracion clinica</p></div>';
+  } else {
+    html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:12px;margin-bottom:16px;">';
+    html += '<p style="font-size:.82rem;color:#166534;">&#10004; Guia I: No requiere valoracion clinica</p></div>';
+  }
+  if (rFRP.dominios && Object.keys(rFRP.dominios).length) {
+    html += '<p style="font-size:.78rem;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:10px;">Resultados por dominio</p>';
+    Object.keys(rFRP.dominios).forEach(function(d) {
+      var dom = rFRP.dominios[d];
+      var dc = colores[dom.nivel] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px;border-radius:10px;background:' + dc.bg + ';">';
+      html += '<span style="width:10px;height:10px;border-radius:50%;background:' + dc.hex + ';"></span>';
+      html += '<span style="flex:1;font-size:.8rem;font-weight:600;color:' + dc.text + ';">' + d + '</span>';
+      html += '<span style="font-size:.72rem;font-weight:700;color:' + dc.text + ';padding:3px 8px;border-radius:6px;background:rgba(255,255,255,.6);">' + dom.nivel + ' (' + dom.puntaje + ')</span></div>';
+    });
+  }
+  if (rFRP.planAccion) {
+    html += '<div style="margin-top:20px;padding:14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;">';
+    html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:6px;">Plan de accion recomendado</p>';
+    html += '<p style="font-size:.82rem;color:#334155;line-height:1.5;">' + rFRP.planAccion + '</p></div>';
+  }
+  html += '<p style="text-align:center;margin-top:24px;font-size:.78rem;color:#94a3b8;">Puedes cerrar esta ventana.</p></div>';
+  document.getElementById('ok-screen').innerHTML = html;
+  document.getElementById('ok-screen').style.display = 'block';
 }
 </script>
 </body>

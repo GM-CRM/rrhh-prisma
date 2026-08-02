@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NOM-035 — RRHH Prisma</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0d1b3e">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d1b3e;--violet:#7c3aed;--violet2:#a855f7;--surface:#f8f7ff;--white:#fff;
+  --ease-out:cubic-bezier(0.16,1,0.3,1);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;min-height:100dvh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 10% 0%,rgba(124,58,237,.06),transparent 50%),radial-gradient(ellipse 50% 60% at 90% 100%,rgba(168,85,247,.04),transparent 50%)}
+
+/* Header */
+.hdr{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,27,62,.97);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.hdr-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.hdr-brand img{width:28px;height:28px;border-radius:7px}
+.hdr-brand span{font-size:.8rem;font-weight:800;color:#fff}
+.hdr-brand em{color:#a78bfa;font-style:normal}
+.hdr-progress{flex:1;max-width:280px}
+.hdr-prog-text{display:flex;justify-content:space-between;margin-bottom:3px}
+.hdr-prog-text span{font-size:.62rem;color:rgba(255,255,255,.5)}
+.hdr-prog-text strong{font-size:.62rem;color:#a78bfa}
+.hdr-prog-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
+.hdr-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .4s var(--ease-out)}
+.hdr-time{font-size:.65rem;color:rgba(255,255,255,.4);white-space:nowrap}
+
+/* Main container */
+.app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 16px 80px}
+
+/* ID Screen */
+.id-card{background:var(--white);border-radius:20px;box-shadow:0 8px 40px rgba(124,58,237,.1);padding:32px 24px;max-width:420px;width:100%;text-align:center;animation:fadeUp .4s var(--ease-out) both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.id-card img{width:64px;height:64px;border-radius:16px;margin:0 auto 14px;display:block;box-shadow:0 6px 24px rgba(124,58,237,.25)}
+.id-card h1{font-size:1.3rem;font-weight:800;margin-bottom:4px}
+.id-card p{font-size:.85rem;color:#64748b;line-height:1.5;margin-bottom:20px}
+.field{text-align:left;margin-bottom:12px}
+.field label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;display:block;margin-bottom:4px}
+.field input{width:100%;border:2px solid #e2e8f0;border-radius:10px;padding:12px 14px;font-size:.9rem;font-family:inherit;transition:border-color .2s}
+.field input:focus{outline:none;border-color:var(--violet)}
+.err-box{display:none;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:.8rem;color:#b91c1c;align-items:center;gap:6px}
+.err-box.show{display:flex}
+.btn-primary{width:100%;background:linear-gradient(135deg,var(--violet),var(--violet2));color:#fff;font-weight:700;font-size:.9rem;border:none;border-radius:10px;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(124,58,237,.25);transition:transform .15s}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* Wizard Card */
+.wizard{display:none;width:100%;max-width:500px}
+.wizard-meta{text-align:center;margin-bottom:16px;animation:fadeUp .3s var(--ease-out) both}
+.wizard-meta .cat-name{font-size:.75rem;font-weight:700;color:var(--violet);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.wizard-meta .cat-progress{font-size:.7rem;color:#94a3b8}
+.wizard-card{background:var(--white);border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.06);padding:28px 24px;min-height:320px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.wizard-card.slide-left{animation:slideLeft .3s var(--ease-out) both}
+.wizard-card.slide-right{animation:slideRight .3s var(--ease-out) both}
+@keyframes slideLeft{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideRight{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
+.wizard-q{font-size:1rem;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:20px;flex-shrink:0}
+.wizard-q .q-num{font-size:.68rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px}
+.wizard-opts{display:flex;flex-direction:column;gap:8px;flex:1}
+.wizard-opt{display:flex;align-items:center;min-height:52px;padding:14px 18px;border:2px solid #e8e5f0;border-radius:12px;cursor:pointer;font-size:.9rem;font-weight:500;color:#475569;transition:all .2s var(--ease-out);-webkit-tap-highlight-color:transparent;user-select:none}
+.wizard-opt:hover{border-color:#c4b5fd;background:#faf8ff}
+.wizard-opt:active{transform:scale(.98)}
+.wizard-opt.selected{border-color:var(--violet);background:rgba(124,58,237,.08);color:var(--violet);font-weight:600}
+.wizard-opt .opt-check{width:20px;height:20px;border-radius:50%;border:2px solid #d4d0e0;margin-right:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.wizard-opt.selected .opt-check{border-color:var(--violet);background:var(--violet)}
+.wizard-opt.selected .opt-check::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
+
+/* Condicional badge */
+.cond-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;font-size:.65rem;font-weight:700;border-radius:6px;padding:3px 8px;margin-bottom:10px}
+
+/* Bottom nav */
+.wizard-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid #f1f0f5;padding:12px 20px;display:none;align-items:center;justify-content:space-between}
+.btn-back{font-size:.78rem;color:#94a3b8;background:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;transition:color .2s}
+.btn-back:hover{color:var(--violet)}
+.nav-counter{font-size:.72rem;color:#94a3b8}
+
+/* Category celebration */
+.celebration{display:none;text-align:center;padding:40px 20px;animation:fadeUp .4s var(--ease-out) both}
+.celebration .cel-icon{font-size:3rem;margin-bottom:12px}
+.celebration .cel-text{font-size:1.1rem;font-weight:700;color:var(--ink)}
+.celebration .cel-sub{font-size:.82rem;color:#64748b;margin-top:4px}
+
+/* Success screen */
+.success{display:none;text-align:center;padding:40px 20px;max-width:420px;animation:fadeUp .5s var(--ease-out) both}
+.success .s-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2rem;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.3)}
+.success h2{font-size:1.4rem;font-weight:800;margin-bottom:8px}
+.success p{font-size:.88rem;color:#64748b;line-height:1.5}
+
+/* Result card in success */
+.result-card{margin-top:20px;background:var(--white);border-radius:14px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.06);text-align:left}
+.result-card .rc-level{text-align:center;padding:12px;border-radius:10px;margin-bottom:14px}
+.result-card .rc-level p:first-child{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.result-card .rc-level p:last-child{font-size:1.3rem;font-weight:900}
+.result-card .rc-gi{font-size:.78rem;padding:8px 12px;border-radius:8px;margin-bottom:10px}
+.result-card .rc-domains{display:flex;flex-direction:column;gap:4px}
+.result-card .rc-dom{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:.75rem}
+.result-card .rc-dom .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+@media(max-width:480px){
+  .app{padding:64px 12px 72px}
+  .wizard-card{padding:22px 18px;min-height:280px}
+  .wizard-q{font-size:.92rem}
+  .wizard-opt{min-height:48px;padding:12px 14px;font-size:.85rem}
+}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-brand"><img src="icon.png" alt=""><span>RRHH <em>Prisma</em></span></div>
+  <div class="hdr-progress" id="hdr-progress" style="display:none">
+    <div class="hdr-prog-text"><span id="prog-label">0 / 0</span><strong id="prog-pct">0%</strong></div>
+    <div class="hdr-prog-bar"><div class="hdr-prog-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+  <span class="hdr-time" id="hdr-time" style="display:none"></span>
+</header>
+
+<div class="app" id="app">
+  <!-- ID Screen -->
+  <div class="id-card" id="id-screen">
+    <img src="icon.png" alt="Prisma">
+    <h1 id="enc-titulo">NOM-035</h1>
+    <p id="enc-desc">Evaluacion de factores de riesgo psicosocial. Confidencial.</p>
+    <div class="err-box" id="err-box"><i class="fas fa-exclamation-circle"></i><span id="err-msg"></span></div>
+    <div class="field"><label>Numero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
+    <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
+    <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
+  </div>
+
+  <!-- Wizard -->
+  <div class="wizard" id="wizard">
+    <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
+    <div class="wizard-card" id="wizard-card"></div>
+  </div>
+
+  <!-- Category celebration -->
+  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Seccion completada</p><p class="cel-sub" id="cel-sub"></p></div>
+
+  <!-- Success -->
+  <div class="success" id="success-screen"></div>
+</div>
+
+<div class="wizard-nav" id="wizard-nav">
+  <button class="btn-back" id="btn-prev" onclick="prevQuestion()"><i class="fas fa-chevron-left"></i> Anterior</button>
+  <span class="nav-counter" id="nav-counter"></span>
+</div>
+
+<script>
+const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
+const params=new URLSearchParams(location.search);
+let empleadoId='',empleadoNombre='',empleadoEmpresa='';
+let nom035Data=null,allItems=[],respuestas={},currentIdx=0,fase='id';
+let categories=[],catMap={};
+
+function showErr(msg){const b=document.getElementById('err-box');b.classList.add('show');document.getElementById('err-msg').textContent=msg}
+function hideErr(){document.getElementById('err-box').classList.remove('show')}
+
+async function iniciarEncuesta(){
+  hideErr();
+  const noemp=document.getElementById('inp-noemp').value.trim();
+  const nombre=document.getElementById('inp-nombre').value.trim();
+  if(!noemp){showErr('Ingresa tu numero de empleado.');return}
+  if(!nombre){showErr('Ingresa tu nombre completo.');return}
+  empleadoNombre=nombre;
+  const btn=document.getElementById('btn-iniciar');
+  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
+  try{
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}})});
+    const d=await r.json();
+    if(d.status==='success'||d.status==='warning'){empleadoId=d.empleado.idInterno||noemp;empleadoEmpresa=d.empleado.empresa||''}
+    else{btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d.message||'Empleado no encontrado.');return}
+  }catch(e){empleadoId=noemp}
+  btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
+  try{
+    const r2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:{idInterno:empleadoId}})});
+    const d2=await r2.json();
+    if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
+    nom035Data=d2;
+    iniciarGuiaI(d2.guia1);
+  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexion.')}
+}
+
+// ===== GUIA I (Si/No Wizard) =====
+let gi_items=[],gi_resp={},gi_idx=0;
+function iniciarGuiaI(guia1){
+  document.getElementById('id-screen').style.display='none';
+  gi_items=[];
+  guia1.secciones.forEach(function(sec){sec.preguntas.forEach(function(p){gi_items.push({id:p.id,texto:p.texto,seccion:sec.titulo})})});
+  gi_resp={};gi_idx=0;fase='gi';
+  document.getElementById('wizard').style.display='block';
+  document.getElementById('wizard-nav').style.display='flex';
+  document.getElementById('hdr-progress').style.display='block';
+  document.getElementById('hdr-time').style.display='block';
+  renderGIQuestion();
+}
+function renderGIQuestion(){
+  if(gi_idx>=gi_items.length){completarGI();return}
+  const it=gi_items[gi_idx];
+  updateProgress(gi_idx,gi_items.length);
+  document.getElementById('wiz-cat').textContent=it.seccion;
+  document.getElementById('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
+  const card=document.getElementById('wizard-card');
+  card.className='wizard-card slide-left';
+  card.innerHTML='<p class="wizard-q"><span class="q-num">Guia I — Pregunta '+(gi_idx+1)+'</span>'+it.texto+'</p>'
+    +'<div class="wizard-opts">'
+    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Si</div>'
+    +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
+    +'</div>';
+  document.getElementById('nav-counter').textContent=(gi_idx+1)+' / '+gi_items.length;
+  document.getElementById('btn-prev').style.visibility=gi_idx>0?'visible':'hidden';
+}
+function selectGI(id,val){
+  gi_resp[id]=val;
+  setTimeout(function(){gi_idx++;renderGIQuestion()},250);
+}
+function completarGI(){
+  // Check section I
+  var sec1Positive=false;
+  for(var i=1;i<=6;i++){if(gi_resp['s1_'+i]==='Si'){sec1Positive=true;break}}
+  if(!sec1Positive){
+    // Sections II-IV not needed if Section I is negative
+    // Still save whatever was answered
+  }
+  showCelebration('Guia I completada','Continuamos con el cuestionario de riesgo psicosocial...',function(){iniciarFRP()});
+}
+
+// ===== GUIA II/III (FRP Wizard) =====
+function iniciarFRP(){
+  const cuest=nom035Data.cuestionarioFRP;
+  allItems=cuest.items||[];
+  // Build category groups
+  catMap={};categories=[];
+  allItems.forEach(function(it,idx){
+    var cat=it.categoria||'General';
+    if(!catMap[cat]){catMap[cat]=[];categories.push(cat)}
+    catMap[cat].push(idx);
+  });
+  respuestas={};currentIdx=0;fase='frp';
+  document.getElementById('celebration').style.display='none';
+  document.getElementById('wizard').style.display='block';
+  renderFRPQuestion();
+}
+function renderFRPQuestion(){
+  if(currentIdx>=allItems.length){enviarResultados();return}
+  const it=allItems[currentIdx];
+  const cat=it.categoria||'General';
+  const catItems=catMap[cat];
+  const posInCat=catItems.indexOf(currentIdx)+1;
+  // Check if entering new category
+  if(posInCat===1 && currentIdx>0){
+    var prevCat=allItems[currentIdx-1].categoria;
+    if(prevCat!==cat){
+      showCelebration('\u00a1'+prevCat+' completada!','Siguiente: '+cat,function(){renderFRPQuestion()});
+      return;
+    }
+  }
+  updateProgress(currentIdx,allItems.length);
+  document.getElementById('wiz-cat').textContent=cat;
+  document.getElementById('wiz-catprog').textContent='Pregunta '+posInCat+' de '+catItems.length;
+  const card=document.getElementById('wizard-card');
+  card.className='wizard-card slide-left';
+  var html='<p class="wizard-q"><span class="q-num">'+(currentIdx+1)+' de '+allItems.length+'</span>';
+  if(it.condicional) html+='<span class="cond-badge"><i class="fas fa-info-circle"></i> '+it.condicional+'</span><br>';
+  html+=it.pregunta+'</p><div class="wizard-opts">';
+  var opciones=['Siempre','Casi siempre','Algunas veces','Casi nunca','Nunca'];
+  opciones.forEach(function(op,idx){
+    var sel=respuestas[currentIdx]===idx?' selected':'';
+    html+='<div class="wizard-opt'+sel+'" onclick="selectFRP('+idx+')"><span class="opt-check"></span>'+op+'</div>';
+  });
+  html+='</div>';
+  card.innerHTML=html;
+  document.getElementById('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
+  document.getElementById('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
+}
+function selectFRP(val){
+  respuestas[currentIdx]=val;
+  setTimeout(function(){currentIdx++;renderFRPQuestion()},250);
+}
+function prevQuestion(){
+  if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
+  else if(fase==='frp'&&currentIdx>0){currentIdx--;const card=document.getElementById('wizard-card');card.className='wizard-card slide-right';setTimeout(renderFRPQuestion,50)}
+}
+
+// ===== Progress & Time =====
+function updateProgress(current,total){
+  const pct=Math.round(current/total*100);
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-pct').textContent=pct+'%';
+  document.getElementById('prog-label').textContent=current+' / '+total;
+  const remaining=total-current;
+  const mins=Math.ceil(remaining*5/60);// ~5 sec per question
+  document.getElementById('hdr-time').textContent='\u23f1 ~'+mins+' min';
+}
+
+// ===== Celebration =====
+function showCelebration(text,sub,callback){
+  document.getElementById('wizard').style.display='none';
+  const cel=document.getElementById('celebration');
+  document.getElementById('cel-text').textContent=text;
+  document.getElementById('cel-sub').textContent=sub;
+  cel.style.display='block';
+  setTimeout(function(){cel.style.display='none';if(callback)callback()},1500);
+}
+
+// ===== Submit =====
+async function enviarResultados(){
+  document.getElementById('wizard').style.display='none';
+  document.getElementById('wizard-nav').style.display='none';
+  document.getElementById('hdr-progress').style.display='none';
+  document.getElementById('hdr-time').style.display='none';
+  // Build FRP payload
+  var itemsFRP=[];
+  allItems.forEach(function(it,idx){
+    if(respuestas[idx]!==undefined){
+      itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,direccion:it.direccion,respuesta:respuestas[idx]});
+    }
+  });
+  // Show loading
+  const suc=document.getElementById('success-screen');
+  suc.style.display='block';
+  suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>Calculando resultados...</h2><p>Espera un momento</p>';
+  try{
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{idInterno:empleadoId,tipoCuestionario:nom035Data.tipoCuestionario,activosGrupo:nom035Data.activosGrupo,respuestasGI:gi_resp,respuestasFRP:itemsFRP}})});
+    const d=await r.json();
+    if(d.status==='success') mostrarResultado(d);
+    else suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-times"></i></div><h2>Error</h2><p>'+(d.message||'Intenta de nuevo')+'</p>';
+  }catch(e){
+    suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-wifi"></i></div><h2>Error de conexion</h2><p>Verifica tu internet e intenta de nuevo.</p>';
+  }
+}
+function mostrarResultado(data){
+  const rFRP=data.resultadoFRP||{};
+  const rGI=data.resultadoGI||{};
+  const colores=nom035Data.colores||{};
+  const color=colores[rFRP.nivelTotal]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
+  var html='<div class="s-icon"><i class="fas fa-check"></i></div>';
+  html+='<h2>Evaluacion completada</h2>';
+  html+='<p>Tus respuestas han sido registradas de forma confidencial.</p>';
+  html+='<div class="result-card">';
+  html+='<div class="rc-level" style="background:'+color.bg+';color:'+color.text+'">';
+  html+='<p>Nivel de riesgo</p><p>'+rFRP.nivelTotal+'</p></div>';
+  if(rGI.requiereValoracion){
+    html+='<div class="rc-gi" style="background:#fef2f2;color:#991b1b"><i class="fas fa-exclamation-triangle"></i> Guia I: Requiere valoracion clinica</div>';
+  }else{
+    html+='<div class="rc-gi" style="background:#f0fdf4;color:#166534"><i class="fas fa-check-circle"></i> Guia I: Sin hallazgos</div>';
+  }
+  var doms=rFRP.dominios||{};
+  if(Object.keys(doms).length){
+    html+='<div class="rc-domains">';
+    Object.keys(doms).forEach(function(d){
+      var dv=doms[d];var dc=colores[dv.nivel]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
+      html+='<div class="rc-dom" style="background:'+dc.bg+'"><span class="dot" style="background:'+dc.hex+'"></span><span style="flex:1;color:'+dc.text+'">'+d+'</span><span style="font-weight:700;color:'+dc.text+'">'+dv.nivel+'</span></div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  document.getElementById('success-screen').innerHTML=html;
+}
+</script>
+</body>
+</html>

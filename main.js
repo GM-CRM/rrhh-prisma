@@ -4493,7 +4493,7 @@ window._nom035ExpandidoId = null; // idInterno de la fila de empleado expandida 
 
 async function renderModuloNOM035(cont){
     cont.innerHTML = '<div class="flex items-center justify-center py-16 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i></div>';
-    const link = location.origin + '/encuesta.html?enc=NOM035';
+    const link = location.origin + '/nom035.html';
 
     const f = window._nom035Filtros;
     const payload = {
