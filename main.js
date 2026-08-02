@@ -7363,19 +7363,22 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // NOM-035: Pestana de resultados en el drawer del expediente
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOM-035: Drawer del expediente + Exportacion + Configuracion
+// PARCHE COMPLETO - Reemplaza desde linea 7366 hasta el final
+// ═══════════════════════════════════════════════════════════════════════════════
 var _nom035DrawerColores = {
-  "Nulo":     { bg:"#d1fae5", text:"#065f46", hex:"#10b981", label:"Nulo" },
-  "Bajo":     { bg:"#dbeafe", text:"#1e40af", hex:"#3b82f6", label:"Bajo" },
-  "Medio":    { bg:"#fef9c3", text:"#854d0e", hex:"#eab308", label:"Medio" },
-  "Alto":     { bg:"#fed7aa", text:"#9a3412", hex:"#f97316", label:"Alto" },
-  "Muy alto": { bg:"#fecaca", text:"#991b1b", hex:"#ef4444", label:"Muy alto" }
+  "Nulo":     { bg:"#d1fae5", text:"#065f46", hex:"#10b981" },
+  "Bajo":     { bg:"#dbeafe", text:"#1e40af", hex:"#3b82f6" },
+  "Medio":    { bg:"#fef9c3", text:"#854d0e", hex:"#eab308" },
+  "Alto":     { bg:"#fed7aa", text:"#9a3412", hex:"#f97316" },
+  "Muy alto": { bg:"#fecaca", text:"#991b1b", hex:"#ef4444" }
 };
 
 async function cargarResultadosNOM035Drawer(idInterno) {
   var cont = document.getElementById('nom035-drawer-content');
   if (!cont) return;
   cont.innerHTML = '<div class="text-center py-8"><i class="fas fa-spinner fa-spin text-violet-400 text-2xl"></i><p class="text-xs text-slate-400 mt-2">Consultando resultados...</p></div>';
-
   try {
     var r = await enviarPeticion('resultados_nom035', { idInterno: idInterno });
     if (r.status !== 'success') {
@@ -7384,10 +7387,9 @@ async function cargarResultadosNOM035Drawer(idInterno) {
     }
     var resultados = r.empleados || r.resultados || [];
     if (!resultados.length) {
-      cont.innerHTML = '<div class="text-center py-10"><i class="fas fa-shield-heart text-slate-200 text-4xl mb-3"></i><p class="text-sm text-slate-400 font-semibold">Sin resultados NOM-035</p><p class="text-xs text-slate-300 mt-1">Este empleado no ha completado la encuesta NOM-035.</p></div>';
+      cont.innerHTML = '<div class="text-center py-10"><i class="fas fa-shield-heart text-slate-200 text-4xl mb-3"></i><p class="text-sm text-slate-400 font-semibold">Sin resultados NOM-035</p><p class="text-xs text-slate-300 mt-1">Este empleado no ha completado la encuesta.</p></div>';
       return;
     }
-    // Mostrar el resultado mas reciente
     var ultimo = resultados[resultados.length - 1];
     var colores = r.colores || _nom035DrawerColores;
     var nivelTotal = (ultimo.nivel || 'Sin datos').toString();
@@ -7396,17 +7398,13 @@ async function cargarResultadosNOM035Drawer(idInterno) {
     var tipoGuia = (ultimo.tipoCuestionario || '').toString();
     var giReq = (ultimo.giRequiere || '').toString();
     var fecha = ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '';
-
     var html = '';
-    // Header con semaforo grande
     html += '<div style="background:'+color.bg+';border:2px solid '+color.hex+';border-radius:16px;padding:20px;text-align:center;margin-bottom:16px;">';
     html += '<p style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:'+color.text+';margin-bottom:4px;">Nivel de riesgo psicosocial</p>';
     html += '<p style="font-size:1.5rem;font-weight:900;color:'+color.text+';">'+nivelTotal+'</p>';
     html += '<p style="font-size:.78rem;color:'+color.text+';margin-top:3px;">Puntaje: '+puntaje+' | Guia '+(tipoGuia==='guia3'?'III':'II')+'</p>';
     if (fecha) html += '<p style="font-size:.68rem;color:'+color.text+';margin-top:4px;opacity:.7;">Aplicado: '+fecha+'</p>';
     html += '</div>';
-
-    // Guia I resultado
     if (giReq === 'SI') {
       html += '<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:12px;">';
       html += '<p style="font-size:.8rem;font-weight:700;color:#991b1b;"><i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i>Guia I: REQUIERE valoracion clinica</p>';
@@ -7415,8 +7413,6 @@ async function cargarResultadosNOM035Drawer(idInterno) {
       html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:12px;">';
       html += '<p style="font-size:.78rem;color:#166534;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Guia I: No requiere valoracion clinica</p></div>';
     }
-
-    // Dominios
     var dominios = ultimo.porDominio || ultimo.dominios || {};
     if (Object.keys(dominios).length) {
       html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:14px 0 8px;">Resultados por dominio</p>';
@@ -7429,8 +7425,6 @@ async function cargarResultadosNOM035Drawer(idInterno) {
         html += '<span style="font-size:.68rem;font-weight:700;color:'+dc.text+';padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.5);">'+dom.nivel+' ('+dom.puntaje+')</span></div>';
       });
     }
-
-    // Categorias
     var categorias = ultimo.categorias || {};
     if (Object.keys(categorias).length) {
       html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:14px 0 8px;">Por categoria</p>';
@@ -7443,55 +7437,40 @@ async function cargarResultadosNOM035Drawer(idInterno) {
         html += '<span style="font-size:.68rem;font-weight:700;color:'+cc.text+';padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.5);">'+cat.nivel+' ('+cat.puntaje+')</span></div>';
       });
     }
-
-    // Plan de accion
-    var plan = ultimo.planAccionTexto || (r.planAccion ? r.planAccion[nivelTotal] : '') || '';
+    var plan = ultimo.planAccion || (r.planAccion ? r.planAccion[nivelTotal] : '') || '';
     if (plan) {
       html += '<div style="margin-top:14px;padding:12px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;">';
       html += '<p style="font-size:.68rem;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:5px;"><i class="fas fa-clipboard-list" style="margin-right:4px;"></i>Plan de accion</p>';
       html += '<p style="font-size:.78rem;color:#334155;line-height:1.5;">'+plan+'</p></div>';
     }
-
-    // Historial (si hay mas de 1 aplicacion)
     if (resultados.length > 1) {
-      html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:16px 0 8px;">Historial de aplicaciones ('+resultados.length+')</p>';
-      resultados.slice().reverse().forEach(function(res, idx) {
-        var niv = (res.FRP_NIVEL_TOTAL||'').toString();
+      html += '<p style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:16px 0 8px;">Historial ('+resultados.length+')</p>';
+      resultados.slice().reverse().forEach(function(res) {
+        var niv = (res.nivel||'').toString();
         var hc = colores[niv] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
-        var hFecha = res.FECHA ? new Date(res.FECHA).toLocaleDateString('es-MX') : '—';
+        var hFecha = res.fecha ? new Date(res.fecha).toLocaleDateString('es-MX') : '';
         html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-radius:8px;border:1px solid #e2e8f0;">';
         html += '<span style="width:8px;height:8px;border-radius:50%;background:'+hc.hex+';"></span>';
         html += '<span style="flex:1;font-size:.73rem;color:#334155;">'+hFecha+'</span>';
-        html += '<span style="font-size:.68rem;font-weight:700;color:'+hc.text+';">'+niv+' ('+res.FRP_PUNTAJE_TOTAL+')</span></div>';
+        html += '<span style="font-size:.68rem;font-weight:700;color:'+hc.text+';">'+niv+' ('+res.puntajeTotal+')</span></div>';
       });
     }
-
     cont.innerHTML = html;
   } catch(e) {
-    cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-wifi-slash text-2xl mb-2"></i><p class="text-sm">Error de conexion</p></div>';
+    cont.innerHTML = '<div class="text-center py-8 text-slate-400"><i class="fas fa-wifi text-2xl mb-2"></i><p class="text-sm">Error de conexion: '+e.message+'</p></div>';
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// NOM-035: Exportar resultados a Excel
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══ EXPORTAR EXCEL ══════════════════════════════════════════════════════════════
 function exportarNOM035Excel() {
   if (!window._nom035Data || !window._nom035Data.empleados || !window._nom035Data.empleados.length) {
-    mostrarToast('warning', 'Sin datos', 'No hay resultados NOM-035 para exportar.');
+    mostrarToast('warning', 'Sin datos', 'No hay resultados NOM-035 para exportar. Asegurate de estar en el Dashboard NOM-035.');
     return;
   }
   var emp = window._nom035Data.empleados;
   var rows = [['Nombre', 'Empresa', 'Fecha', 'Guia', 'Puntaje Total', 'Nivel General', 'GI Requiere Valoracion']];
   emp.forEach(function(e) {
-    rows.push([
-      e.nombre || '',
-      e.empresa || '',
-      e.fecha ? new Date(e.fecha).toLocaleDateString('es-MX') : '',
-      e.tipoCuestionario === 'guia3' ? 'III' : 'II',
-      e.puntajeTotal || 0,
-      e.nivel || '',
-      e.giRequiere || 'NO'
-    ]);
+    rows.push([e.nombre||'', e.empresa||'', e.fecha ? new Date(e.fecha).toLocaleDateString('es-MX') : '', e.tipoCuestionario==='guia3'?'III':'II', e.puntajeTotal||0, e.nivel||'', e.giRequiere||'NO']);
   });
   var ws = XLSX.utils.aoa_to_sheet(rows);
   var wb = XLSX.utils.book_new();
@@ -7500,6 +7479,7 @@ function exportarNOM035Excel() {
   mostrarToast('success', 'Exportado', 'Archivo Excel descargado.');
 }
 
+// ═══ EXPORTAR CSV ═══════════════════════════════════════════════════════════════
 function exportarNOM035CSV() {
   if (!window._nom035Data || !window._nom035Data.empleados || !window._nom035Data.empleados.length) {
     mostrarToast('warning', 'Sin datos', 'No hay resultados para exportar.');
@@ -7508,22 +7488,20 @@ function exportarNOM035CSV() {
   var emp = window._nom035Data.empleados;
   var csv = 'Nombre,Empresa,Fecha,Guia,Puntaje,Nivel,GI_Requiere\n';
   emp.forEach(function(e) {
-    csv += '"' + (e.nombre||'').replace(/"/g,'""') + '","' + (e.empresa||'').replace(/"/g,'""') + '","'
-      + (e.fecha ? new Date(e.fecha).toLocaleDateString('es-MX') : '') + '",'
-      + (e.tipoCuestionario==='guia3'?'III':'II') + ','
-      + (e.puntajeTotal||0) + ',"' + (e.nivel||'') + '",' + (e.giRequiere||'NO') + '\n';
+    csv += '"'+(e.nombre||'').replace(/"/g,'""')+'","'+(e.empresa||'').replace(/"/g,'""')+'","'
+      +(e.fecha?new Date(e.fecha).toLocaleDateString('es-MX'):'')+'",'
+      +(e.tipoCuestionario==='guia3'?'III':'II')+','
+      +(e.puntajeTotal||0)+',"'+(e.nivel||'')+'","'+(e.giRequiere||'NO')+'"\n';
   });
-  var blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8;'});
+  var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url; a.download = 'NOM035_Resultados_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.href = url; a.download = 'NOM035_Resultados_'+new Date().toISOString().slice(0,10)+'.csv';
   a.click(); URL.revokeObjectURL(url);
   mostrarToast('success', 'Exportado', 'Archivo CSV descargado.');
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// NOM-035: Configuracion / Edicion de cuestionarios
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══ CONFIGURACION / EDICION DE CUESTIONARIOS ══════════════════════════════════
 async function abrirConfigNOM035() {
   var tipoGuia = await Swal.fire({
     title: 'Configurar cuestionario NOM-035',
@@ -7539,10 +7517,8 @@ async function abrirConfigNOM035() {
   if (tipoGuia.isConfirmed) tipo = 'guia2';
   else if (tipoGuia.isDenied) tipo = 'guia3';
   else return;
-
   mostrarLoader('Cargando configuracion...');
   try {
-    // Usar un ID cualquiera activo para obtener la estructura
     var idTest = '';
     if (cacheGlobal && cacheGlobal.length) {
       for (var i = 0; i < cacheGlobal.length; i++) {
@@ -7555,13 +7531,7 @@ async function abrirConfigNOM035() {
     if (!idTest) { ocultarLoader(); mostrarToast('error','Error','No se encontro un empleado activo para cargar la estructura.'); return; }
     var ss = await enviarPeticion('obtener_estructura_nom035', { idInterno: idTest });
     ocultarLoader();
-    var estructura = null;
-    if (ss.status === 'success' && ss.cuestionarioFRP) {
-      estructura = ss.cuestionarioFRP;
-    }
-    if (!estructura) {
-      estructura = { titulo: 'Cuestionario ' + tipo, descripcion: '', items: [] };
-    }
+    var estructura = (ss.status === 'success' && ss.cuestionarioFRP) ? ss.cuestionarioFRP : { titulo: 'Cuestionario '+tipo, descripcion: '', items: [] };
     mostrarEditorCuestionarioNOM035(tipo, estructura);
   } catch(e) {
     ocultarLoader();
@@ -7572,38 +7542,76 @@ async function abrirConfigNOM035() {
 function mostrarEditorCuestionarioNOM035(tipo, estructura) {
   var items = estructura.items || [];
   var html = '<div style="max-height:60vh;overflow-y:auto;text-align:left;">';
-  html += '<p style="font-size:.82rem;color:#64748b;margin-bottom:12px;">Editando: <strong>' + (tipo==='guia3'?'Guia III (>50 trabajadores)':'Guia II (hasta 50)') + '</strong> | ' + items.length + ' preguntas</p>';
-  html += '<div style="margin-bottom:12px;"><label style="font-size:.72rem;font-weight:700;color:#64748b;">Titulo del cuestionario</label>';
-  html += '<input id="nom035-cfg-titulo" value="' + (estructura.titulo||'').replace(/"/g,'&quot;') + '" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.85rem;margin-top:4px;"></div>';
+  html += '<p style="font-size:.82rem;color:#64748b;margin-bottom:12px;">Editando: <strong>'+(tipo==='guia3'?'Guia III (>50)':'Guia II (hasta 50)')+'</strong> | '+items.length+' preguntas</p>';
+  html += '<div style="margin-bottom:12px;"><label style="font-size:.72rem;font-weight:700;color:#64748b;">Titulo</label>';
+  html += '<input id="nom035-cfg-titulo" value="'+(estructura.titulo||'').replace(/"/g,'&quot;')+'" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.85rem;margin-top:4px;"></div>';
   html += '<div style="margin-bottom:12px;"><label style="font-size:.72rem;font-weight:700;color:#64748b;">Descripcion</label>';
-  html += '<textarea id="nom035-cfg-desc" rows="2" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.82rem;margin-top:4px;resize:vertical;">' + (estructura.descripcion||'') + '</textarea></div>';
-  html += '<p style="font-size:.72rem;font-weight:700;color:#64748b;margin-bottom:8px;">Preguntas (' + items.length + ')</p>';
-  html += '<div style="max-height:35vh;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">';
+  html += '<textarea id="nom035-cfg-desc" rows="2" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:.82rem;margin-top:4px;resize:vertical;">'+(estructura.descripcion||'')+'</textarea></div>';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><p style="font-size:.72rem;font-weight:700;color:#64748b;">Preguntas ('+items.length+')</p>';
+  html += '<button type="button" id="nom035-add-btn" style="font-size:.72rem;font-weight:700;background:#10b981;color:#fff;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;">+ Agregar</button></div>';
+  html += '<div id="nom035-items-list" style="max-height:35vh;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;">';
   items.forEach(function(it, idx) {
-    html += '<div style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f1f5f9;">';
-    html += '<span style="font-size:.7rem;font-weight:700;color:#94a3b8;min-width:24px;">' + it.item + '</span>';
+    html += '<div class="nom035-item-row" data-idx="'+idx+'" style="display:flex;gap:6px;align-items:flex-start;padding:6px 0;border-bottom:1px solid #f1f5f9;">';
+    html += '<span style="font-size:.7rem;font-weight:700;color:#94a3b8;min-width:24px;">'+it.item+'</span>';
     html += '<div style="flex:1;min-width:0;">';
-    html += '<p style="font-size:.78rem;color:#334155;line-height:1.3;">' + it.pregunta + '</p>';
-    html += '<p style="font-size:.65rem;color:#94a3b8;">' + it.categoria + ' | ' + it.dominio + ' | ' + it.direccion + (it.condicional ? ' | ' + it.condicional : '') + '</p>';
-    html += '</div></div>';
+    html += '<p style="font-size:.78rem;color:#334155;line-height:1.3;">'+it.pregunta+'</p>';
+    html += '<p style="font-size:.65rem;color:#94a3b8;">'+it.categoria+' | '+it.dominio+' | '+it.direccion+(it.condicional?' | '+it.condicional:'')+'</p>';
+    html += '</div>';
+    html += '<button type="button" data-delidx="'+idx+'" style="font-size:.65rem;color:#ef4444;background:none;border:none;cursor:pointer;padding:2px 4px;">✖</button>';
+    html += '</div>';
   });
   html += '</div></div>';
 
   Swal.fire({
     title: 'Configuracion NOM-035',
     html: html,
-    width: 700,
+    width: 720,
     showCancelButton: true,
-    confirmButtonText: '<i class="fas fa-save"></i> Guardar cambios',
+    confirmButtonText: '<i class="fas fa-save"></i> Guardar',
     cancelButtonText: 'Cancelar',
+    didOpen: function() {
+      // Delete buttons
+      document.querySelectorAll('[data-delidx]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var idx = parseInt(this.dataset.delidx);
+          items.splice(idx, 1);
+          mostrarEditorCuestionarioNOM035(tipo, {titulo:document.getElementById('nom035-cfg-titulo').value,descripcion:document.getElementById('nom035-cfg-desc').value,items:items});
+        });
+      });
+      // Add button
+      var addBtn = document.getElementById('nom035-add-btn');
+      if (addBtn) addBtn.addEventListener('click', function(){
+        Swal.fire({
+          title:'Agregar pregunta',
+          html:'<div style="text-align:left;font-size:.82rem;">'
+            +'<label style="font-weight:700;color:#64748b;">Pregunta</label><input id="np-preg" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'
+            +'<label style="font-weight:700;color:#64748b;">Categoria</label><input id="np-cat" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'
+            +'<label style="font-weight:700;color:#64748b;">Dominio</label><input id="np-dom" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'
+            +'<label style="font-weight:700;color:#64748b;">Direccion</label><select id="np-dir" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;"><option value="directa">Directa</option><option value="inversa">Inversa</option></select>'
+            +'<label style="font-weight:700;color:#64748b;">Condicional (opcional)</label><input id="np-cond" placeholder="Ej: Solo si atiende clientes" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0;">'
+            +'</div>',
+          width:500,
+          showCancelButton:true,
+          confirmButtonText:'Agregar',
+          preConfirm:function(){
+            var preg=document.getElementById('np-preg').value.trim();
+            if(!preg){Swal.showValidationMessage('La pregunta es requerida');return false;}
+            return{pregunta:preg,categoria:document.getElementById('np-cat').value.trim()||'General',dominio:document.getElementById('np-dom').value.trim()||'General',direccion:document.getElementById('np-dir').value,condicional:document.getElementById('np-cond').value.trim()||null};
+          }
+        }).then(function(r){
+          if(r.isConfirmed&&r.value){
+            items.push({item:items.length+1,pregunta:r.value.pregunta,categoria:r.value.categoria,dominio:r.value.dominio,direccion:r.value.direccion,condicional:r.value.condicional});
+            mostrarEditorCuestionarioNOM035(tipo,{titulo:document.getElementById('nom035-cfg-titulo').value,descripcion:document.getElementById('nom035-cfg-desc').value,items:items});
+          }
+        });
+      });
+    },
     showLoaderOnConfirm: true,
     preConfirm: function() {
       var titulo = document.getElementById('nom035-cfg-titulo').value.trim();
       var desc = document.getElementById('nom035-cfg-desc').value.trim();
       if (!titulo) { Swal.showValidationMessage('El titulo es requerido'); return false; }
-      var nuevaEstructura = JSON.parse(JSON.stringify(estructura));
-      nuevaEstructura.titulo = titulo;
-      nuevaEstructura.descripcion = desc;
+      var nuevaEstructura = { titulo: titulo, descripcion: desc, totalItems: items.length, items: items };
       return enviarPeticion('guardar_config_nom035', { tipoGuia: tipo, estructura: nuevaEstructura });
     },
     allowOutsideClick: function() { return !Swal.isLoading(); }
@@ -7617,3 +7625,4 @@ function mostrarEditorCuestionarioNOM035(tipo, estructura) {
     }
   });
 }
+
