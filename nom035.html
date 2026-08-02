@@ -306,7 +306,7 @@ function showCelebration(text,sub,callback){
   document.getElementById('cel-text').textContent=text;
   document.getElementById('cel-sub').textContent=sub;
   cel.style.display='block';
-  setTimeout(function(){cel.style.display='none';if(callback)callback()},1500);
+  setTimeout(function(){cel.style.display='none';document.getElementById('wizard').style.display='block';if(callback)callback()},1500);
 }
 
 // ===== Submit =====
