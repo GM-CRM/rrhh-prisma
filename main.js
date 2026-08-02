@@ -4596,7 +4596,11 @@ function renderNOM035Dashboard(data, cont){
     const total = data.total || 0;
     const emp = data.empleados || [];
     const puntajeProm = emp.length ? (emp.reduce((s,e)=>s+e.puntajeTotal,0)/emp.length) : 0;
-    const nivelGlobal = _nivelNOM035_UI(puntajeProm);
+    var nivelGlobal = null;
+if (data.empleados && data.empleados.length === 1) {
+  nivelGlobal = NOM035_NIVELES_UI.find(function(n){ return n.nivel === data.empleados[0].nivel; });
+}
+if (!nivelGlobal) nivelGlobal = _nivelNOM035_UI(puntajeProm);
 
     // % participación: evaluados vs. plantilla activa total que coincide con los filtros de empresa/grupo
     let elegibles = filtrarPorEmpresasPermitidas(cacheGlobal).filter(function(r){
@@ -7585,8 +7589,8 @@ function mostrarEditorCuestionarioNOM035(tipo, estructura) {
           title:'Agregar pregunta',
           html:'<div style="text-align:left;font-size:.82rem;">'
             +'<label style="font-weight:700;color:#64748b;">Pregunta</label><input id="np-preg" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'
-            +'<label style="font-weight:700;color:#64748b;">Categoria</label><input id="np-cat" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'
-            +'<label style="font-weight:700;color:#64748b;">Dominio</label><input id="np-dom" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'
+            +'<label style="font-weight:700;color:#64748b;">Categoria</label><select id="np-cat" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'+[...new Set(items.map(function(x){return x.categoria;}))].map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('')+'<option value="__nueva__">+ Nueva categoria...</option></select>'
+            +'<label style="font-weight:700;color:#64748b;">Dominio</label><select id="np-dom" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;">'+[...new Set(items.map(function(x){return x.dominio;}))].map(function(d){return '<option value="'+d+'">'+d+'</option>';}).join('')+'<option value="__nuevo__">+ Nuevo dominio...</option></select>'
             +'<label style="font-weight:700;color:#64748b;">Direccion</label><select id="np-dir" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0 8px;"><option value="directa">Directa</option><option value="inversa">Inversa</option></select>'
             +'<label style="font-weight:700;color:#64748b;">Condicional (opcional)</label><input id="np-cond" placeholder="Ej: Solo si atiende clientes" style="width:100%;border:1.5px solid #e2e8f0;border-radius:6px;padding:6px 8px;margin:4px 0;">'
             +'</div>',
