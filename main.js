@@ -4600,7 +4600,9 @@ function renderNOM035Dashboard(data, cont){
 if (data.empleados && data.empleados.length === 1) {
   nivelGlobal = NOM035_NIVELES_UI.find(function(n){ return n.nivel === data.empleados[0].nivel; });
 }
-if (!nivelGlobal) nivelGlobal = _nivelNOM035_UI(puntajeProm);
+var nivelGlobal = null;
+    if (emp.length === 1) nivelGlobal = NOM035_NIVELES_UI.find(function(n){ return n.nivel === emp[0].nivel; });
+    if (!nivelGlobal) nivelGlobal = _nivelNOM035_UI(puntajeProm);
 
     // % participación: evaluados vs. plantilla activa total que coincide con los filtros de empresa/grupo
     let elegibles = filtrarPorEmpresasPermitidas(cacheGlobal).filter(function(r){
@@ -7629,3 +7631,4 @@ function mostrarEditorCuestionarioNOM035(tipo, estructura) {
     }
   });
 }
+
