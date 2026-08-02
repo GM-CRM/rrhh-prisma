@@ -221,14 +221,13 @@ function selectGI(id,val){
   setTimeout(function(){gi_idx++;renderGIQuestion()},250);
 }
 function completarGI(){
-  // Check section I
-  var sec1Positive=false;
-  for(var i=1;i<=6;i++){if(gi_resp['s1_'+i]==='Si'){sec1Positive=true;break}}
-  if(!sec1Positive){
-    // Sections II-IV not needed if Section I is negative
-    // Still save whatever was answered
-  }
-  showCelebration('Guia I completada','Continuamos con el cuestionario de riesgo psicosocial...',function(){iniciarFRP()});
+  fase='frp';
+  document.getElementById('wizard').style.display='none';
+  var cel=document.getElementById('celebration');
+  document.getElementById('cel-text').textContent='Guia I completada';
+  document.getElementById('cel-sub').textContent='Continuamos con el cuestionario de riesgo psicosocial...';
+  cel.style.display='block';
+  setTimeout(function(){cel.style.display='none';iniciarFRP()},1500);
 }
 
 // ===== GUIA II/III (FRP Wizard) =====
@@ -267,11 +266,15 @@ function updateProgress(current,total){
 // ===== Celebration =====
 function showCelebration(text,sub,callback){
   document.getElementById('wizard').style.display='none';
-  const cel=document.getElementById('celebration');
+  var cel=document.getElementById('celebration');
   document.getElementById('cel-text').textContent=text;
   document.getElementById('cel-sub').textContent=sub;
   cel.style.display='block';
-  setTimeout(function(){cel.style.display='none';document.getElementById('wizard').style.display='block';if(callback)callback()},1500);
+  setTimeout(function(){
+    cel.style.display='none';
+    document.getElementById('wizard').style.display='block';
+    if(callback)callback();
+  },1500);
 }
 
 // ===== Submit =====
