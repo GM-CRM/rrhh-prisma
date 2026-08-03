@@ -221,13 +221,16 @@ function selectGI(id,val){
   setTimeout(function(){gi_idx++;renderGIQuestion()},250);
 }
 function completarGI(){
-  fase='frp';
+  fase='done_gi';
   document.getElementById('wizard').style.display='none';
-  var cel=document.getElementById('celebration');
+  document.getElementById('wizard-nav').style.display='none';
+  document.getElementById('celebration').style.display='block';
   document.getElementById('cel-text').textContent='Guia I completada';
   document.getElementById('cel-sub').textContent='Continuamos con el cuestionario de riesgo psicosocial...';
-  cel.style.display='block';
-  setTimeout(function(){cel.style.display='none';iniciarFRP()},1500);
+  setTimeout(function(){
+    document.getElementById('celebration').style.display='none';
+    iniciarFRP();
+  },1500);
 }
 
 // ===== GUIA II/III (FRP Wizard) =====
@@ -246,7 +249,56 @@ function iniciarFRP(){
   document.getElementById('wizard').style.display='block';
   renderFRPQuestion();
 }
-renderFRPQuestion 
+function renderFRPQuestion(){
+  if(currentIdx>=allItems.length){enviarResultados();return}
+  const it=allItems[currentIdx];
+  const cat=it.categoria||'General';
+  const catItems=catMap[cat];
+  const posInCat=catItems.indexOf(currentIdx)+1;
+  updateProgress(currentIdx,allItems.length);
+  document.getElementById('wiz-cat').textContent=cat;
+  document.getElementById('wiz-catprog').textContent='Pregunta '+posInCat+' de '+catItems.length;
+  const card=document.getElementById('wizard-card');
+  card.className='wizard-card slide-left';
+  var html='<p class="wizard-q"><span class="q-num">'+(currentIdx+1)+' de '+allItems.length+'</span>';
+  if(it.condicional) html+='<span class="cond-badge"><i class="fas fa-info-circle"></i> '+it.condicional+'</span><br>';
+  html+=it.pregunta+'</p><div class="wizard-opts">';
+  var opciones=['Siempre','Casi siempre','Algunas veces','Casi nunca','Nunca'];
+  opciones.forEach(function(op,idx){
+    var sel=respuestas[currentIdx]===idx?' selected':'';
+    html+='<div class="wizard-opt'+sel+'" onclick="selectFRP('+idx+')"><span class="opt-check"></span>'+op+'</div>';
+  });
+  html+='</div>';
+  card.innerHTML=html;
+  document.getElementById('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
+  document.getElementById('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
+}
+function selectFRP(val){
+  respuestas[currentIdx]=val;
+  var nextIdx=currentIdx+1;
+  if(nextIdx>=allItems.length){
+    setTimeout(function(){currentIdx=nextIdx;renderFRPQuestion()},250);
+    return;
+  }
+  var currentCat=allItems[currentIdx].categoria;
+  var nextCat=allItems[nextIdx].categoria;
+  if(currentCat!==nextCat){
+    currentIdx=nextIdx;
+    document.getElementById('wizard').style.display='none';
+    document.getElementById('wizard-nav').style.display='none';
+    document.getElementById('celebration').style.display='block';
+    document.getElementById('cel-text').textContent='¡'+currentCat+' completada!';
+    document.getElementById('cel-sub').textContent='Siguiente: '+nextCat;
+    setTimeout(function(){
+      document.getElementById('celebration').style.display='none';
+      document.getElementById('wizard').style.display='block';
+      document.getElementById('wizard-nav').style.display='flex';
+      renderFRPQuestion();
+    },1500);
+  } else {
+    setTimeout(function(){currentIdx=nextIdx;renderFRPQuestion()},250);
+  }
+}
 function prevQuestion(){
   if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
   else if(fase==='frp'&&currentIdx>0){currentIdx--;const card=document.getElementById('wizard-card');card.className='wizard-card slide-right';setTimeout(renderFRPQuestion,50)}
@@ -266,15 +318,11 @@ function updateProgress(current,total){
 // ===== Celebration =====
 function showCelebration(text,sub,callback){
   document.getElementById('wizard').style.display='none';
-  var cel=document.getElementById('celebration');
+  const cel=document.getElementById('celebration');
   document.getElementById('cel-text').textContent=text;
   document.getElementById('cel-sub').textContent=sub;
   cel.style.display='block';
-  setTimeout(function(){
-    cel.style.display='none';
-    document.getElementById('wizard').style.display='block';
-    if(callback)callback();
-  },1500);
+  setTimeout(function(){cel.style.display='none';document.getElementById('wizard').style.display='block';if(callback)callback()},1500);
 }
 
 // ===== Submit =====
