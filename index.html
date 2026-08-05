@@ -379,12 +379,14 @@ if ('serviceWorker' in navigator) {
           </div>
         </div>
         <div class="lp-field">
-          <label class="lp-label">Contrasena</label>
-          <div class="lp-wrap">
-            <i class="fas fa-lock"></i>
-            <input class="lp-input" type="password" id="login-pass" placeholder="Tu contrasena" autocomplete="current-password" autocapitalize="off" onkeydown="if(event.key==='Enter')procesarLogin()">
-            <button class="lp-toggle" type="button" onclick="togglePassVis()"><i class="fas fa-eye" id="pass-eye"></i></button>
-          </div>
+         <label class="lp-label">Contrasena</label>
+         <div class="lp-wrap" style="position:relative">
+          <i class="fas fa-lock"></i>
+          <input class="lp-input" type="password" id="login-pass" placeholder="Tu contrasena" autocomplete="current-password" autocapitalize="off" onkeydown="if(event.key==='Enter')procesarLogin()">
+          <button type="button" onclick="togglePassVis()" style="position:absolute;right:2px;top:2px;bottom:2px;width:40px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:oklch(65% 0.008 285);cursor:pointer;border-radius:8px">
+           <i class="fas fa-eye" id="pass-eye"></i>
+          </button>
+         </div>
         </div>
         <button class="lp-btn" id="btn-login" onclick="procesarLogin()">Entrar</button>
         <button class="lp-forgot" onclick="mostrarFormOlvidePass()">Olvidaste tu contrasena?</button>
