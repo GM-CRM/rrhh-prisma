@@ -311,54 +311,86 @@ if ('serviceWorker' in navigator) {
 
 
 <!-- ── PANTALLA DE LOGIN ───────────────────────────────────── -->
-<div id="login-screen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#0d1b3e]">
-  <div class="w-full max-w-md px-6">
-    <div class="flex flex-col items-center mb-8">
-      <img src="icon.png" alt="RRHH Prisma" class="w-16 h-16 rounded-2xl shadow-xl mb-4">
-      <h1 class="text-2xl font-bold text-white tracking-wide">RRHH <span style="color:#a78bfa">Prisma</span></h1>
-      <p class="text-sm text-slate-400 mt-1">Sistema de Gestión de Recursos Humanos</p>
-    </div>
-    <div class="bg-white rounded-2xl shadow-2xl p-8">
-      <h2 class="text-lg font-bold text-slate-800 mb-6">Iniciar Sesión</h2>
-      <div id="login-error" class="hidden mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
-        <i class="fas fa-exclamation-circle flex-shrink-0"></i>
-        <span id="login-error-msg"></span>
+<div id="login-screen" class="fixed inset-0 z-[200]" style="display:flex">
+  <style>
+    .lp-page{display:flex;width:100%;min-height:100vh}
+    .lp-brand{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 40px;position:relative;overflow:hidden;background:#0d1b3e}
+    .lp-brand::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 20% 10%,oklch(30% 0.12 285/.5),transparent 60%),radial-gradient(ellipse 60% 80% at 80% 90%,oklch(25% 0.08 285/.4),transparent 60%)}
+    .lp-content{position:relative;z-index:1;text-align:center;max-width:380px}
+    .lp-logo{width:72px;height:72px;border-radius:18px;margin-bottom:24px;box-shadow:0 0 40px oklch(50% 0.2 285/.3)}
+    .lp-content h1{font-size:2rem;font-weight:800;color:oklch(96% 0.01 285);letter-spacing:-0.02em;margin-bottom:8px}
+    .lp-content h1 span{color:oklch(60% 0.19 285)}
+    .lp-content>p{font-size:0.9rem;color:oklch(60% 0.01 285);line-height:1.6;max-width:32ch;margin:0 auto}
+    .lp-features{margin-top:40px;display:flex;flex-direction:column;gap:14px;text-align:left;width:100%}
+    .lp-feat{display:flex;align-items:center;gap:12px;color:oklch(70% 0.008 285);font-size:0.82rem;font-weight:500}
+    .lp-feat .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:oklch(60% 0.19 285)}
+    .lp-form{width:480px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 56px;background:oklch(98.5% 0.003 285);border-radius:28px 0 0 28px;box-shadow:-8px 0 40px oklch(13% 0.01 285/.2)}
+    .lp-inner{width:100%;max-width:340px}
+    .lp-inner h2{font-size:1.5rem;font-weight:700;color:oklch(13% 0.015 285);letter-spacing:-0.01em;margin-bottom:6px}
+    .lp-inner .sub{font-size:0.85rem;color:oklch(50% 0.008 285);margin-bottom:32px}
+    .lp-field{margin-bottom:18px}
+    .lp-label{display:block;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:oklch(50% 0.008 285);margin-bottom:6px}
+    .lp-wrap{position:relative}
+    .lp-wrap i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:oklch(65% 0.008 285);font-size:0.85rem;pointer-events:none}
+    .lp-input{width:100%;border:1.5px solid oklch(85% 0.008 285);border-radius:10px;padding:13px 14px 13px 42px;font-size:0.9rem;font-family:inherit;color:oklch(20% 0.015 285);background:oklch(99.5% 0.002 285);transition:border-color .2s,box-shadow .2s}
+    .lp-input:focus{outline:none;border-color:oklch(60% 0.19 285);box-shadow:0 0 0 3px oklch(93% 0.04 285)}
+    .lp-input::placeholder{color:oklch(65% 0.008 285)}
+    .lp-input[type="password"]{letter-spacing:0.1em}
+    .lp-toggle{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:oklch(65% 0.008 285);cursor:pointer;padding:4px}
+    .lp-toggle:hover{color:oklch(38% 0.01 285)}
+    .lp-btn{width:100%;padding:14px;border:none;border-radius:10px;background:oklch(50% 0.2 285);color:oklch(98% 0.005 285);font-family:inherit;font-size:0.9rem;font-weight:600;cursor:pointer;transition:background .2s,transform .15s,box-shadow .2s;box-shadow:0 4px 12px oklch(20% 0.01 285/.08);margin-top:6px}
+    .lp-btn:hover{background:oklch(42% 0.18 285);box-shadow:0 8px 28px oklch(20% 0.01 285/.1);transform:translateY(-1px)}
+    .lp-btn:active{transform:scale(0.98)}
+    .lp-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+    .lp-forgot{display:block;text-align:center;margin-top:20px;font-size:0.78rem;color:oklch(50% 0.2 285);text-decoration:none;font-weight:500;cursor:pointer;background:none;border:none;font-family:inherit}
+    .lp-forgot:hover{color:oklch(35% 0.15 285);text-decoration:underline}
+    .lp-footer{margin-top:auto;padding-top:32px;font-size:0.7rem;color:oklch(65% 0.008 285);text-align:center}
+    #login-error.show{display:flex!important}
+    @media(max-width:900px){.lp-page{flex-direction:column}.lp-brand{flex:none;padding:32px 24px;min-height:auto}.lp-content h1{font-size:1.5rem}.lp-features{display:none}.lp-form{width:100%;border-radius:20px 20px 0 0;padding:32px 24px;flex:1}}
+    @media(max-width:480px){.lp-form{padding:28px 20px}.lp-inner h2{font-size:1.25rem}}
+  </style>
+  <div class="lp-page">
+    <div class="lp-brand">
+      <div class="lp-content">
+        <img src="icon.png" alt="Prisma" class="lp-logo">
+        <h1>RRHH <span>Prisma</span></h1>
+        <p>Gestion integral de recursos humanos para tu organizacion</p>
+        <div class="lp-features">
+          <div class="lp-feat"><span class="dot"></span>Expedientes digitales de 1,100+ colaboradores</div>
+          <div class="lp-feat"><span class="dot"></span>Evaluaciones NOM-035 automatizadas</div>
+          <div class="lp-feat"><span class="dot"></span>Generacion de contratos con un clic</div>
+          <div class="lp-feat"><span class="dot"></span>Portal del empleado integrado</div>
+        </div>
       </div>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Correo electrónico</label>
-          <div class="relative">
-            <i class="fas fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-            <input type="email" id="login-email" placeholder="correo@gmnet.mx" autocomplete="email" autocapitalize="off"
-              class="w-full border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
-              onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
+    </div>
+    <div class="lp-form">
+      <div class="lp-inner">
+        <h2>Iniciar sesion</h2>
+        <p class="sub">Ingresa con tu cuenta de RRHH Prisma</p>
+        <div id="login-error" style="display:none;padding:10px 14px;border-radius:10px;background:oklch(94% 0.03 25);font-size:0.82rem;color:oklch(40% 0.12 25);margin-bottom:16px;align-items:center;gap:8px">
+          <i class="fas fa-circle-exclamation"></i>
+          <span id="login-error-msg"></span>
+        </div>
+        <div class="lp-field">
+          <label class="lp-label">Correo electronico</label>
+          <div class="lp-wrap">
+            <i class="fas fa-envelope"></i>
+            <input class="lp-input" type="email" id="login-email" placeholder="correo@empresa.mx" autocomplete="email" autocapitalize="off" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()">
           </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contraseña</label>
-          <div class="relative">
-            <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
-            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" autocapitalize="off"
-              class="w-full border border-slate-200 rounded-xl pl-10 pr-12 py-3 text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
-              onkeydown="if(event.key==='Enter')procesarLogin()">
-            <button type="button" onclick="togglePassVis()" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <i id="pass-eye" class="fas fa-eye text-sm"></i>
-            </button>
+        <div class="lp-field">
+          <label class="lp-label">Contrasena</label>
+          <div class="lp-wrap">
+            <i class="fas fa-lock"></i>
+            <input class="lp-input" type="password" id="login-pass" placeholder="Tu contrasena" autocomplete="current-password" autocapitalize="off" onkeydown="if(event.key==='Enter')procesarLogin()">
+            <button class="lp-toggle" type="button" onclick="togglePassVis()"><i class="fas fa-eye" id="pass-eye"></i></button>
           </div>
         </div>
-        <button onclick="procesarLogin()" id="btn-login"
-          class="w-full bg-violet-600 hover:bg-violet-700 active:scale-95 text-white font-bold py-3 rounded-xl transition shadow-lg flex items-center justify-center gap-2 mt-2">
-          <i class="fas fa-sign-in-alt"></i> Entrar
-        </button>
-        <p class="text-center mt-4">
-          <button onclick="mostrarFormOlvidePass()" type="button"
-            class="text-xs text-violet-500 hover:text-violet-700 hover:underline transition font-medium">
-            ¿Olvidaste tu contraseña?
-          </button>
-        </p>
+        <button class="lp-btn" id="btn-login" onclick="procesarLogin()">Entrar</button>
+        <button class="lp-forgot" onclick="mostrarFormOlvidePass()">Olvidaste tu contrasena?</button>
       </div>
+      <div class="lp-footer">RRHH Prisma v6.0</div>
     </div>
-    <p class="text-center text-xs text-slate-500 mt-6">RRHH Prisma</p>
   </div>
 </div>
 
