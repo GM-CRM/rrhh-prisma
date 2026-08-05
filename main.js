@@ -2277,6 +2277,7 @@ function abrirEditor(idInterno, empresaHint){
     }
     if(!emp){ mostrarToast('error','No encontrado','No se encontró el registro #'+idInterno); return; }
     empleadoEdicion = emp;
+    window.empleadoEdicion = emp;
     const drawer = document.getElementById('drawer-editor');
     const inner  = document.getElementById('drawer-inner');
     renderizarDrawer(emp);
