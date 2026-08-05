@@ -5709,7 +5709,8 @@ function cambiarTabDrawer(tab){
     // NOM-035: cargar resultados al abrir la pestana
     if (tab === 'nom035' && window.empleadoEdicion) {
         var idInt = (window.empleadoEdicion['ID INTERNO']||'').toString().trim();
-        if (idInt) cargarResultadosNOM035Drawer(idInt);
+        console.log('[NOM035 drawer] ID INTERNO:', idInt, '| empleadoEdicion keys:', Object.keys(window.empleadoEdicion).slice(0,5));
+    if (idInt) cargarResultadosNOM035Drawer(idInt);
     }
 }
 
