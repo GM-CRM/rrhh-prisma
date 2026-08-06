@@ -110,10 +110,14 @@
   .org-tree.lista-plana .org-count{ position:static; margin-left:auto; }
 </style>
 <style>
- /* ── REDISEÑO SHELL: textura del sidebar + estados de navegación ── */
-#sidebar{position:relative;overflow:hidden}
+/* ── REDISEÑO SHELL: textura del sidebar + estados de navegación ──
+   OJO: aquí NO se declara `position`. El <aside> ya trae `fixed` en
+   móvil y `md:relative` en escritorio desde Tailwind. Forzar
+   `position:relative` con un selector de ID le gana a esas clases y
+   rompe el layout móvil (el sidebar deja de flotar y empuja el main). */
+#sidebar{overflow:hidden}
 #sidebar::before{
-  content:'';position:absolute;inset:0;pointer-events:none;
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
   background:
     radial-gradient(ellipse 90% 50% at 15% 0%, oklch(38% 0.14 285 / .35), transparent 60%),
     radial-gradient(ellipse 70% 60% at 100% 100%, oklch(30% 0.10 285 / .30), transparent 60%);
@@ -130,6 +134,24 @@
   box-shadow:inset 0 0 0 1px oklch(70% 0.17 285 / .35);
 }
 .nav-btn.is-active i{color:oklch(80% 0.13 285)}
+
+/* El navegador (Edge/Chromium) inyecta su propio ojo en los campos de
+   contraseña. Como ya tenemos el nuestro, se veían dos. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear{display:none}
+
+/* Pestañas del panel de notificaciones: en móvil no se podían deslizar
+   porque el contenedor no tenía overflow horizontal propio. */
+#notif-tabs{
+  overflow-x:auto;
+  overflow-y:hidden;
+  flex-wrap:nowrap;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  scroll-snap-type:x proximity;
+}
+#notif-tabs::-webkit-scrollbar{height:0;display:none}
+#notif-tabs > *{flex-shrink:0;scroll-snap-align:start}
   </style>
 <style>
     /* Drawer */
