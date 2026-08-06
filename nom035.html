@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NOM-035 — RRHH Prisma</title>
+<title>NOM-035 â€” RRHH Prisma</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0d1b3e">
 <link rel="icon" href="icon.png">
@@ -17,13 +17,14 @@
 html{scroll-behavior:smooth}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;min-height:100dvh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 10% 0%,rgba(124,58,237,.06),transparent 50%),radial-gradient(ellipse 50% 60% at 90% 100%,rgba(168,85,247,.04),transparent 50%)}
-
 /* Header */
 .hdr{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,27,62,.97);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;gap:12px}
 .hdr-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .hdr-brand img{width:28px;height:28px;border-radius:7px}
 .hdr-brand span{font-size:.8rem;font-weight:800;color:#fff}
 .hdr-brand em{color:#a78bfa;font-style:normal}
+/* Sello de versiÃ³n: si no lo ves, estÃ¡s corriendo un archivo viejo en cachÃ© */
+.hdr-ver{font-size:.55rem;font-weight:700;color:rgba(167,139,250,.7);letter-spacing:.08em;border:1px solid rgba(167,139,250,.3);border-radius:4px;padding:1px 5px;flex-shrink:0}
 .hdr-progress{flex:1;max-width:280px}
 .hdr-prog-text{display:flex;justify-content:space-between;margin-bottom:3px}
 .hdr-prog-text span{font-size:.62rem;color:rgba(255,255,255,.5)}
@@ -31,10 +32,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .hdr-prog-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
 .hdr-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .4s var(--ease-out)}
 .hdr-time{font-size:.65rem;color:rgba(255,255,255,.4);white-space:nowrap}
-
 /* Main container */
 .app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 16px 80px}
-
 /* ID Screen */
 .id-card{background:var(--white);border-radius:20px;box-shadow:0 8px 40px rgba(124,58,237,.1);padding:32px 24px;max-width:420px;width:100%;text-align:center;animation:fadeUp .4s var(--ease-out) both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -50,7 +49,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .btn-primary{width:100%;background:linear-gradient(135deg,var(--violet),var(--violet2));color:#fff;font-weight:700;font-size:.9rem;border:none;border-radius:10px;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(124,58,237,.25);transition:transform .15s}
 .btn-primary:hover{transform:translateY(-1px)}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
-
 /* Wizard Card */
 .wizard{display:none;width:100%;max-width:500px}
 .wizard-meta{text-align:center;margin-bottom:16px;animation:fadeUp .3s var(--ease-out) both}
@@ -63,6 +61,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 @keyframes slideRight{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
 .wizard-q{font-size:1rem;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:20px;flex-shrink:0}
 .wizard-q .q-num{font-size:.68rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px}
+.q-preamble{display:block;font-size:.82rem;font-weight:500;color:#64748b;line-height:1.55;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f0f5}
 .wizard-opts{display:flex;flex-direction:column;gap:8px;flex:1}
 .wizard-opt{display:flex;align-items:center;min-height:52px;padding:14px 18px;border:2px solid #e8e5f0;border-radius:12px;cursor:pointer;font-size:.9rem;font-weight:500;color:#475569;transition:all .2s var(--ease-out);-webkit-tap-highlight-color:transparent;user-select:none}
 .wizard-opt:hover{border-color:#c4b5fd;background:#faf8ff}
@@ -71,29 +70,22 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .wizard-opt .opt-check{width:20px;height:20px;border-radius:50%;border:2px solid #d4d0e0;margin-right:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
 .wizard-opt.selected .opt-check{border-color:var(--violet);background:var(--violet)}
 .wizard-opt.selected .opt-check::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
-
-/* Condicional badge */
-.cond-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;font-size:.65rem;font-weight:700;border-radius:6px;padding:3px 8px;margin-bottom:10px}
-
+.q-nota{display:block;font-size:.72rem;font-weight:500;color:#94a3b8;line-height:1.5;margin-top:8px}
 /* Bottom nav */
 .wizard-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid #f1f0f5;padding:12px 20px;display:none;align-items:center;justify-content:space-between}
 .btn-back{font-size:.78rem;color:#94a3b8;background:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;transition:color .2s}
 .btn-back:hover{color:var(--violet)}
 .nav-counter{font-size:.72rem;color:#94a3b8}
-
 /* Category celebration */
 .celebration{display:none;text-align:center;padding:40px 20px;animation:fadeUp .4s var(--ease-out) both}
 .celebration .cel-icon{font-size:3rem;margin-bottom:12px}
 .celebration .cel-text{font-size:1.1rem;font-weight:700;color:var(--ink)}
 .celebration .cel-sub{font-size:.82rem;color:#64748b;margin-top:4px}
-
 /* Success screen */
 .success{display:none;text-align:center;padding:40px 20px;max-width:420px;animation:fadeUp .5s var(--ease-out) both}
 .success .s-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2rem;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.3)}
 .success h2{font-size:1.4rem;font-weight:800;margin-bottom:8px}
 .success p{font-size:.88rem;color:#64748b;line-height:1.5}
-
-/* Result card in success */
 .result-card{margin-top:20px;background:var(--white);border-radius:14px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.06);text-align:left}
 .result-card .rc-level{text-align:center;padding:12px;border-radius:10px;margin-bottom:14px}
 .result-card .rc-level p:first-child{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
@@ -102,74 +94,118 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .result-card .rc-domains{display:flex;flex-direction:column;gap:4px}
 .result-card .rc-dom{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:.75rem}
 .result-card .rc-dom .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-
 @media(max-width:480px){
   .app{padding:64px 12px 72px}
   .wizard-card{padding:22px 18px;min-height:280px}
   .wizard-q{font-size:.92rem}
   .wizard-opt{min-height:48px;padding:12px 14px;font-size:.85rem}
+  .hdr-ver{display:none}
 }
 </style>
 </head>
 <body>
-
 <header class="hdr">
   <div class="hdr-brand"><img src="icon.png" alt=""><span>RRHH <em>Prisma</em></span></div>
+  <span class="hdr-ver" id="hdr-ver">v3</span>
   <div class="hdr-progress" id="hdr-progress" style="display:none">
     <div class="hdr-prog-text"><span id="prog-label">0 / 0</span><strong id="prog-pct">0%</strong></div>
     <div class="hdr-prog-bar"><div class="hdr-prog-fill" id="prog-fill" style="width:0%"></div></div>
   </div>
   <span class="hdr-time" id="hdr-time" style="display:none"></span>
 </header>
-
 <div class="app" id="app">
-  <!-- ID Screen -->
   <div class="id-card" id="id-screen">
     <img src="icon.png" alt="Prisma">
     <h1 id="enc-titulo">NOM-035</h1>
-    <p id="enc-desc">Evaluacion de factores de riesgo psicosocial. Confidencial.</p>
+    <p id="enc-desc">EvaluaciÃ³n de factores de riesgo psicosocial. Confidencial.</p>
     <div class="err-box" id="err-box"><i class="fas fa-exclamation-circle"></i><span id="err-msg"></span></div>
-    <div class="field"><label>Numero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
+    <div class="field"><label>NÃºmero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
     <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
     <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
   </div>
-
-  <!-- Wizard -->
   <div class="wizard" id="wizard">
     <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
     <div class="wizard-card" id="wizard-card"></div>
   </div>
-
-  <!-- Category celebration -->
-  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Seccion completada</p><p class="cel-sub" id="cel-sub"></p></div>
-
-  <!-- Success -->
+  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">SecciÃ³n completada</p><p class="cel-sub" id="cel-sub"></p></div>
   <div class="success" id="success-screen"></div>
 </div>
-
 <div class="wizard-nav" id="wizard-nav">
   <button class="btn-back" id="btn-prev" onclick="prevQuestion()"><i class="fas fa-chevron-left"></i> Anterior</button>
   <span class="nav-counter" id="nav-counter"></span>
 </div>
-
 <script>
+/* =====================================================================
+   NOM-035 Wizard â€” v3 (2026-08-06)
+   Cambios vs v2:
+     - Candado `bloqueado`: ignora cualquier clic mientras hay una
+       transiciÃ³n o celebraciÃ³n en curso. Era la causa del rebote
+       infinito en las felicitaciones.
+     - Un solo timer global (`timerActivo`) que se cancela antes de
+       agendar uno nuevo. Antes podÃ­an solaparse dos setTimeout y
+       pelearse por el mismo Ã­ndice.
+     - `mostrarPantalla()` centraliza quÃ© se ve; ya no hay tres
+       lugares distintos manipulando display.
+     - Sello de versiÃ³n visible en el header y en consola.
+   ===================================================================== */
+const APP_VERSION='v3-2026-08-06';
 const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
-const params=new URLSearchParams(location.search);
+console.log('%cNOM-035 wizard '+APP_VERSION,'background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px');
+
 let empleadoId='',empleadoNombre='',empleadoEmpresa='';
 let nom035Data=null,allItems=[],respuestas={},currentIdx=0,fase='id';
 let categories=[],catMap={};
+let bloqueado=false,timerActivo=null;
 
-function showErr(msg){const b=document.getElementById('err-box');b.classList.add('show');document.getElementById('err-msg').textContent=msg}
-function hideErr(){document.getElementById('err-box').classList.remove('show')}
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function $(id){return document.getElementById(id)}
+function showErr(msg){const b=$('err-box');b.classList.add('show');$('err-msg').textContent=msg}
+function hideErr(){$('err-box').classList.remove('show')}
+
+/* Un solo lugar decide quÃ© pantalla se ve. Evita estados imposibles
+   como "celebraciÃ³n visible + barra de navegaciÃ³n visible". */
+function mostrarPantalla(cual){
+  $('id-screen').style.display   = (cual==='id')?'block':'none';
+  $('wizard').style.display      = (cual==='wizard')?'block':'none';
+  $('celebration').style.display = (cual==='celebracion')?'block':'none';
+  $('success-screen').style.display = (cual==='success')?'block':'none';
+  $('wizard-nav').style.display  = (cual==='wizard')?'flex':'none';
+}
+
+/* Muestra una celebraciÃ³n y ejecuta `luego` al terminar.
+   Bloquea la interfaz mientras dura: ningÃºn clic puede colarse. */
+function celebrar(texto,sub,luego){
+  if(timerActivo){clearTimeout(timerActivo);timerActivo=null}
+  bloqueado=true;
+  $('cel-text').textContent=texto;
+  $('cel-sub').textContent=sub||'';
+  mostrarPantalla('celebracion');
+  timerActivo=setTimeout(function(){
+    timerActivo=null;
+    bloqueado=false;
+    if(luego)luego();
+  },1500);
+}
+
+/* Avance normal entre preguntas, tambiÃ©n con candado. */
+function avanzar(luego){
+  if(timerActivo){clearTimeout(timerActivo);timerActivo=null}
+  bloqueado=true;
+  timerActivo=setTimeout(function(){
+    timerActivo=null;
+    bloqueado=false;
+    luego();
+  },250);
+}
 
 async function iniciarEncuesta(){
   hideErr();
-  const noemp=document.getElementById('inp-noemp').value.trim();
-  const nombre=document.getElementById('inp-nombre').value.trim();
-  if(!noemp){showErr('Ingresa tu numero de empleado.');return}
+  const noemp=$('inp-noemp').value.trim();
+  const nombre=$('inp-nombre').value.trim();
+  if(!noemp){showErr('Ingresa tu nÃºmero de empleado.');return}
   if(!nombre){showErr('Ingresa tu nombre completo.');return}
   empleadoNombre=nombre;
-  const btn=document.getElementById('btn-iniciar');
+  const btn=$('btn-iniciar');
   btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
   try{
     const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}})});
@@ -183,61 +219,178 @@ async function iniciarEncuesta(){
     const d2=await r2.json();
     if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
     nom035Data=d2;
+    console.log('[NOM035] guÃ­a:',d2.tipoCuestionario,'| Ã­tems:',(d2.cuestionarioFRP.items||[]).length,'| activos:',d2.activosGrupo);
+    console.log('[NOM035] Ã­tem 1:',(d2.cuestionarioFRP.items||[])[0]&&d2.cuestionarioFRP.items[0].pregunta);
     iniciarGuiaI(d2.guia1);
-  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexion.')}
+  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexiÃ³n.')}
 }
 
-// ===== GUIA I (Si/No Wizard) =====
-let gi_items=[],gi_resp={},gi_idx=0;
+/* ============================================================
+   GUÃA I â€” Acontecimientos traumÃ¡ticos severos
+   RamificaciÃ³n oficial (GR.I): se aplica primero SOLO la
+   SecciÃ³n I. Si todas las respuestas son "No", termina ahÃ­.
+   Solo si hay al menos un "SÃ­" se aplican II, III y IV.
+   ============================================================ */
+let gi_secciones=[],gi_items=[],gi_resp={},gi_idx=0,gi_bloque='sec1';
+
+function _giConstruirItems(soloSeccion1){
+  var arr=[];
+  gi_secciones.forEach(function(sec,si){
+    if(soloSeccion1 && si!==0) return;
+    if(!soloSeccion1 && si===0) return;
+    (sec.preguntas||[]).forEach(function(p,pi){
+      arr.push({id:p.id,texto:p.texto,seccion:sec.titulo,instruccion:(pi===0?(sec.instruccion||''):'')});
+    });
+  });
+  return arr;
+}
+
 function iniciarGuiaI(guia1){
-  document.getElementById('id-screen').style.display='none';
-  gi_items=[];
-  guia1.secciones.forEach(function(sec){sec.preguntas.forEach(function(p){gi_items.push({id:p.id,texto:p.texto,seccion:sec.titulo})})});
-  gi_resp={};gi_idx=0;fase='gi';
-  document.getElementById('wizard').style.display='block';
-  document.getElementById('wizard-nav').style.display='flex';
-  document.getElementById('hdr-progress').style.display='block';
-  document.getElementById('hdr-time').style.display='block';
+  gi_secciones=(guia1&&guia1.secciones)?guia1.secciones:[];
+  gi_resp={};gi_idx=0;gi_bloque='sec1';fase='gi';
+  gi_items=_giConstruirItems(true);
+  console.log('[NOM035] GuÃ­a I â€” SecciÃ³n I:',gi_items.length,'preguntas');
+  $('hdr-progress').style.display='block';
+  $('hdr-time').style.display='block';
+  mostrarPantalla('wizard');
   renderGIQuestion();
 }
+
 function renderGIQuestion(){
-  if(gi_idx>=gi_items.length){completarGI();return}
+  if(gi_idx>=gi_items.length){cerrarBloqueGI();return}
   const it=gi_items[gi_idx];
   updateProgress(gi_idx,gi_items.length);
-  document.getElementById('wiz-cat').textContent=it.seccion;
-  document.getElementById('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
-  const card=document.getElementById('wizard-card');
+  $('wiz-cat').textContent=it.seccion;
+  $('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
+  const card=$('wizard-card');
   card.className='wizard-card slide-left';
-  card.innerHTML='<p class="wizard-q"><span class="q-num">Guia I — Pregunta '+(gi_idx+1)+'</span>'+it.texto+'</p>'
+  var html='<p class="wizard-q"><span class="q-num">GuÃ­a I â€” Pregunta '+(gi_idx+1)+'</span>';
+  if(it.instruccion) html+='<span class="q-preamble">'+esc(it.instruccion)+'</span>';
+  html+=esc(it.texto)+'</p>'
     +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Si</div>'
+    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>SÃ­</div>'
     +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
     +'</div>';
-  document.getElementById('nav-counter').textContent=(gi_idx+1)+' / '+gi_items.length;
-  document.getElementById('btn-prev').style.visibility=gi_idx>0?'visible':'hidden';
-}
-function selectGI(id,val){
-  gi_resp[id]=val;
-  setTimeout(function(){gi_idx++;renderGIQuestion()},250);
-}
-function completarGI(){
-  fase='done_gi';
-  document.getElementById('wizard').style.display='none';
-  document.getElementById('wizard-nav').style.display='none';
-  document.getElementById('celebration').style.display='block';
-  document.getElementById('cel-text').textContent='Guia I completada';
-  document.getElementById('cel-sub').textContent='Continuamos con el cuestionario de riesgo psicosocial...';
-  setTimeout(function(){
-    document.getElementById('celebration').style.display='none';
-    iniciarFRP();
-  },1500);
+  card.innerHTML=html;
+  $('nav-counter').textContent=(gi_idx+1)+' / '+gi_items.length;
+  $('btn-prev').style.visibility=gi_idx>0?'visible':'hidden';
 }
 
-// ===== GUIA II/III (FRP Wizard) =====
+function selectGI(id,val){
+  if(bloqueado) return;
+  gi_resp[id]=val;
+  var card=$('wizard-card');
+  var opts=card.querySelectorAll('.wizard-opt');
+  opts.forEach(function(o){o.classList.remove('selected')});
+  opts[val==='Si'?0:1].classList.add('selected');
+  avanzar(function(){gi_idx++;renderGIQuestion()});
+}
+
+function cerrarBloqueGI(){
+  if(gi_bloque==='sec1'){
+    var hubo=false;
+    (gi_secciones[0]&&gi_secciones[0].preguntas||[]).forEach(function(p){
+      if(gi_resp[p.id]==='Si') hubo=true;
+    });
+    console.log('[NOM035] GuÃ­a I SecciÃ³n I con algÃºn "SÃ­":',hubo,'â†’',hubo?'aplica II, III y IV':'termina GuÃ­a I');
+    if(!hubo){completarGI();return}
+    gi_bloque='resto';
+    gi_items=_giConstruirItems(false);
+    gi_idx=0;
+    fase='gi_transicion';
+    celebrar('Unas preguntas mÃ¡s','Necesitamos algunos datos adicionales sobre lo que indicaste.',function(){
+      fase='gi';
+      mostrarPantalla('wizard');
+      renderGIQuestion();
+    });
+    return;
+  }
+  completarGI();
+}
+
+function completarGI(){
+  fase='done_gi';
+  celebrar('Primera parte completada','Continuamos con el cuestionario de riesgo psicosocial...',iniciarFiltros);
+}
+
+/* ============================================================
+   PREGUNTAS FILTRO (GuÃ­a II y GuÃ­a III)
+   ============================================================ */
+const FILTROS_DEF=[
+  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, pÃºblico en general.'},
+  {key:'jefe',texto:'Soy jefe de otros trabajadores',nota:'Es decir, tienes personas que te reportan directamente.'}
+];
+let filtros={clientes:null,jefe:null},filtroIdx=0,filtrosActivos=[];
+
+function tipoCondicionalItem(it){
+  var c=(it.condicional||'').toString().toLowerCase();
+  if(c){
+    if(c.indexOf('client')!==-1||c.indexOf('usuario')!==-1) return 'clientes';
+    if(c.indexOf('jefe')!==-1||c.indexOf('supervis')!==-1||c.indexOf('colaborador')!==-1) return 'jefe';
+  }
+  var n=parseInt(it.item,10);
+  if(isNaN(n)) return null;
+  var esG3=nom035Data&&nom035Data.tipoCuestionario==='guia3';
+  if(esG3){
+    if(n>=65&&n<=68) return 'clientes';
+    if(n>=69&&n<=72) return 'jefe';
+  }else{
+    if(n>=41&&n<=43) return 'clientes';
+    if(n>=44&&n<=46) return 'jefe';
+  }
+  return null;
+}
+
+function iniciarFiltros(){
+  var items=(nom035Data.cuestionarioFRP&&nom035Data.cuestionarioFRP.items)||[];
+  filtrosActivos=FILTROS_DEF.filter(function(f){
+    return items.some(function(it){return tipoCondicionalItem(it)===f.key});
+  });
+  if(!filtrosActivos.length){iniciarFRP();return}
+  filtros={clientes:null,jefe:null};filtroIdx=0;fase='filtros';
+  mostrarPantalla('wizard');
+  renderFiltro();
+}
+
+function renderFiltro(){
+  if(filtroIdx>=filtrosActivos.length){iniciarFRP();return}
+  var f=filtrosActivos[filtroIdx];
+  updateProgress(filtroIdx,filtrosActivos.length);
+  $('wiz-cat').textContent='Sobre tu puesto';
+  $('wiz-catprog').textContent='Pregunta '+(filtroIdx+1)+' de '+filtrosActivos.length;
+  var card=$('wizard-card');
+  card.className='wizard-card slide-left';
+  var actual=filtros[f.key];
+  card.innerHTML='<p class="wizard-q"><span class="q-num">Antes de continuar</span>'+esc(f.texto)
+    +'<span class="q-nota">'+esc(f.nota)+'</span></p>'
+    +'<div class="wizard-opts">'
+    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>SÃ­</div>'
+    +'<div class="wizard-opt'+(actual===false?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',false)"><span class="opt-check"></span>No</div>'
+    +'</div>';
+  $('nav-counter').textContent=(filtroIdx+1)+' / '+filtrosActivos.length;
+  $('btn-prev').style.visibility=filtroIdx>0?'visible':'hidden';
+}
+
+function selectFiltro(key,val){
+  if(bloqueado) return;
+  filtros[key]=val;
+  var opts=$('wizard-card').querySelectorAll('.wizard-opt');
+  opts.forEach(function(o){o.classList.remove('selected')});
+  opts[val?0:1].classList.add('selected');
+  avanzar(function(){filtroIdx++;renderFiltro()});
+}
+
+/* ============================================================
+   GUÃA II / III â€” Factores de riesgo psicosocial
+   ============================================================ */
 function iniciarFRP(){
-  const cuest=nom035Data.cuestionarioFRP;
-  allItems=cuest.items||[];
-  // Build category groups
+  const cuest=nom035Data.cuestionarioFRP||{};
+  var todos=cuest.items||[];
+  allItems=todos.filter(function(it){
+    var t=tipoCondicionalItem(it);
+    if(!t) return true;
+    return filtros[t]===true;
+  });
   catMap={};categories=[];
   allItems.forEach(function(it,idx){
     var cat=it.categoria||'General';
@@ -245,10 +398,11 @@ function iniciarFRP(){
     catMap[cat].push(idx);
   });
   respuestas={};currentIdx=0;fase='frp';
-  document.getElementById('celebration').style.display='none';
-  document.getElementById('wizard').style.display='block';
+  console.log('[NOM035] FRP â€” filtros:',JSON.stringify(filtros),'| aplicables:',allItems.length,'de',todos.length);
+  mostrarPantalla('wizard');
   renderFRPQuestion();
 }
+
 function renderFRPQuestion(){
   if(currentIdx>=allItems.length){enviarResultados();return}
   const it=allItems[currentIdx];
@@ -256,13 +410,12 @@ function renderFRPQuestion(){
   const catItems=catMap[cat];
   const posInCat=catItems.indexOf(currentIdx)+1;
   updateProgress(currentIdx,allItems.length);
-  document.getElementById('wiz-cat').textContent=cat;
-  document.getElementById('wiz-catprog').textContent='Pregunta '+posInCat+' de '+catItems.length;
-  const card=document.getElementById('wizard-card');
+  $('wiz-cat').textContent=cat;
+  $('wiz-catprog').textContent='Pregunta '+posInCat+' de '+catItems.length;
+  const card=$('wizard-card');
   card.className='wizard-card slide-left';
   var html='<p class="wizard-q"><span class="q-num">'+(currentIdx+1)+' de '+allItems.length+'</span>';
-  if(it.condicional) html+='<span class="cond-badge"><i class="fas fa-info-circle"></i> '+it.condicional+'</span><br>';
-  html+=it.pregunta+'</p><div class="wizard-opts">';
+  html+=esc(it.pregunta)+'</p><div class="wizard-opts">';
   var opciones=['Siempre','Casi siempre','Algunas veces','Casi nunca','Nunca'];
   opciones.forEach(function(op,idx){
     var sel=respuestas[currentIdx]===idx?' selected':'';
@@ -270,114 +423,120 @@ function renderFRPQuestion(){
   });
   html+='</div>';
   card.innerHTML=html;
-  document.getElementById('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
-  document.getElementById('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
+  $('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
+  $('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
 }
+
 function selectFRP(val){
+  if(bloqueado) return;
   respuestas[currentIdx]=val;
+  var opts=$('wizard-card').querySelectorAll('.wizard-opt');
+  opts.forEach(function(o,i){o.classList.toggle('selected',i===val)});
+
   var nextIdx=currentIdx+1;
   if(nextIdx>=allItems.length){
-    setTimeout(function(){currentIdx=nextIdx;renderFRPQuestion()},250);
+    avanzar(function(){currentIdx=nextIdx;renderFRPQuestion()});
     return;
   }
   var currentCat=allItems[currentIdx].categoria;
   var nextCat=allItems[nextIdx].categoria;
-  if(currentCat!==nextCat){
-    currentIdx=nextIdx;
-    document.getElementById('wizard').style.display='none';
-    document.getElementById('wizard-nav').style.display='none';
-    document.getElementById('celebration').style.display='block';
-    document.getElementById('cel-text').textContent='¡'+currentCat+' completada!';
-    document.getElementById('cel-sub').textContent='Siguiente: '+nextCat;
-    setTimeout(function(){
-      document.getElementById('celebration').style.display='none';
-      document.getElementById('wizard').style.display='block';
-      document.getElementById('wizard-nav').style.display='flex';
+  // Los Ã­tems de una misma categorÃ­a no son contiguos (p. ej. "Factores
+  // propios de la actividad" reaparece mÃ¡s adelante). Solo se celebra
+  // cuando ya no queda ningÃºn Ã­tem pendiente de esa categorÃ­a.
+  var quedan=allItems.slice(nextIdx).some(function(x){return (x.categoria||'General')===currentCat});
+  currentIdx=nextIdx;
+  if(currentCat!==nextCat && !quedan){
+    celebrar('\u00a1'+currentCat+' completada!','Siguiente: '+nextCat,function(){
+      mostrarPantalla('wizard');
       renderFRPQuestion();
-    },1500);
+    });
   } else {
-    setTimeout(function(){currentIdx=nextIdx;renderFRPQuestion()},250);
+    avanzar(renderFRPQuestion);
   }
 }
+
 function prevQuestion(){
+  if(bloqueado) return;
   if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
-  else if(fase==='frp'&&currentIdx>0){currentIdx--;const card=document.getElementById('wizard-card');card.className='wizard-card slide-right';setTimeout(renderFRPQuestion,50)}
+  else if(fase==='filtros'&&filtroIdx>0){filtroIdx--;renderFiltro()}
+  else if(fase==='frp'&&currentIdx>0){
+    currentIdx--;
+    const card=$('wizard-card');
+    card.className='wizard-card slide-right';
+    setTimeout(renderFRPQuestion,50);
+  }
 }
 
-// ===== Progress & Time =====
 function updateProgress(current,total){
-  const pct=Math.round(current/total*100);
-  document.getElementById('prog-fill').style.width=pct+'%';
-  document.getElementById('prog-pct').textContent=pct+'%';
-  document.getElementById('prog-label').textContent=current+' / '+total;
-  const remaining=total-current;
-  const mins=Math.ceil(remaining*5/60);// ~5 sec per question
-  document.getElementById('hdr-time').textContent='\u23f1 ~'+mins+' min';
+  const pct=total?Math.round(current/total*100):0;
+  $('prog-fill').style.width=pct+'%';
+  $('prog-pct').textContent=pct+'%';
+  $('prog-label').textContent=current+' / '+total;
+  const mins=Math.max(1,Math.ceil((total-current)*5/60));
+  $('hdr-time').textContent='\u23f1 ~'+mins+' min';
 }
 
-// ===== Celebration =====
-function showCelebration(text,sub,callback){
-  document.getElementById('wizard').style.display='none';
-  const cel=document.getElementById('celebration');
-  document.getElementById('cel-text').textContent=text;
-  document.getElementById('cel-sub').textContent=sub;
-  cel.style.display='block';
-  setTimeout(function(){cel.style.display='none';document.getElementById('wizard').style.display='block';if(callback)callback()},1500);
-}
-
-// ===== Submit =====
 async function enviarResultados(){
-  document.getElementById('wizard').style.display='none';
-  document.getElementById('wizard-nav').style.display='none';
-  document.getElementById('hdr-progress').style.display='none';
-  document.getElementById('hdr-time').style.display='none';
-  // Build FRP payload
+  $('hdr-progress').style.display='none';
+  $('hdr-time').style.display='none';
   var itemsFRP=[];
   allItems.forEach(function(it,idx){
     if(respuestas[idx]!==undefined){
       itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,direccion:it.direccion,respuesta:respuestas[idx]});
     }
   });
-  // Show loading
-  const suc=document.getElementById('success-screen');
-  suc.style.display='block';
+  const suc=$('success-screen');
+  mostrarPantalla('success');
   suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>Calculando resultados...</h2><p>Espera un momento</p>';
   try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{idInterno:empleadoId,tipoCuestionario:nom035Data.tipoCuestionario,activosGrupo:nom035Data.activosGrupo,respuestasGI:gi_resp,respuestasFRP:itemsFRP}})});
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{
+      idInterno:empleadoId,
+      tipoCuestionario:nom035Data.tipoCuestionario,
+      activosGrupo:nom035Data.activosGrupo,
+      respuestasGI:gi_resp,
+      respuestasFRP:itemsFRP,
+      filtros:filtros,
+      itemsAplicables:allItems.length
+    }})});
     const d=await r.json();
     if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-times"></i></div><h2>Error</h2><p>'+(d.message||'Intenta de nuevo')+'</p>';
+    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>No se pudo guardar</h2><p>'+esc(d.message||'Intenta de nuevo mÃ¡s tarde.')+'</p>';
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-wifi"></i></div><h2>Error de conexion</h2><p>Verifica tu internet e intenta de nuevo.</p>';
+    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>Error de conexiÃ³n</h2><p>Revisa tu conexiÃ³n e intenta de nuevo.</p>';
   }
 }
-function mostrarResultado(data){
-  const rFRP=data.resultadoFRP||{};
-  const rGI=data.resultadoGI||{};
-  const colores=nom035Data.colores||{};
-  const color=colores[rFRP.nivelTotal]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
-  var html='<div class="s-icon"><i class="fas fa-check"></i></div>';
-  html+='<h2>Evaluacion completada</h2>';
-  html+='<p>Tus respuestas han sido registradas de forma confidencial.</p>';
-  html+='<div class="result-card">';
-  html+='<div class="rc-level" style="background:'+color.bg+';color:'+color.text+'">';
-  html+='<p>Nivel de riesgo</p><p>'+rFRP.nivelTotal+'</p></div>';
-  if(rGI.requiereValoracion){
-    html+='<div class="rc-gi" style="background:#fef2f2;color:#991b1b"><i class="fas fa-exclamation-triangle"></i> Guia I: Requiere valoracion clinica</div>';
-  }else{
-    html+='<div class="rc-gi" style="background:#f0fdf4;color:#166534"><i class="fas fa-check-circle"></i> Guia I: Sin hallazgos</div>';
+
+function mostrarResultado(d){
+  const suc=$('success-screen');
+  var frp=d.resultadoFRP||{},gi=d.resultadoGI||{};
+  var col=frp.colorTotal||{};
+  var html='<div class="s-icon"><i class="fas fa-check"></i></div>'
+    +'<h2>Gracias por participar</h2>'
+    +'<p>Tus respuestas quedaron registradas de forma confidencial.</p>'
+    +'<div class="result-card">'
+    +'<div class="rc-level" style="background:'+(col.bg||'#f1f5f9')+';color:'+(col.text||'#334155')+'">'
+    +'<p>Nivel de riesgo</p><p>'+esc(frp.nivelTotal||'Sin dato')+'</p></div>';
+  if(gi.requiereValoracion){
+    html+='<div class="rc-gi" style="background:#fef3c7;color:#92400e">'
+      +'<i class="fas fa-user-doctor"></i> El Ã¡rea de salud ocupacional te contactarÃ¡ para una valoraciÃ³n.</div>';
   }
-  var doms=rFRP.dominios||{};
-  if(Object.keys(doms).length){
+  if(filtros.clientes===false||filtros.jefe===false){
+    html+='<div class="rc-gi" style="background:#f1f5f9;color:#475569">'
+      +'<i class="fas fa-filter"></i> Se omitieron preguntas que no aplican a tu puesto.</div>';
+  }
+  var doms=frp.dominios||{};
+  var keys=Object.keys(doms);
+  if(keys.length){
     html+='<div class="rc-domains">';
-    Object.keys(doms).forEach(function(d){
-      var dv=doms[d];var dc=colores[dv.nivel]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
-      html+='<div class="rc-dom" style="background:'+dc.bg+'"><span class="dot" style="background:'+dc.hex+'"></span><span style="flex:1;color:'+dc.text+'">'+d+'</span><span style="font-weight:700;color:'+dc.text+'">'+dv.nivel+'</span></div>';
+    keys.forEach(function(k){
+      var dv=doms[k]||{},c=dv.color||{};
+      html+='<div class="rc-dom" style="background:'+(c.bg||'#f8fafc')+';color:'+(c.text||'#475569')+'">'
+        +'<span class="dot" style="background:'+(c.hex||'#94a3b8')+'"></span>'+esc(k)+' \u2014 '+esc(dv.nivel||'')+'</div>';
     });
     html+='</div>';
   }
   html+='</div>';
-  document.getElementById('success-screen').innerHTML=html;
+  suc.innerHTML=html;
 }
 </script>
 </body>
