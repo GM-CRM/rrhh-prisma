@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NOM-035 — RRHH Prisma</title>
+<title>NOM-035 â€” RRHH Prisma</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0d1b3e">
 <link rel="icon" href="icon.png">
@@ -17,7 +17,6 @@
 html{scroll-behavior:smooth}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;min-height:100dvh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 10% 0%,rgba(124,58,237,.06),transparent 50%),radial-gradient(ellipse 50% 60% at 90% 100%,rgba(168,85,247,.04),transparent 50%)}
-
 /* Header */
 .hdr{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,27,62,.97);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;gap:12px}
 .hdr-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -31,10 +30,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .hdr-prog-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
 .hdr-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .4s var(--ease-out)}
 .hdr-time{font-size:.65rem;color:rgba(255,255,255,.4);white-space:nowrap}
-
 /* Main container */
 .app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 16px 80px}
-
 /* ID Screen */
 .id-card{background:var(--white);border-radius:20px;box-shadow:0 8px 40px rgba(124,58,237,.1);padding:32px 24px;max-width:420px;width:100%;text-align:center;animation:fadeUp .4s var(--ease-out) both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -50,7 +47,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .btn-primary{width:100%;background:linear-gradient(135deg,var(--violet),var(--violet2));color:#fff;font-weight:700;font-size:.9rem;border:none;border-radius:10px;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(124,58,237,.25);transition:transform .15s}
 .btn-primary:hover{transform:translateY(-1px)}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
-
 /* Wizard Card */
 .wizard{display:none;width:100%;max-width:500px}
 .wizard-meta{text-align:center;margin-bottom:16px;animation:fadeUp .3s var(--ease-out) both}
@@ -71,28 +67,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .wizard-opt .opt-check{width:20px;height:20px;border-radius:50%;border:2px solid #d4d0e0;margin-right:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
 .wizard-opt.selected .opt-check{border-color:var(--violet);background:var(--violet)}
 .wizard-opt.selected .opt-check::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
-
-/* Condicional badge */
-.cond-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;font-size:.65rem;font-weight:700;border-radius:6px;padding:3px 8px;margin-bottom:10px}
-
+/* Nota de contexto en preguntas filtro */
+.q-nota{display:block;font-size:.72rem;font-weight:500;color:#94a3b8;line-height:1.5;margin-top:8px}
 /* Bottom nav */
 .wizard-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid #f1f0f5;padding:12px 20px;display:none;align-items:center;justify-content:space-between}
 .btn-back{font-size:.78rem;color:#94a3b8;background:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;transition:color .2s}
 .btn-back:hover{color:var(--violet)}
 .nav-counter{font-size:.72rem;color:#94a3b8}
-
 /* Category celebration */
 .celebration{display:none;text-align:center;padding:40px 20px;animation:fadeUp .4s var(--ease-out) both}
 .celebration .cel-icon{font-size:3rem;margin-bottom:12px}
 .celebration .cel-text{font-size:1.1rem;font-weight:700;color:var(--ink)}
 .celebration .cel-sub{font-size:.82rem;color:#64748b;margin-top:4px}
-
 /* Success screen */
 .success{display:none;text-align:center;padding:40px 20px;max-width:420px;animation:fadeUp .5s var(--ease-out) both}
 .success .s-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2rem;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.3)}
 .success h2{font-size:1.4rem;font-weight:800;margin-bottom:8px}
 .success p{font-size:.88rem;color:#64748b;line-height:1.5}
-
 /* Result card in success */
 .result-card{margin-top:20px;background:var(--white);border-radius:14px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.06);text-align:left}
 .result-card .rc-level{text-align:center;padding:12px;border-radius:10px;margin-bottom:14px}
@@ -102,7 +93,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .result-card .rc-domains{display:flex;flex-direction:column;gap:4px}
 .result-card .rc-dom{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:.75rem}
 .result-card .rc-dom .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-
 @media(max-width:480px){
   .app{padding:64px 12px 72px}
   .wizard-card{padding:22px 18px;min-height:280px}
@@ -112,7 +102,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 </style>
 </head>
 <body>
-
 <header class="hdr">
   <div class="hdr-brand"><img src="icon.png" alt=""><span>RRHH <em>Prisma</em></span></div>
   <div class="hdr-progress" id="hdr-progress" style="display:none">
@@ -121,7 +110,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
   </div>
   <span class="hdr-time" id="hdr-time" style="display:none"></span>
 </header>
-
 <div class="app" id="app">
   <!-- ID Screen -->
   <div class="id-card" id="id-screen">
@@ -133,25 +121,20 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
     <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
     <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
   </div>
-
   <!-- Wizard -->
   <div class="wizard" id="wizard">
     <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
     <div class="wizard-card" id="wizard-card"></div>
   </div>
-
   <!-- Category celebration -->
   <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Seccion completada</p><p class="cel-sub" id="cel-sub"></p></div>
-
   <!-- Success -->
   <div class="success" id="success-screen"></div>
 </div>
-
 <div class="wizard-nav" id="wizard-nav">
   <button class="btn-back" id="btn-prev" onclick="prevQuestion()"><i class="fas fa-chevron-left"></i> Anterior</button>
   <span class="nav-counter" id="nav-counter"></span>
 </div>
-
 <script>
 const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
 const params=new URLSearchParams(location.search);
@@ -187,28 +170,49 @@ async function iniciarEncuesta(){
   }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexion.')}
 }
 
-// ===== GUIA I (Si/No Wizard) =====
-let gi_items=[],gi_resp={},gi_idx=0;
+/* ============================================================
+   GUIA I â€” Acontecimientos traumaticos severos (Si/No)
+   RAMIFICACION OFICIAL (NOM-035, Guia de Referencia I):
+   Se aplica primero SOLO la Seccion I. Si todas las respuestas
+   de esa seccion son "No", el cuestionario TERMINA ahi y NO se
+   muestran las Secciones II, III y IV. Solo si hay al menos un
+   "Si" se aplican las secciones restantes.
+   ============================================================ */
+let gi_secciones=[],gi_items=[],gi_resp={},gi_idx=0,gi_bloque='sec1';
+
+function _giConstruirItems(soloSeccion1){
+  var arr=[];
+  gi_secciones.forEach(function(sec,si){
+    if(soloSeccion1 && si!==0) return;
+    if(!soloSeccion1 && si===0) return;
+    (sec.preguntas||[]).forEach(function(p){
+      arr.push({id:p.id,texto:p.texto,seccion:sec.titulo});
+    });
+  });
+  return arr;
+}
+
 function iniciarGuiaI(guia1){
   document.getElementById('id-screen').style.display='none';
-  gi_items=[];
-  guia1.secciones.forEach(function(sec){sec.preguntas.forEach(function(p){gi_items.push({id:p.id,texto:p.texto,seccion:sec.titulo})})});
-  gi_resp={};gi_idx=0;fase='gi';
+  gi_secciones=(guia1&&guia1.secciones)?guia1.secciones:[];
+  gi_resp={};gi_idx=0;gi_bloque='sec1';fase='gi';
+  gi_items=_giConstruirItems(true);
   document.getElementById('wizard').style.display='block';
   document.getElementById('wizard-nav').style.display='flex';
   document.getElementById('hdr-progress').style.display='block';
   document.getElementById('hdr-time').style.display='block';
   renderGIQuestion();
 }
+
 function renderGIQuestion(){
-  if(gi_idx>=gi_items.length){completarGI();return}
+  if(gi_idx>=gi_items.length){cerrarBloqueGI();return}
   const it=gi_items[gi_idx];
   updateProgress(gi_idx,gi_items.length);
   document.getElementById('wiz-cat').textContent=it.seccion;
   document.getElementById('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
   const card=document.getElementById('wizard-card');
   card.className='wizard-card slide-left';
-  card.innerHTML='<p class="wizard-q"><span class="q-num">Guia I — Pregunta '+(gi_idx+1)+'</span>'+it.texto+'</p>'
+  card.innerHTML='<p class="wizard-q"><span class="q-num">Guia I â€” Pregunta '+(gi_idx+1)+'</span>'+it.texto+'</p>'
     +'<div class="wizard-opts">'
     +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Si</div>'
     +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
@@ -216,28 +220,144 @@ function renderGIQuestion(){
   document.getElementById('nav-counter').textContent=(gi_idx+1)+' / '+gi_items.length;
   document.getElementById('btn-prev').style.visibility=gi_idx>0?'visible':'hidden';
 }
+
 function selectGI(id,val){
   gi_resp[id]=val;
   setTimeout(function(){gi_idx++;renderGIQuestion()},250);
 }
+
+/* Cierra el bloque actual de Guia I y decide si ramifica */
+function cerrarBloqueGI(){
+  if(gi_bloque==='sec1'){
+    var hubo=false;
+    (gi_secciones[0]&&gi_secciones[0].preguntas||[]).forEach(function(p){
+      if(gi_resp[p.id]==='Si') hubo=true;
+    });
+    if(!hubo){completarGI();return}
+    // Ramifica: aplicar Secciones II, III y IV
+    gi_bloque='resto';
+    gi_items=_giConstruirItems(false);
+    gi_idx=0;
+    fase='gi_transicion';
+    document.getElementById('wizard').style.display='none';
+    document.getElementById('wizard-nav').style.display='none';
+    document.getElementById('celebration').style.display='block';
+    document.getElementById('cel-text').textContent='Unas preguntas mas';
+    document.getElementById('cel-sub').textContent='Necesitamos algunos datos adicionales sobre lo que indicaste.';
+    setTimeout(function(){
+      document.getElementById('celebration').style.display='none';
+      document.getElementById('wizard').style.display='block';
+      document.getElementById('wizard-nav').style.display='flex';
+      fase='gi';
+      renderGIQuestion();
+    },1500);
+    return;
+  }
+  completarGI();
+}
+
 function completarGI(){
   fase='done_gi';
   document.getElementById('wizard').style.display='none';
   document.getElementById('wizard-nav').style.display='none';
   document.getElementById('celebration').style.display='block';
-  document.getElementById('cel-text').textContent='Guia I completada';
+  document.getElementById('cel-text').textContent='Primera parte completada';
   document.getElementById('cel-sub').textContent='Continuamos con el cuestionario de riesgo psicosocial...';
   setTimeout(function(){
     document.getElementById('celebration').style.display='none';
-    iniciarFRP();
+    iniciarFiltros();
   },1500);
 }
 
-// ===== GUIA II/III (FRP Wizard) =====
+/* ============================================================
+   PREGUNTAS FILTRO (comunes a Guia II y Guia III)
+   La Norma condiciona dos bloques de items:
+     - "Cargas psicologicas emocionales" solo aplica a quien
+       brinda servicio a clientes o usuarios.
+     - "Deficiente relacion con los colaboradores que supervisa"
+       solo aplica a quien es jefe de otros trabajadores.
+   Antes se pintaba solo un badge informativo y se preguntaba a
+   todos, metiendo ruido a esos dominios. Ahora se pregunta el
+   filtro y los items no aplicables se excluyen del cuestionario.
+   ============================================================ */
+const FILTROS_DEF=[
+  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, publico en general.'},
+  {key:'jefe',texto:'Soy jefe de otros trabajadores',nota:'Es decir, tienes personas que te reportan directamente.'}
+];
+let filtros={clientes:null,jefe:null},filtroIdx=0,filtrosActivos=[];
+
+/* Detecta a que bloque condicional pertenece un item.
+   Primero por el texto del campo `condicional`; si viene vacio,
+   cae al numero de item segun la guia (46 items en GII, 72 en GIII). */
+function tipoCondicionalItem(it){
+  var c=(it.condicional||'').toString().toLowerCase();
+  if(c){
+    if(c.indexOf('client')!==-1||c.indexOf('usuario')!==-1) return 'clientes';
+    if(c.indexOf('jefe')!==-1||c.indexOf('supervis')!==-1||c.indexOf('colaborador')!==-1) return 'jefe';
+  }
+  var n=parseInt(it.item,10);
+  if(isNaN(n)) return null;
+  var esG3=nom035Data&&nom035Data.tipoCuestionario==='guia3';
+  if(esG3){
+    if(n>=65&&n<=68) return 'clientes';
+    if(n>=69&&n<=72) return 'jefe';
+  }else{
+    if(n>=41&&n<=43) return 'clientes';
+    if(n>=44&&n<=46) return 'jefe';
+  }
+  return null;
+}
+
+function iniciarFiltros(){
+  var items=(nom035Data.cuestionarioFRP&&nom035Data.cuestionarioFRP.items)||[];
+  // Solo se pregunta el filtro si el cuestionario realmente trae items de ese bloque
+  filtrosActivos=FILTROS_DEF.filter(function(f){
+    return items.some(function(it){return tipoCondicionalItem(it)===f.key});
+  });
+  if(!filtrosActivos.length){iniciarFRP();return}
+  filtros={clientes:null,jefe:null};filtroIdx=0;fase='filtros';
+  document.getElementById('celebration').style.display='none';
+  document.getElementById('wizard').style.display='block';
+  document.getElementById('wizard-nav').style.display='flex';
+  renderFiltro();
+}
+
+function renderFiltro(){
+  if(filtroIdx>=filtrosActivos.length){iniciarFRP();return}
+  var f=filtrosActivos[filtroIdx];
+  updateProgress(filtroIdx,filtrosActivos.length);
+  document.getElementById('wiz-cat').textContent='Sobre tu puesto';
+  document.getElementById('wiz-catprog').textContent='Pregunta '+(filtroIdx+1)+' de '+filtrosActivos.length;
+  var card=document.getElementById('wizard-card');
+  card.className='wizard-card slide-left';
+  var actual=filtros[f.key];
+  card.innerHTML='<p class="wizard-q"><span class="q-num">Antes de continuar</span>'+f.texto
+    +'<span class="q-nota">'+f.nota+'</span></p>'
+    +'<div class="wizard-opts">'
+    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>Si</div>'
+    +'<div class="wizard-opt'+(actual===false?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',false)"><span class="opt-check"></span>No</div>'
+    +'</div>';
+  document.getElementById('nav-counter').textContent=(filtroIdx+1)+' / '+filtrosActivos.length;
+  document.getElementById('btn-prev').style.visibility=filtroIdx>0?'visible':'hidden';
+}
+
+function selectFiltro(key,val){
+  filtros[key]=val;
+  setTimeout(function(){filtroIdx++;renderFiltro()},250);
+}
+
+/* ============================================================
+   GUIA II / III â€” Factores de riesgo psicosocial
+   ============================================================ */
 function iniciarFRP(){
-  const cuest=nom035Data.cuestionarioFRP;
-  allItems=cuest.items||[];
-  // Build category groups
+  const cuest=nom035Data.cuestionarioFRP||{};
+  var todos=cuest.items||[];
+  // Excluye los items condicionales que no aplican al trabajador
+  allItems=todos.filter(function(it){
+    var t=tipoCondicionalItem(it);
+    if(!t) return true;
+    return filtros[t]===true;
+  });
   catMap={};categories=[];
   allItems.forEach(function(it,idx){
     var cat=it.categoria||'General';
@@ -247,8 +367,10 @@ function iniciarFRP(){
   respuestas={};currentIdx=0;fase='frp';
   document.getElementById('celebration').style.display='none';
   document.getElementById('wizard').style.display='block';
+  document.getElementById('wizard-nav').style.display='flex';
   renderFRPQuestion();
 }
+
 function renderFRPQuestion(){
   if(currentIdx>=allItems.length){enviarResultados();return}
   const it=allItems[currentIdx];
@@ -261,7 +383,6 @@ function renderFRPQuestion(){
   const card=document.getElementById('wizard-card');
   card.className='wizard-card slide-left';
   var html='<p class="wizard-q"><span class="q-num">'+(currentIdx+1)+' de '+allItems.length+'</span>';
-  if(it.condicional) html+='<span class="cond-badge"><i class="fas fa-info-circle"></i> '+it.condicional+'</span><br>';
   html+=it.pregunta+'</p><div class="wizard-opts">';
   var opciones=['Siempre','Casi siempre','Algunas veces','Casi nunca','Nunca'];
   opciones.forEach(function(op,idx){
@@ -273,6 +394,7 @@ function renderFRPQuestion(){
   document.getElementById('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
   document.getElementById('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
 }
+
 function selectFRP(val){
   respuestas[currentIdx]=val;
   var nextIdx=currentIdx+1;
@@ -282,12 +404,16 @@ function selectFRP(val){
   }
   var currentCat=allItems[currentIdx].categoria;
   var nextCat=allItems[nextIdx].categoria;
-  if(currentCat!==nextCat){
+  // Los items de una misma categoria no siempre son contiguos (p. ej.
+  // "Factores propios de la actividad" reaparece en los items 41-43).
+  // Solo se celebra cuando ya NO quedan items pendientes de esa categoria.
+  var quedan=allItems.slice(nextIdx).some(function(x){return (x.categoria||'General')===currentCat});
+  if(currentCat!==nextCat && !quedan){
     currentIdx=nextIdx;
     document.getElementById('wizard').style.display='none';
     document.getElementById('wizard-nav').style.display='none';
     document.getElementById('celebration').style.display='block';
-    document.getElementById('cel-text').textContent='¡'+currentCat+' completada!';
+    document.getElementById('cel-text').textContent='\u00a1'+currentCat+' completada!';
     document.getElementById('cel-sub').textContent='Siguiente: '+nextCat;
     setTimeout(function(){
       document.getElementById('celebration').style.display='none';
@@ -299,85 +425,93 @@ function selectFRP(val){
     setTimeout(function(){currentIdx=nextIdx;renderFRPQuestion()},250);
   }
 }
+
 function prevQuestion(){
   if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
-  else if(fase==='frp'&&currentIdx>0){currentIdx--;const card=document.getElementById('wizard-card');card.className='wizard-card slide-right';setTimeout(renderFRPQuestion,50)}
+  else if(fase==='filtros'&&filtroIdx>0){filtroIdx--;renderFiltro()}
+  else if(fase==='frp'&&currentIdx>0){
+    currentIdx--;
+    const card=document.getElementById('wizard-card');
+    card.className='wizard-card slide-right';
+    setTimeout(renderFRPQuestion,50);
+  }
 }
 
-// ===== Progress & Time =====
+/* ===== Progreso y tiempo estimado ===== */
 function updateProgress(current,total){
-  const pct=Math.round(current/total*100);
+  const pct=total?Math.round(current/total*100):0;
   document.getElementById('prog-fill').style.width=pct+'%';
   document.getElementById('prog-pct').textContent=pct+'%';
   document.getElementById('prog-label').textContent=current+' / '+total;
   const remaining=total-current;
-  const mins=Math.ceil(remaining*5/60);// ~5 sec per question
+  const mins=Math.max(1,Math.ceil(remaining*5/60));
   document.getElementById('hdr-time').textContent='\u23f1 ~'+mins+' min';
 }
 
-// ===== Celebration =====
-function showCelebration(text,sub,callback){
-  document.getElementById('wizard').style.display='none';
-  const cel=document.getElementById('celebration');
-  document.getElementById('cel-text').textContent=text;
-  document.getElementById('cel-sub').textContent=sub;
-  cel.style.display='block';
-  setTimeout(function(){cel.style.display='none';document.getElementById('wizard').style.display='block';if(callback)callback()},1500);
-}
-
-// ===== Submit =====
+/* ===== Envio ===== */
 async function enviarResultados(){
   document.getElementById('wizard').style.display='none';
   document.getElementById('wizard-nav').style.display='none';
   document.getElementById('hdr-progress').style.display='none';
   document.getElementById('hdr-time').style.display='none';
-  // Build FRP payload
   var itemsFRP=[];
   allItems.forEach(function(it,idx){
     if(respuestas[idx]!==undefined){
       itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,direccion:it.direccion,respuesta:respuestas[idx]});
     }
   });
-  // Show loading
   const suc=document.getElementById('success-screen');
   suc.style.display='block';
   suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>Calculando resultados...</h2><p>Espera un momento</p>';
   try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{idInterno:empleadoId,tipoCuestionario:nom035Data.tipoCuestionario,activosGrupo:nom035Data.activosGrupo,respuestasGI:gi_resp,respuestasFRP:itemsFRP}})});
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{
+      idInterno:empleadoId,
+      tipoCuestionario:nom035Data.tipoCuestionario,
+      activosGrupo:nom035Data.activosGrupo,
+      respuestasGI:gi_resp,
+      respuestasFRP:itemsFRP,
+      filtros:filtros,
+      itemsAplicables:allItems.length
+    }})});
     const d=await r.json();
     if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-times"></i></div><h2>Error</h2><p>'+(d.message||'Intenta de nuevo')+'</p>';
+    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>No se pudo guardar</h2><p>'+(d.message||'Intenta de nuevo mas tarde.')+'</p>';
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-wifi"></i></div><h2>Error de conexion</h2><p>Verifica tu internet e intenta de nuevo.</p>';
+    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>Error de conexion</h2><p>Revisa tu conexion e intenta de nuevo.</p>';
   }
 }
-function mostrarResultado(data){
-  const rFRP=data.resultadoFRP||{};
-  const rGI=data.resultadoGI||{};
-  const colores=nom035Data.colores||{};
-  const color=colores[rFRP.nivelTotal]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
-  var html='<div class="s-icon"><i class="fas fa-check"></i></div>';
-  html+='<h2>Evaluacion completada</h2>';
-  html+='<p>Tus respuestas han sido registradas de forma confidencial.</p>';
-  html+='<div class="result-card">';
-  html+='<div class="rc-level" style="background:'+color.bg+';color:'+color.text+'">';
-  html+='<p>Nivel de riesgo</p><p>'+rFRP.nivelTotal+'</p></div>';
-  if(rGI.requiereValoracion){
-    html+='<div class="rc-gi" style="background:#fef2f2;color:#991b1b"><i class="fas fa-exclamation-triangle"></i> Guia I: Requiere valoracion clinica</div>';
-  }else{
-    html+='<div class="rc-gi" style="background:#f0fdf4;color:#166534"><i class="fas fa-check-circle"></i> Guia I: Sin hallazgos</div>';
+
+function mostrarResultado(d){
+  const suc=document.getElementById('success-screen');
+  var frp=d.resultadoFRP||{},gi=d.resultadoGI||{};
+  var col=frp.colorTotal||{};
+  var html='<div class="s-icon"><i class="fas fa-check"></i></div>'
+    +'<h2>Gracias por participar</h2>'
+    +'<p>Tus respuestas quedaron registradas de forma confidencial.</p>'
+    +'<div class="result-card">'
+    +'<div class="rc-level" style="background:'+(col.bg||'#f1f5f9')+';color:'+(col.text||'#334155')+'">'
+    +'<p>Nivel de riesgo</p><p>'+(frp.nivelTotal||'Sin dato')+'</p></div>';
+  if(gi.requiereValoracion){
+    html+='<div class="rc-gi" style="background:#fef3c7;color:#92400e">'
+      +'<i class="fas fa-user-doctor"></i> El area de salud ocupacional te contactara para una valoracion.</div>';
   }
-  var doms=rFRP.dominios||{};
-  if(Object.keys(doms).length){
+  if(filtros.clientes===false||filtros.jefe===false){
+    html+='<div class="rc-gi" style="background:#f1f5f9;color:#475569">'
+      +'<i class="fas fa-filter"></i> Se omitieron preguntas que no aplican a tu puesto.</div>';
+  }
+  var doms=frp.dominios||{};
+  var keys=Object.keys(doms);
+  if(keys.length){
     html+='<div class="rc-domains">';
-    Object.keys(doms).forEach(function(d){
-      var dv=doms[d];var dc=colores[dv.nivel]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
-      html+='<div class="rc-dom" style="background:'+dc.bg+'"><span class="dot" style="background:'+dc.hex+'"></span><span style="flex:1;color:'+dc.text+'">'+d+'</span><span style="font-weight:700;color:'+dc.text+'">'+dv.nivel+'</span></div>';
+    keys.forEach(function(k){
+      var dv=doms[k]||{},c=dv.color||{};
+      html+='<div class="rc-dom" style="background:'+(c.bg||'#f8fafc')+';color:'+(c.text||'#475569')+'">'
+        +'<span class="dot" style="background:'+(c.hex||'#94a3b8')+'"></span>'+k+' \u2014 '+(dv.nivel||'')+'</div>';
     });
     html+='</div>';
   }
   html+='</div>';
-  document.getElementById('success-screen').innerHTML=html;
+  suc.innerHTML=html;
 }
 </script>
 </body>
