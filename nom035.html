@@ -17,6 +17,7 @@
 html{scroll-behavior:smooth}
 body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;min-height:100dvh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 50% at 10% 0%,rgba(124,58,237,.06),transparent 50%),radial-gradient(ellipse 50% 60% at 90% 100%,rgba(168,85,247,.04),transparent 50%)}
+
 /* Header */
 .hdr{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(13,27,62,.97);backdrop-filter:blur(12px);padding:12px 16px;display:flex;align-items:center;gap:12px}
 .hdr-brand{display:flex;align-items:center;gap:8px;flex-shrink:0}
@@ -30,8 +31,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .hdr-prog-bar{height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
 .hdr-prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#7c3aed,#a855f7);transition:width .4s var(--ease-out)}
 .hdr-time{font-size:.65rem;color:rgba(255,255,255,.4);white-space:nowrap}
+
 /* Main container */
 .app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:72px 16px 80px}
+
 /* ID Screen */
 .id-card{background:var(--white);border-radius:20px;box-shadow:0 8px 40px rgba(124,58,237,.1);padding:32px 24px;max-width:420px;width:100%;text-align:center;animation:fadeUp .4s var(--ease-out) both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -47,6 +50,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .btn-primary{width:100%;background:linear-gradient(135deg,var(--violet),var(--violet2));color:#fff;font-weight:700;font-size:.9rem;border:none;border-radius:10px;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(124,58,237,.25);transition:transform .15s}
 .btn-primary:hover{transform:translateY(-1px)}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
 /* Wizard Card */
 .wizard{display:none;width:100%;max-width:500px}
 .wizard-meta{text-align:center;margin-bottom:16px;animation:fadeUp .3s var(--ease-out) both}
@@ -59,8 +63,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 @keyframes slideRight{from{opacity:0;transform:translateX(-40px)}to{opacity:1;transform:translateX(0)}}
 .wizard-q{font-size:1rem;font-weight:600;color:var(--ink);line-height:1.5;margin-bottom:20px;flex-shrink:0}
 .wizard-q .q-num{font-size:.68rem;font-weight:700;color:#94a3b8;display:block;margin-bottom:6px}
-/* Enunciado que encabeza una sección (texto oficial del DOF) */
-.q-preamble{display:block;font-size:.82rem;font-weight:500;color:#64748b;line-height:1.55;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f1f0f5}
 .wizard-opts{display:flex;flex-direction:column;gap:8px;flex:1}
 .wizard-opt{display:flex;align-items:center;min-height:52px;padding:14px 18px;border:2px solid #e8e5f0;border-radius:12px;cursor:pointer;font-size:.9rem;font-weight:500;color:#475569;transition:all .2s var(--ease-out);-webkit-tap-highlight-color:transparent;user-select:none}
 .wizard-opt:hover{border-color:#c4b5fd;background:#faf8ff}
@@ -69,23 +71,28 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .wizard-opt .opt-check{width:20px;height:20px;border-radius:50%;border:2px solid #d4d0e0;margin-right:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s}
 .wizard-opt.selected .opt-check{border-color:var(--violet);background:var(--violet)}
 .wizard-opt.selected .opt-check::after{content:'';width:8px;height:8px;border-radius:50%;background:#fff}
-/* Nota de contexto en preguntas filtro */
-.q-nota{display:block;font-size:.72rem;font-weight:500;color:#94a3b8;line-height:1.5;margin-top:8px}
+
+/* Condicional badge */
+.cond-badge{display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#92400e;font-size:.65rem;font-weight:700;border-radius:6px;padding:3px 8px;margin-bottom:10px}
+
 /* Bottom nav */
 .wizard-nav{position:fixed;bottom:0;left:0;right:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-top:1px solid #f1f0f5;padding:12px 20px;display:none;align-items:center;justify-content:space-between}
 .btn-back{font-size:.78rem;color:#94a3b8;background:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;transition:color .2s}
 .btn-back:hover{color:var(--violet)}
 .nav-counter{font-size:.72rem;color:#94a3b8}
+
 /* Category celebration */
 .celebration{display:none;text-align:center;padding:40px 20px;animation:fadeUp .4s var(--ease-out) both}
 .celebration .cel-icon{font-size:3rem;margin-bottom:12px}
 .celebration .cel-text{font-size:1.1rem;font-weight:700;color:var(--ink)}
 .celebration .cel-sub{font-size:.82rem;color:#64748b;margin-top:4px}
+
 /* Success screen */
 .success{display:none;text-align:center;padding:40px 20px;max-width:420px;animation:fadeUp .5s var(--ease-out) both}
 .success .s-icon{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:2rem;color:#fff;box-shadow:0 8px 24px rgba(16,185,129,.3)}
 .success h2{font-size:1.4rem;font-weight:800;margin-bottom:8px}
 .success p{font-size:.88rem;color:#64748b;line-height:1.5}
+
 /* Result card in success */
 .result-card{margin-top:20px;background:var(--white);border-radius:14px;padding:20px;box-shadow:0 4px 16px rgba(0,0,0,.06);text-align:left}
 .result-card .rc-level{text-align:center;padding:12px;border-radius:10px;margin-bottom:14px}
@@ -95,6 +102,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .result-card .rc-domains{display:flex;flex-direction:column;gap:4px}
 .result-card .rc-dom{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:.75rem}
 .result-card .rc-dom .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
 @media(max-width:480px){
   .app{padding:64px 12px 72px}
   .wizard-card{padding:22px 18px;min-height:280px}
@@ -104,6 +112,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 </style>
 </head>
 <body>
+
 <header class="hdr">
   <div class="hdr-brand"><img src="icon.png" alt=""><span>RRHH <em>Prisma</em></span></div>
   <div class="hdr-progress" id="hdr-progress" style="display:none">
@@ -112,31 +121,37 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
   </div>
   <span class="hdr-time" id="hdr-time" style="display:none"></span>
 </header>
+
 <div class="app" id="app">
   <!-- ID Screen -->
   <div class="id-card" id="id-screen">
     <img src="icon.png" alt="Prisma">
     <h1 id="enc-titulo">NOM-035</h1>
-    <p id="enc-desc">Evaluación de factores de riesgo psicosocial. Confidencial.</p>
+    <p id="enc-desc">Evaluacion de factores de riesgo psicosocial. Confidencial.</p>
     <div class="err-box" id="err-box"><i class="fas fa-exclamation-circle"></i><span id="err-msg"></span></div>
-    <div class="field"><label>Número de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
+    <div class="field"><label>Numero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
     <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
     <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
   </div>
+
   <!-- Wizard -->
   <div class="wizard" id="wizard">
     <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
     <div class="wizard-card" id="wizard-card"></div>
   </div>
+
   <!-- Category celebration -->
-  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Sección completada</p><p class="cel-sub" id="cel-sub"></p></div>
+  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Seccion completada</p><p class="cel-sub" id="cel-sub"></p></div>
+
   <!-- Success -->
   <div class="success" id="success-screen"></div>
 </div>
+
 <div class="wizard-nav" id="wizard-nav">
   <button class="btn-back" id="btn-prev" onclick="prevQuestion()"><i class="fas fa-chevron-left"></i> Anterior</button>
   <span class="nav-counter" id="nav-counter"></span>
 </div>
+
 <script>
 const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
 const params=new URLSearchParams(location.search);
@@ -144,7 +159,6 @@ let empleadoId='',empleadoNombre='',empleadoEmpresa='';
 let nom035Data=null,allItems=[],respuestas={},currentIdx=0,fase='id';
 let categories=[],catMap={};
 
-function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function showErr(msg){const b=document.getElementById('err-box');b.classList.add('show');document.getElementById('err-msg').textContent=msg}
 function hideErr(){document.getElementById('err-box').classList.remove('show')}
 
@@ -152,7 +166,7 @@ async function iniciarEncuesta(){
   hideErr();
   const noemp=document.getElementById('inp-noemp').value.trim();
   const nombre=document.getElementById('inp-nombre').value.trim();
-  if(!noemp){showErr('Ingresa tu número de empleado.');return}
+  if(!noemp){showErr('Ingresa tu numero de empleado.');return}
   if(!nombre){showErr('Ingresa tu nombre completo.');return}
   empleadoNombre=nombre;
   const btn=document.getElementById('btn-iniciar');
@@ -170,199 +184,60 @@ async function iniciarEncuesta(){
     if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
     nom035Data=d2;
     iniciarGuiaI(d2.guia1);
-  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexión.')}
+  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexion.')}
 }
 
-/* ============================================================
-   GUIA I — Acontecimientos traumáticos severos (Sí/No)
-   RAMIFICACION OFICIAL (NOM-035, Guía de Referencia I, GR.I):
-   Se aplica primero SOLO la Sección I. Si todas las respuestas
-   son "No", el cuestionario TERMINA ahí y no se muestran las
-   Secciones II, III y IV. Solo si hay al menos un "Sí" se
-   aplican las secciones restantes.
-   Cada tarjeta muestra el enunciado oficial de la sección
-   (campo `instruccion`) arriba de la pregunta.
-   ============================================================ */
-let gi_secciones=[],gi_items=[],gi_resp={},gi_idx=0,gi_bloque='sec1';
-
-function _giConstruirItems(soloSeccion1){
-  var arr=[];
-  gi_secciones.forEach(function(sec,si){
-    if(soloSeccion1 && si!==0) return;
-    if(!soloSeccion1 && si===0) return;
-    (sec.preguntas||[]).forEach(function(p,pi){
-      arr.push({
-        id:p.id,
-        texto:p.texto,
-        seccion:sec.titulo,
-        // El enunciado solo se repite en la primera pregunta de cada sección
-        instruccion:(pi===0? (sec.instruccion||'') : '')
-      });
-    });
-  });
-  return arr;
-}
-
+// ===== GUIA I (Si/No Wizard) =====
+let gi_items=[],gi_resp={},gi_idx=0;
 function iniciarGuiaI(guia1){
   document.getElementById('id-screen').style.display='none';
-  gi_secciones=(guia1&&guia1.secciones)?guia1.secciones:[];
-  gi_resp={};gi_idx=0;gi_bloque='sec1';fase='gi';
-  gi_items=_giConstruirItems(true);
+  gi_items=[];
+  guia1.secciones.forEach(function(sec){sec.preguntas.forEach(function(p){gi_items.push({id:p.id,texto:p.texto,seccion:sec.titulo})})});
+  gi_resp={};gi_idx=0;fase='gi';
   document.getElementById('wizard').style.display='block';
   document.getElementById('wizard-nav').style.display='flex';
   document.getElementById('hdr-progress').style.display='block';
   document.getElementById('hdr-time').style.display='block';
   renderGIQuestion();
 }
-
 function renderGIQuestion(){
-  if(gi_idx>=gi_items.length){cerrarBloqueGI();return}
+  if(gi_idx>=gi_items.length){completarGI();return}
   const it=gi_items[gi_idx];
   updateProgress(gi_idx,gi_items.length);
   document.getElementById('wiz-cat').textContent=it.seccion;
   document.getElementById('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
   const card=document.getElementById('wizard-card');
   card.className='wizard-card slide-left';
-  var html='<p class="wizard-q"><span class="q-num">Guía I — Pregunta '+(gi_idx+1)+'</span>';
-  if(it.instruccion) html+='<span class="q-preamble">'+esc(it.instruccion)+'</span>';
-  html+=esc(it.texto)+'</p>'
+  card.innerHTML='<p class="wizard-q"><span class="q-num">Guia I — Pregunta '+(gi_idx+1)+'</span>'+it.texto+'</p>'
     +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Sí</div>'
+    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Si</div>'
     +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
     +'</div>';
-  card.innerHTML=html;
   document.getElementById('nav-counter').textContent=(gi_idx+1)+' / '+gi_items.length;
   document.getElementById('btn-prev').style.visibility=gi_idx>0?'visible':'hidden';
 }
-
 function selectGI(id,val){
   gi_resp[id]=val;
   setTimeout(function(){gi_idx++;renderGIQuestion()},250);
 }
-
-/* Cierra el bloque actual de Guía I y decide si ramifica */
-function cerrarBloqueGI(){
-  if(gi_bloque==='sec1'){
-    var hubo=false;
-    (gi_secciones[0]&&gi_secciones[0].preguntas||[]).forEach(function(p){
-      if(gi_resp[p.id]==='Si') hubo=true;
-    });
-    if(!hubo){completarGI();return}
-    gi_bloque='resto';
-    gi_items=_giConstruirItems(false);
-    gi_idx=0;
-    fase='gi_transicion';
-    document.getElementById('wizard').style.display='none';
-    document.getElementById('wizard-nav').style.display='none';
-    document.getElementById('celebration').style.display='block';
-    document.getElementById('cel-text').textContent='Unas preguntas más';
-    document.getElementById('cel-sub').textContent='Necesitamos algunos datos adicionales sobre lo que indicaste.';
-    setTimeout(function(){
-      document.getElementById('celebration').style.display='none';
-      document.getElementById('wizard').style.display='block';
-      document.getElementById('wizard-nav').style.display='flex';
-      fase='gi';
-      renderGIQuestion();
-    },1500);
-    return;
-  }
-  completarGI();
-}
-
 function completarGI(){
   fase='done_gi';
   document.getElementById('wizard').style.display='none';
   document.getElementById('wizard-nav').style.display='none';
   document.getElementById('celebration').style.display='block';
-  document.getElementById('cel-text').textContent='Primera parte completada';
+  document.getElementById('cel-text').textContent='Guia I completada';
   document.getElementById('cel-sub').textContent='Continuamos con el cuestionario de riesgo psicosocial...';
   setTimeout(function(){
     document.getElementById('celebration').style.display='none';
-    iniciarFiltros();
+    iniciarFRP();
   },1500);
 }
 
-/* ============================================================
-   PREGUNTAS FILTRO (comunes a Guía II y Guía III)
-   La Norma condiciona dos bloques de ítems:
-     - "Cargas psicológicas emocionales" solo aplica a quien
-       brinda servicio a clientes o usuarios.
-     - "Deficiente relación con los colaboradores que supervisa"
-       solo aplica a quien es jefe de otros trabajadores.
-   ============================================================ */
-const FILTROS_DEF=[
-  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, público en general.'},
-  {key:'jefe',texto:'Soy jefe de otros trabajadores',nota:'Es decir, tienes personas que te reportan directamente.'}
-];
-let filtros={clientes:null,jefe:null},filtroIdx=0,filtrosActivos=[];
-
-function tipoCondicionalItem(it){
-  var c=(it.condicional||'').toString().toLowerCase();
-  if(c){
-    if(c.indexOf('client')!==-1||c.indexOf('usuario')!==-1) return 'clientes';
-    if(c.indexOf('jefe')!==-1||c.indexOf('supervis')!==-1||c.indexOf('colaborador')!==-1) return 'jefe';
-  }
-  var n=parseInt(it.item,10);
-  if(isNaN(n)) return null;
-  var esG3=nom035Data&&nom035Data.tipoCuestionario==='guia3';
-  if(esG3){
-    if(n>=65&&n<=68) return 'clientes';
-    if(n>=69&&n<=72) return 'jefe';
-  }else{
-    if(n>=41&&n<=43) return 'clientes';
-    if(n>=44&&n<=46) return 'jefe';
-  }
-  return null;
-}
-
-function iniciarFiltros(){
-  var items=(nom035Data.cuestionarioFRP&&nom035Data.cuestionarioFRP.items)||[];
-  filtrosActivos=FILTROS_DEF.filter(function(f){
-    return items.some(function(it){return tipoCondicionalItem(it)===f.key});
-  });
-  if(!filtrosActivos.length){iniciarFRP();return}
-  filtros={clientes:null,jefe:null};filtroIdx=0;fase='filtros';
-  document.getElementById('celebration').style.display='none';
-  document.getElementById('wizard').style.display='block';
-  document.getElementById('wizard-nav').style.display='flex';
-  renderFiltro();
-}
-
-function renderFiltro(){
-  if(filtroIdx>=filtrosActivos.length){iniciarFRP();return}
-  var f=filtrosActivos[filtroIdx];
-  updateProgress(filtroIdx,filtrosActivos.length);
-  document.getElementById('wiz-cat').textContent='Sobre tu puesto';
-  document.getElementById('wiz-catprog').textContent='Pregunta '+(filtroIdx+1)+' de '+filtrosActivos.length;
-  var card=document.getElementById('wizard-card');
-  card.className='wizard-card slide-left';
-  var actual=filtros[f.key];
-  card.innerHTML='<p class="wizard-q"><span class="q-num">Antes de continuar</span>'+esc(f.texto)
-    +'<span class="q-nota">'+esc(f.nota)+'</span></p>'
-    +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>Sí</div>'
-    +'<div class="wizard-opt'+(actual===false?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',false)"><span class="opt-check"></span>No</div>'
-    +'</div>';
-  document.getElementById('nav-counter').textContent=(filtroIdx+1)+' / '+filtrosActivos.length;
-  document.getElementById('btn-prev').style.visibility=filtroIdx>0?'visible':'hidden';
-}
-
-function selectFiltro(key,val){
-  filtros[key]=val;
-  setTimeout(function(){filtroIdx++;renderFiltro()},250);
-}
-
-/* ============================================================
-   GUIA II / III — Factores de riesgo psicosocial
-   ============================================================ */
+// ===== GUIA II/III (FRP Wizard) =====
 function iniciarFRP(){
-  const cuest=nom035Data.cuestionarioFRP||{};
-  var todos=cuest.items||[];
-  allItems=todos.filter(function(it){
-    var t=tipoCondicionalItem(it);
-    if(!t) return true;
-    return filtros[t]===true;
-  });
+  const cuest=nom035Data.cuestionarioFRP;
+  allItems=cuest.items||[];
+  // Build category groups
   catMap={};categories=[];
   allItems.forEach(function(it,idx){
     var cat=it.categoria||'General';
@@ -372,10 +247,8 @@ function iniciarFRP(){
   respuestas={};currentIdx=0;fase='frp';
   document.getElementById('celebration').style.display='none';
   document.getElementById('wizard').style.display='block';
-  document.getElementById('wizard-nav').style.display='flex';
   renderFRPQuestion();
 }
-
 function renderFRPQuestion(){
   if(currentIdx>=allItems.length){enviarResultados();return}
   const it=allItems[currentIdx];
@@ -388,7 +261,8 @@ function renderFRPQuestion(){
   const card=document.getElementById('wizard-card');
   card.className='wizard-card slide-left';
   var html='<p class="wizard-q"><span class="q-num">'+(currentIdx+1)+' de '+allItems.length+'</span>';
-  html+=esc(it.pregunta)+'</p><div class="wizard-opts">';
+  if(it.condicional) html+='<span class="cond-badge"><i class="fas fa-info-circle"></i> '+it.condicional+'</span><br>';
+  html+=it.pregunta+'</p><div class="wizard-opts">';
   var opciones=['Siempre','Casi siempre','Algunas veces','Casi nunca','Nunca'];
   opciones.forEach(function(op,idx){
     var sel=respuestas[currentIdx]===idx?' selected':'';
@@ -399,7 +273,6 @@ function renderFRPQuestion(){
   document.getElementById('nav-counter').textContent=(currentIdx+1)+' / '+allItems.length;
   document.getElementById('btn-prev').style.visibility=currentIdx>0?'visible':'hidden';
 }
-
 function selectFRP(val){
   respuestas[currentIdx]=val;
   var nextIdx=currentIdx+1;
@@ -409,15 +282,12 @@ function selectFRP(val){
   }
   var currentCat=allItems[currentIdx].categoria;
   var nextCat=allItems[nextIdx].categoria;
-  // Los ítems de una misma categoría no siempre son contiguos.
-  // Solo se celebra cuando ya no quedan ítems pendientes de esa categoría.
-  var quedan=allItems.slice(nextIdx).some(function(x){return (x.categoria||'General')===currentCat});
-  if(currentCat!==nextCat && !quedan){
+  if(currentCat!==nextCat){
     currentIdx=nextIdx;
     document.getElementById('wizard').style.display='none';
     document.getElementById('wizard-nav').style.display='none';
     document.getElementById('celebration').style.display='block';
-    document.getElementById('cel-text').textContent='\u00a1'+currentCat+' completada!';
+    document.getElementById('cel-text').textContent='¡'+currentCat+' completada!';
     document.getElementById('cel-sub').textContent='Siguiente: '+nextCat;
     setTimeout(function(){
       document.getElementById('celebration').style.display='none';
@@ -429,93 +299,85 @@ function selectFRP(val){
     setTimeout(function(){currentIdx=nextIdx;renderFRPQuestion()},250);
   }
 }
-
 function prevQuestion(){
   if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
-  else if(fase==='filtros'&&filtroIdx>0){filtroIdx--;renderFiltro()}
-  else if(fase==='frp'&&currentIdx>0){
-    currentIdx--;
-    const card=document.getElementById('wizard-card');
-    card.className='wizard-card slide-right';
-    setTimeout(renderFRPQuestion,50);
-  }
+  else if(fase==='frp'&&currentIdx>0){currentIdx--;const card=document.getElementById('wizard-card');card.className='wizard-card slide-right';setTimeout(renderFRPQuestion,50)}
 }
 
-/* ===== Progreso y tiempo estimado ===== */
+// ===== Progress & Time =====
 function updateProgress(current,total){
-  const pct=total?Math.round(current/total*100):0;
+  const pct=Math.round(current/total*100);
   document.getElementById('prog-fill').style.width=pct+'%';
   document.getElementById('prog-pct').textContent=pct+'%';
   document.getElementById('prog-label').textContent=current+' / '+total;
   const remaining=total-current;
-  const mins=Math.max(1,Math.ceil(remaining*5/60));
+  const mins=Math.ceil(remaining*5/60);// ~5 sec per question
   document.getElementById('hdr-time').textContent='\u23f1 ~'+mins+' min';
 }
 
-/* ===== Envío ===== */
+// ===== Celebration =====
+function showCelebration(text,sub,callback){
+  document.getElementById('wizard').style.display='none';
+  const cel=document.getElementById('celebration');
+  document.getElementById('cel-text').textContent=text;
+  document.getElementById('cel-sub').textContent=sub;
+  cel.style.display='block';
+  setTimeout(function(){cel.style.display='none';document.getElementById('wizard').style.display='block';if(callback)callback()},1500);
+}
+
+// ===== Submit =====
 async function enviarResultados(){
   document.getElementById('wizard').style.display='none';
   document.getElementById('wizard-nav').style.display='none';
   document.getElementById('hdr-progress').style.display='none';
   document.getElementById('hdr-time').style.display='none';
+  // Build FRP payload
   var itemsFRP=[];
   allItems.forEach(function(it,idx){
     if(respuestas[idx]!==undefined){
       itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,direccion:it.direccion,respuesta:respuestas[idx]});
     }
   });
+  // Show loading
   const suc=document.getElementById('success-screen');
   suc.style.display='block';
   suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>Calculando resultados...</h2><p>Espera un momento</p>';
   try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{
-      idInterno:empleadoId,
-      tipoCuestionario:nom035Data.tipoCuestionario,
-      activosGrupo:nom035Data.activosGrupo,
-      respuestasGI:gi_resp,
-      respuestasFRP:itemsFRP,
-      filtros:filtros,
-      itemsAplicables:allItems.length
-    }})});
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{idInterno:empleadoId,tipoCuestionario:nom035Data.tipoCuestionario,activosGrupo:nom035Data.activosGrupo,respuestasGI:gi_resp,respuestasFRP:itemsFRP}})});
     const d=await r.json();
     if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>No se pudo guardar</h2><p>'+esc(d.message||'Intenta de nuevo más tarde.')+'</p>';
+    else suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-times"></i></div><h2>Error</h2><p>'+(d.message||'Intenta de nuevo')+'</p>';
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>Error de conexión</h2><p>Revisa tu conexión e intenta de nuevo.</p>';
+    suc.innerHTML='<div class="s-icon" style="background:#ef4444"><i class="fas fa-wifi"></i></div><h2>Error de conexion</h2><p>Verifica tu internet e intenta de nuevo.</p>';
   }
 }
-
-function mostrarResultado(d){
-  const suc=document.getElementById('success-screen');
-  var frp=d.resultadoFRP||{},gi=d.resultadoGI||{};
-  var col=frp.colorTotal||{};
-  var html='<div class="s-icon"><i class="fas fa-check"></i></div>'
-    +'<h2>Gracias por participar</h2>'
-    +'<p>Tus respuestas quedaron registradas de forma confidencial.</p>'
-    +'<div class="result-card">'
-    +'<div class="rc-level" style="background:'+(col.bg||'#f1f5f9')+';color:'+(col.text||'#334155')+'">'
-    +'<p>Nivel de riesgo</p><p>'+(frp.nivelTotal||'Sin dato')+'</p></div>';
-  if(gi.requiereValoracion){
-    html+='<div class="rc-gi" style="background:#fef3c7;color:#92400e">'
-      +'<i class="fas fa-user-doctor"></i> El área de salud ocupacional te contactará para una valoración.</div>';
+function mostrarResultado(data){
+  const rFRP=data.resultadoFRP||{};
+  const rGI=data.resultadoGI||{};
+  const colores=nom035Data.colores||{};
+  const color=colores[rFRP.nivelTotal]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
+  var html='<div class="s-icon"><i class="fas fa-check"></i></div>';
+  html+='<h2>Evaluacion completada</h2>';
+  html+='<p>Tus respuestas han sido registradas de forma confidencial.</p>';
+  html+='<div class="result-card">';
+  html+='<div class="rc-level" style="background:'+color.bg+';color:'+color.text+'">';
+  html+='<p>Nivel de riesgo</p><p>'+rFRP.nivelTotal+'</p></div>';
+  if(rGI.requiereValoracion){
+    html+='<div class="rc-gi" style="background:#fef2f2;color:#991b1b"><i class="fas fa-exclamation-triangle"></i> Guia I: Requiere valoracion clinica</div>';
+  }else{
+    html+='<div class="rc-gi" style="background:#f0fdf4;color:#166534"><i class="fas fa-check-circle"></i> Guia I: Sin hallazgos</div>';
   }
-  if(filtros.clientes===false||filtros.jefe===false){
-    html+='<div class="rc-gi" style="background:#f1f5f9;color:#475569">'
-      +'<i class="fas fa-filter"></i> Se omitieron preguntas que no aplican a tu puesto.</div>';
-  }
-  var doms=frp.dominios||{};
-  var keys=Object.keys(doms);
-  if(keys.length){
+  var doms=rFRP.dominios||{};
+  if(Object.keys(doms).length){
     html+='<div class="rc-domains">';
-    keys.forEach(function(k){
-      var dv=doms[k]||{},c=dv.color||{};
-      html+='<div class="rc-dom" style="background:'+(c.bg||'#f8fafc')+';color:'+(c.text||'#475569')+'">'
-        +'<span class="dot" style="background:'+(c.hex||'#94a3b8')+'"></span>'+esc(k)+' \u2014 '+esc(dv.nivel||'')+'</div>';
+    Object.keys(doms).forEach(function(d){
+      var dv=doms[d];var dc=colores[dv.nivel]||{bg:'#f1f5f9',text:'#475569',hex:'#94a3b8'};
+      html+='<div class="rc-dom" style="background:'+dc.bg+'"><span class="dot" style="background:'+dc.hex+'"></span><span style="flex:1;color:'+dc.text+'">'+d+'</span><span style="font-weight:700;color:'+dc.text+'">'+dv.nivel+'</span></div>';
     });
     html+='</div>';
   }
   html+='</div>';
-  suc.innerHTML=html;
+  document.getElementById('success-screen').innerHTML=html;
 }
 </script>
 </body>
