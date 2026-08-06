@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NOM-035 — RRHH Prisma</title>
+<title>NOM-035 &mdash; RRHH Prisma</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0d1b3e">
 <link rel="icon" href="icon.png">
@@ -23,7 +23,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .hdr-brand img{width:28px;height:28px;border-radius:7px}
 .hdr-brand span{font-size:.8rem;font-weight:800;color:#fff}
 .hdr-brand em{color:#a78bfa;font-style:normal}
-/* Sello de versión: si no lo ves, estás corriendo un archivo viejo en caché */
+/* Sello de version: si no lo ves, estas corriendo un archivo viejo en cache */
 .hdr-ver{font-size:.55rem;font-weight:700;color:rgba(167,139,250,.7);letter-spacing:.08em;border:1px solid rgba(167,139,250,.3);border-radius:4px;padding:1px 5px;flex-shrink:0}
 .hdr-progress{flex:1;max-width:280px}
 .hdr-prog-text{display:flex;justify-content:space-between;margin-bottom:3px}
@@ -76,7 +76,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .btn-back{font-size:.78rem;color:#94a3b8;background:none;border:none;cursor:pointer;padding:8px 12px;border-radius:8px;transition:color .2s}
 .btn-back:hover{color:var(--violet)}
 .nav-counter{font-size:.72rem;color:#94a3b8}
-/* Category celebration */
+/* Celebration */
 .celebration{display:none;text-align:center;padding:40px 20px;animation:fadeUp .4s var(--ease-out) both}
 .celebration .cel-icon{font-size:3rem;margin-bottom:12px}
 .celebration .cel-text{font-size:1.1rem;font-weight:700;color:var(--ink)}
@@ -106,7 +106,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 <body>
 <header class="hdr">
   <div class="hdr-brand"><img src="icon.png" alt=""><span>RRHH <em>Prisma</em></span></div>
-  <span class="hdr-ver" id="hdr-ver">v3</span>
+  <span class="hdr-ver" id="hdr-ver">v4</span>
   <div class="hdr-progress" id="hdr-progress" style="display:none">
     <div class="hdr-prog-text"><span id="prog-label">0 / 0</span><strong id="prog-pct">0%</strong></div>
     <div class="hdr-prog-bar"><div class="hdr-prog-fill" id="prog-fill" style="width:0%"></div></div>
@@ -117,9 +117,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
   <div class="id-card" id="id-screen">
     <img src="icon.png" alt="Prisma">
     <h1 id="enc-titulo">NOM-035</h1>
-    <p id="enc-desc">Evaluación de factores de riesgo psicosocial. Confidencial.</p>
+    <p id="enc-desc">Evaluaci&oacute;n de factores de riesgo psicosocial. Confidencial.</p>
     <div class="err-box" id="err-box"><i class="fas fa-exclamation-circle"></i><span id="err-msg"></span></div>
-    <div class="field"><label>Número de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
+    <div class="field"><label>N&uacute;mero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
     <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
     <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
   </div>
@@ -127,7 +127,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
     <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
     <div class="wizard-card" id="wizard-card"></div>
   </div>
-  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Sección completada</p><p class="cel-sub" id="cel-sub"></p></div>
+  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Secci&oacute;n completada</p><p class="cel-sub" id="cel-sub"></p></div>
   <div class="success" id="success-screen"></div>
 </div>
 <div class="wizard-nav" id="wizard-nav">
@@ -136,21 +136,43 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 </div>
 <script>
 /* =====================================================================
-   NOM-035 Wizard — v3 (2026-08-06)
-   Cambios vs v2:
-     - Candado `bloqueado`: ignora cualquier clic mientras hay una
-       transición o celebración en curso. Era la causa del rebote
-       infinito en las felicitaciones.
-     - Un solo timer global (`timerActivo`) que se cancela antes de
-       agendar uno nuevo. Antes podían solaparse dos setTimeout y
-       pelearse por el mismo índice.
-     - `mostrarPantalla()` centraliza qué se ve; ya no hay tres
-       lugares distintos manipulando display.
-     - Sello de versión visible en el header y en consola.
+   NOM-035 Wizard - v4 (2026-08-06)
+
+   IMPORTANTE SOBRE ACENTOS:
+   Este archivo es 100% ASCII a proposito. Ningun caracter acentuado
+   aparece literalmente: se escriben como \u00XX en JavaScript y como
+   entidades (&oacute;) en el HTML. Asi el archivo se ve bien sin
+   importar con que codificacion lo guarde el editor o que cabecera
+   Content-Type mande el servidor.
+   Los textos de las preguntas vienen del backend por fetch(), y ahi
+   el JSON siempre se decodifica como UTF-8, asi que llegan correctos.
+
+   Cambios vs v3: solo el escapado ASCII. La logica es identica.
    ===================================================================== */
-const APP_VERSION='v3-2026-08-06';
+const APP_VERSION='v4-2026-08-06';
 const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
 console.log('%cNOM-035 wizard '+APP_VERSION,'background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px');
+
+/* Etiquetas con acentos, en escapes unicode */
+const T={
+  si:'S\u00ed',
+  guiaPregunta:'Gu\u00eda I \u2014 Pregunta ',
+  faltaNum:'Ingresa tu n\u00famero de empleado.',
+  faltaNombre:'Ingresa tu nombre completo.',
+  errConexion:'Error de conexi\u00f3n.',
+  antesContinuar:'Antes de continuar',
+  masPreguntas:'Unas preguntas m\u00e1s',
+  masPreguntasSub:'Necesitamos algunos datos adicionales sobre lo que indicaste.',
+  primeraParte:'Primera parte completada',
+  primeraParteSub:'Continuamos con el cuestionario de riesgo psicosocial...',
+  reloj:'\u23f1 ~',
+  noGuardo:'No se pudo guardar',
+  intentaDespues:'Intenta de nuevo m\u00e1s tarde.',
+  errConexionTit:'Error de conexi\u00f3n',
+  errConexionSub:'Revisa tu conexi\u00f3n e intenta de nuevo.',
+  valoracion:'El \u00e1rea de salud ocupacional te contactar\u00e1 para una valoraci\u00f3n.',
+  omitidas:'Se omitieron preguntas que no aplican a tu puesto.'
+};
 
 let empleadoId='',empleadoNombre='',empleadoEmpresa='';
 let nom035Data=null,allItems=[],respuestas={},currentIdx=0,fase='id';
@@ -162,8 +184,8 @@ function $(id){return document.getElementById(id)}
 function showErr(msg){const b=$('err-box');b.classList.add('show');$('err-msg').textContent=msg}
 function hideErr(){$('err-box').classList.remove('show')}
 
-/* Un solo lugar decide qué pantalla se ve. Evita estados imposibles
-   como "celebración visible + barra de navegación visible". */
+/* Un solo lugar decide que pantalla se ve. Evita estados imposibles
+   como "celebracion visible + barra de navegacion visible". */
 function mostrarPantalla(cual){
   $('id-screen').style.display   = (cual==='id')?'block':'none';
   $('wizard').style.display      = (cual==='wizard')?'block':'none';
@@ -172,8 +194,7 @@ function mostrarPantalla(cual){
   $('wizard-nav').style.display  = (cual==='wizard')?'flex':'none';
 }
 
-/* Muestra una celebración y ejecuta `luego` al terminar.
-   Bloquea la interfaz mientras dura: ningún clic puede colarse. */
+/* Celebracion con candado: ningun clic se cuela mientras dura. */
 function celebrar(texto,sub,luego){
   if(timerActivo){clearTimeout(timerActivo);timerActivo=null}
   bloqueado=true;
@@ -181,20 +202,17 @@ function celebrar(texto,sub,luego){
   $('cel-sub').textContent=sub||'';
   mostrarPantalla('celebracion');
   timerActivo=setTimeout(function(){
-    timerActivo=null;
-    bloqueado=false;
+    timerActivo=null;bloqueado=false;
     if(luego)luego();
   },1500);
 }
 
-/* Avance normal entre preguntas, también con candado. */
+/* Avance normal entre preguntas, tambien con candado. */
 function avanzar(luego){
   if(timerActivo){clearTimeout(timerActivo);timerActivo=null}
   bloqueado=true;
   timerActivo=setTimeout(function(){
-    timerActivo=null;
-    bloqueado=false;
-    luego();
+    timerActivo=null;bloqueado=false;luego();
   },250);
 }
 
@@ -202,8 +220,8 @@ async function iniciarEncuesta(){
   hideErr();
   const noemp=$('inp-noemp').value.trim();
   const nombre=$('inp-nombre').value.trim();
-  if(!noemp){showErr('Ingresa tu número de empleado.');return}
-  if(!nombre){showErr('Ingresa tu nombre completo.');return}
+  if(!noemp){showErr(T.faltaNum);return}
+  if(!nombre){showErr(T.faltaNombre);return}
   empleadoNombre=nombre;
   const btn=$('btn-iniciar');
   btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
@@ -219,17 +237,24 @@ async function iniciarEncuesta(){
     const d2=await r2.json();
     if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
     nom035Data=d2;
-    console.log('[NOM035] guía:',d2.tipoCuestionario,'| ítems:',(d2.cuestionarioFRP.items||[]).length,'| activos:',d2.activosGrupo);
-    console.log('[NOM035] ítem 1:',(d2.cuestionarioFRP.items||[])[0]&&d2.cuestionarioFRP.items[0].pregunta);
+    var its=(d2.cuestionarioFRP&&d2.cuestionarioFRP.items)||[];
+    console.log('[NOM035] guia:',d2.tipoCuestionario,'| items:',its.length,'| activos:',d2.activosGrupo);
+    console.log('[NOM035] item 1 del backend:',its[0]&&its[0].pregunta);
+    console.log('[NOM035] GI seccion 1:',d2.guia1&&d2.guia1.secciones[0]&&d2.guia1.secciones[0].titulo);
+    // Semaforo de backend: si el item 1 sigue siendo el texto corto,
+    // el web app de GAS aun sirve la version vieja del deployment.
+    var backendNuevo = its[0] && its[0].pregunta && its[0].pregunta.length > 45;
+    console.log('%c[NOM035] Backend con textos oficiales: '+(backendNuevo?'SI':'NO - falta crear version nueva del deployment en GAS'),
+      'background:'+(backendNuevo?'#059669':'#b91c1c')+';color:#fff;padding:2px 8px;border-radius:4px');
     iniciarGuiaI(d2.guia1);
-  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexión.')}
+  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(T.errConexion)}
 }
 
 /* ============================================================
-   GUÍA I — Acontecimientos traumáticos severos
-   Ramificación oficial (GR.I): se aplica primero SOLO la
-   Sección I. Si todas las respuestas son "No", termina ahí.
-   Solo si hay al menos un "Sí" se aplican II, III y IV.
+   GUIA I - Acontecimientos traumaticos severos
+   Ramificacion oficial (GR.I): se aplica primero SOLO la
+   Seccion I. Si todas las respuestas son "No", termina ahi.
+   Solo si hay al menos un "Si" se aplican II, III y IV.
    ============================================================ */
 let gi_secciones=[],gi_items=[],gi_resp={},gi_idx=0,gi_bloque='sec1';
 
@@ -249,7 +274,7 @@ function iniciarGuiaI(guia1){
   gi_secciones=(guia1&&guia1.secciones)?guia1.secciones:[];
   gi_resp={};gi_idx=0;gi_bloque='sec1';fase='gi';
   gi_items=_giConstruirItems(true);
-  console.log('[NOM035] Guía I — Sección I:',gi_items.length,'preguntas');
+  console.log('[NOM035] Guia I - Seccion I:',gi_items.length,'preguntas');
   $('hdr-progress').style.display='block';
   $('hdr-time').style.display='block';
   mostrarPantalla('wizard');
@@ -264,11 +289,11 @@ function renderGIQuestion(){
   $('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
   const card=$('wizard-card');
   card.className='wizard-card slide-left';
-  var html='<p class="wizard-q"><span class="q-num">Guía I — Pregunta '+(gi_idx+1)+'</span>';
+  var html='<p class="wizard-q"><span class="q-num">'+T.guiaPregunta+(gi_idx+1)+'</span>';
   if(it.instruccion) html+='<span class="q-preamble">'+esc(it.instruccion)+'</span>';
   html+=esc(it.texto)+'</p>'
     +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Sí</div>'
+    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>'+T.si+'</div>'
     +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
     +'</div>';
   card.innerHTML=html;
@@ -279,8 +304,7 @@ function renderGIQuestion(){
 function selectGI(id,val){
   if(bloqueado) return;
   gi_resp[id]=val;
-  var card=$('wizard-card');
-  var opts=card.querySelectorAll('.wizard-opt');
+  var opts=$('wizard-card').querySelectorAll('.wizard-opt');
   opts.forEach(function(o){o.classList.remove('selected')});
   opts[val==='Si'?0:1].classList.add('selected');
   avanzar(function(){gi_idx++;renderGIQuestion()});
@@ -292,13 +316,13 @@ function cerrarBloqueGI(){
     (gi_secciones[0]&&gi_secciones[0].preguntas||[]).forEach(function(p){
       if(gi_resp[p.id]==='Si') hubo=true;
     });
-    console.log('[NOM035] Guía I Sección I con algún "Sí":',hubo,'→',hubo?'aplica II, III y IV':'termina Guía I');
+    console.log('[NOM035] Guia I Seccion I con algun "Si":',hubo,'->',hubo?'aplica II, III y IV':'termina Guia I');
     if(!hubo){completarGI();return}
     gi_bloque='resto';
     gi_items=_giConstruirItems(false);
     gi_idx=0;
     fase='gi_transicion';
-    celebrar('Unas preguntas más','Necesitamos algunos datos adicionales sobre lo que indicaste.',function(){
+    celebrar(T.masPreguntas,T.masPreguntasSub,function(){
       fase='gi';
       mostrarPantalla('wizard');
       renderGIQuestion();
@@ -310,14 +334,14 @@ function cerrarBloqueGI(){
 
 function completarGI(){
   fase='done_gi';
-  celebrar('Primera parte completada','Continuamos con el cuestionario de riesgo psicosocial...',iniciarFiltros);
+  celebrar(T.primeraParte,T.primeraParteSub,iniciarFiltros);
 }
 
 /* ============================================================
-   PREGUNTAS FILTRO (Guía II y Guía III)
+   PREGUNTAS FILTRO (Guia II y Guia III)
    ============================================================ */
 const FILTROS_DEF=[
-  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, público en general.'},
+  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, p\u00fablico en general.'},
   {key:'jefe',texto:'Soy jefe de otros trabajadores',nota:'Es decir, tienes personas que te reportan directamente.'}
 ];
 let filtros={clientes:null,jefe:null},filtroIdx=0,filtrosActivos=[];
@@ -361,10 +385,10 @@ function renderFiltro(){
   var card=$('wizard-card');
   card.className='wizard-card slide-left';
   var actual=filtros[f.key];
-  card.innerHTML='<p class="wizard-q"><span class="q-num">Antes de continuar</span>'+esc(f.texto)
+  card.innerHTML='<p class="wizard-q"><span class="q-num">'+T.antesContinuar+'</span>'+esc(f.texto)
     +'<span class="q-nota">'+esc(f.nota)+'</span></p>'
     +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>Sí</div>'
+    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>'+T.si+'</div>'
     +'<div class="wizard-opt'+(actual===false?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',false)"><span class="opt-check"></span>No</div>'
     +'</div>';
   $('nav-counter').textContent=(filtroIdx+1)+' / '+filtrosActivos.length;
@@ -381,7 +405,7 @@ function selectFiltro(key,val){
 }
 
 /* ============================================================
-   GUÍA II / III — Factores de riesgo psicosocial
+   GUIA II / III - Factores de riesgo psicosocial
    ============================================================ */
 function iniciarFRP(){
   const cuest=nom035Data.cuestionarioFRP||{};
@@ -398,7 +422,7 @@ function iniciarFRP(){
     catMap[cat].push(idx);
   });
   respuestas={};currentIdx=0;fase='frp';
-  console.log('[NOM035] FRP — filtros:',JSON.stringify(filtros),'| aplicables:',allItems.length,'de',todos.length);
+  console.log('[NOM035] FRP - filtros:',JSON.stringify(filtros),'| aplicables:',allItems.length,'de',todos.length);
   mostrarPantalla('wizard');
   renderFRPQuestion();
 }
@@ -440,9 +464,9 @@ function selectFRP(val){
   }
   var currentCat=allItems[currentIdx].categoria;
   var nextCat=allItems[nextIdx].categoria;
-  // Los ítems de una misma categoría no son contiguos (p. ej. "Factores
-  // propios de la actividad" reaparece más adelante). Solo se celebra
-  // cuando ya no queda ningún ítem pendiente de esa categoría.
+  // Los items de una misma categoria no son contiguos (por ejemplo
+  // "Factores propios de la actividad" reaparece mas adelante). Solo se
+  // celebra cuando ya no queda ningun item pendiente de esa categoria.
   var quedan=allItems.slice(nextIdx).some(function(x){return (x.categoria||'General')===currentCat});
   currentIdx=nextIdx;
   if(currentCat!==nextCat && !quedan){
@@ -473,7 +497,7 @@ function updateProgress(current,total){
   $('prog-pct').textContent=pct+'%';
   $('prog-label').textContent=current+' / '+total;
   const mins=Math.max(1,Math.ceil((total-current)*5/60));
-  $('hdr-time').textContent='\u23f1 ~'+mins+' min';
+  $('hdr-time').textContent=T.reloj+mins+' min';
 }
 
 async function enviarResultados(){
@@ -500,9 +524,9 @@ async function enviarResultados(){
     }})});
     const d=await r.json();
     if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>No se pudo guardar</h2><p>'+esc(d.message||'Intenta de nuevo más tarde.')+'</p>';
+    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>'+T.noGuardo+'</h2><p>'+esc(d.message||T.intentaDespues)+'</p>';
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>Error de conexión</h2><p>Revisa tu conexión e intenta de nuevo.</p>';
+    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>'+T.errConexionTit+'</h2><p>'+T.errConexionSub+'</p>';
   }
 }
 
@@ -518,11 +542,11 @@ function mostrarResultado(d){
     +'<p>Nivel de riesgo</p><p>'+esc(frp.nivelTotal||'Sin dato')+'</p></div>';
   if(gi.requiereValoracion){
     html+='<div class="rc-gi" style="background:#fef3c7;color:#92400e">'
-      +'<i class="fas fa-user-doctor"></i> El área de salud ocupacional te contactará para una valoración.</div>';
+      +'<i class="fas fa-user-doctor"></i> '+T.valoracion+'</div>';
   }
   if(filtros.clientes===false||filtros.jefe===false){
     html+='<div class="rc-gi" style="background:#f1f5f9;color:#475569">'
-      +'<i class="fas fa-filter"></i> Se omitieron preguntas que no aplican a tu puesto.</div>';
+      +'<i class="fas fa-filter"></i> '+T.omitidas+'</div>';
   }
   var doms=frp.dominios||{};
   var keys=Object.keys(doms);
