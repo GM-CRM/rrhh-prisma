@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>NOM-035 â€” RRHH Prisma</title>
+<title>NOM-035 — RRHH Prisma</title>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#0d1b3e">
 <link rel="icon" href="icon.png">
@@ -23,7 +23,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 .hdr-brand img{width:28px;height:28px;border-radius:7px}
 .hdr-brand span{font-size:.8rem;font-weight:800;color:#fff}
 .hdr-brand em{color:#a78bfa;font-style:normal}
-/* Sello de versiÃ³n: si no lo ves, estÃ¡s corriendo un archivo viejo en cachÃ© */
+/* Sello de versión: si no lo ves, estás corriendo un archivo viejo en caché */
 .hdr-ver{font-size:.55rem;font-weight:700;color:rgba(167,139,250,.7);letter-spacing:.08em;border:1px solid rgba(167,139,250,.3);border-radius:4px;padding:1px 5px;flex-shrink:0}
 .hdr-progress{flex:1;max-width:280px}
 .hdr-prog-text{display:flex;justify-content:space-between;margin-bottom:3px}
@@ -117,9 +117,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
   <div class="id-card" id="id-screen">
     <img src="icon.png" alt="Prisma">
     <h1 id="enc-titulo">NOM-035</h1>
-    <p id="enc-desc">EvaluaciÃ³n de factores de riesgo psicosocial. Confidencial.</p>
+    <p id="enc-desc">Evaluación de factores de riesgo psicosocial. Confidencial.</p>
     <div class="err-box" id="err-box"><i class="fas fa-exclamation-circle"></i><span id="err-msg"></span></div>
-    <div class="field"><label>NÃºmero de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
+    <div class="field"><label>Número de empleado</label><input type="text" id="inp-noemp" inputmode="numeric" placeholder="Ej. 218" onkeydown="if(event.key==='Enter')document.getElementById('inp-nombre').focus()"></div>
     <div class="field"><label>Nombre completo</label><input type="text" id="inp-nombre" placeholder="Apellidos y Nombre(s)" onkeydown="if(event.key==='Enter')iniciarEncuesta()"></div>
     <button class="btn-primary" id="btn-iniciar" onclick="iniciarEncuesta()"><i class="fas fa-play"></i> Comenzar</button>
   </div>
@@ -127,7 +127,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
     <div class="wizard-meta" id="wizard-meta"><p class="cat-name" id="wiz-cat"></p><p class="cat-progress" id="wiz-catprog"></p></div>
     <div class="wizard-card" id="wizard-card"></div>
   </div>
-  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">SecciÃ³n completada</p><p class="cel-sub" id="cel-sub"></p></div>
+  <div class="celebration" id="celebration"><div class="cel-icon">&#128640;</div><p class="cel-text" id="cel-text">Sección completada</p><p class="cel-sub" id="cel-sub"></p></div>
   <div class="success" id="success-screen"></div>
 </div>
 <div class="wizard-nav" id="wizard-nav">
@@ -136,17 +136,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
 </div>
 <script>
 /* =====================================================================
-   NOM-035 Wizard â€” v3 (2026-08-06)
+   NOM-035 Wizard — v3 (2026-08-06)
    Cambios vs v2:
      - Candado `bloqueado`: ignora cualquier clic mientras hay una
-       transiciÃ³n o celebraciÃ³n en curso. Era la causa del rebote
+       transición o celebración en curso. Era la causa del rebote
        infinito en las felicitaciones.
      - Un solo timer global (`timerActivo`) que se cancela antes de
-       agendar uno nuevo. Antes podÃ­an solaparse dos setTimeout y
-       pelearse por el mismo Ã­ndice.
-     - `mostrarPantalla()` centraliza quÃ© se ve; ya no hay tres
+       agendar uno nuevo. Antes podían solaparse dos setTimeout y
+       pelearse por el mismo índice.
+     - `mostrarPantalla()` centraliza qué se ve; ya no hay tres
        lugares distintos manipulando display.
-     - Sello de versiÃ³n visible en el header y en consola.
+     - Sello de versión visible en el header y en consola.
    ===================================================================== */
 const APP_VERSION='v3-2026-08-06';
 const API_URL="https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
@@ -162,8 +162,8 @@ function $(id){return document.getElementById(id)}
 function showErr(msg){const b=$('err-box');b.classList.add('show');$('err-msg').textContent=msg}
 function hideErr(){$('err-box').classList.remove('show')}
 
-/* Un solo lugar decide quÃ© pantalla se ve. Evita estados imposibles
-   como "celebraciÃ³n visible + barra de navegaciÃ³n visible". */
+/* Un solo lugar decide qué pantalla se ve. Evita estados imposibles
+   como "celebración visible + barra de navegación visible". */
 function mostrarPantalla(cual){
   $('id-screen').style.display   = (cual==='id')?'block':'none';
   $('wizard').style.display      = (cual==='wizard')?'block':'none';
@@ -172,8 +172,8 @@ function mostrarPantalla(cual){
   $('wizard-nav').style.display  = (cual==='wizard')?'flex':'none';
 }
 
-/* Muestra una celebraciÃ³n y ejecuta `luego` al terminar.
-   Bloquea la interfaz mientras dura: ningÃºn clic puede colarse. */
+/* Muestra una celebración y ejecuta `luego` al terminar.
+   Bloquea la interfaz mientras dura: ningún clic puede colarse. */
 function celebrar(texto,sub,luego){
   if(timerActivo){clearTimeout(timerActivo);timerActivo=null}
   bloqueado=true;
@@ -187,7 +187,7 @@ function celebrar(texto,sub,luego){
   },1500);
 }
 
-/* Avance normal entre preguntas, tambiÃ©n con candado. */
+/* Avance normal entre preguntas, también con candado. */
 function avanzar(luego){
   if(timerActivo){clearTimeout(timerActivo);timerActivo=null}
   bloqueado=true;
@@ -202,7 +202,7 @@ async function iniciarEncuesta(){
   hideErr();
   const noemp=$('inp-noemp').value.trim();
   const nombre=$('inp-nombre').value.trim();
-  if(!noemp){showErr('Ingresa tu nÃºmero de empleado.');return}
+  if(!noemp){showErr('Ingresa tu número de empleado.');return}
   if(!nombre){showErr('Ingresa tu nombre completo.');return}
   empleadoNombre=nombre;
   const btn=$('btn-iniciar');
@@ -219,17 +219,17 @@ async function iniciarEncuesta(){
     const d2=await r2.json();
     if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
     nom035Data=d2;
-    console.log('[NOM035] guÃ­a:',d2.tipoCuestionario,'| Ã­tems:',(d2.cuestionarioFRP.items||[]).length,'| activos:',d2.activosGrupo);
-    console.log('[NOM035] Ã­tem 1:',(d2.cuestionarioFRP.items||[])[0]&&d2.cuestionarioFRP.items[0].pregunta);
+    console.log('[NOM035] guía:',d2.tipoCuestionario,'| ítems:',(d2.cuestionarioFRP.items||[]).length,'| activos:',d2.activosGrupo);
+    console.log('[NOM035] ítem 1:',(d2.cuestionarioFRP.items||[])[0]&&d2.cuestionarioFRP.items[0].pregunta);
     iniciarGuiaI(d2.guia1);
-  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexiÃ³n.')}
+  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr('Error de conexión.')}
 }
 
 /* ============================================================
-   GUÃA I â€” Acontecimientos traumÃ¡ticos severos
-   RamificaciÃ³n oficial (GR.I): se aplica primero SOLO la
-   SecciÃ³n I. Si todas las respuestas son "No", termina ahÃ­.
-   Solo si hay al menos un "SÃ­" se aplican II, III y IV.
+   GUÍA I — Acontecimientos traumáticos severos
+   Ramificación oficial (GR.I): se aplica primero SOLO la
+   Sección I. Si todas las respuestas son "No", termina ahí.
+   Solo si hay al menos un "Sí" se aplican II, III y IV.
    ============================================================ */
 let gi_secciones=[],gi_items=[],gi_resp={},gi_idx=0,gi_bloque='sec1';
 
@@ -249,7 +249,7 @@ function iniciarGuiaI(guia1){
   gi_secciones=(guia1&&guia1.secciones)?guia1.secciones:[];
   gi_resp={};gi_idx=0;gi_bloque='sec1';fase='gi';
   gi_items=_giConstruirItems(true);
-  console.log('[NOM035] GuÃ­a I â€” SecciÃ³n I:',gi_items.length,'preguntas');
+  console.log('[NOM035] Guía I — Sección I:',gi_items.length,'preguntas');
   $('hdr-progress').style.display='block';
   $('hdr-time').style.display='block';
   mostrarPantalla('wizard');
@@ -264,11 +264,11 @@ function renderGIQuestion(){
   $('wiz-catprog').textContent='Pregunta '+(gi_idx+1)+' de '+gi_items.length;
   const card=$('wizard-card');
   card.className='wizard-card slide-left';
-  var html='<p class="wizard-q"><span class="q-num">GuÃ­a I â€” Pregunta '+(gi_idx+1)+'</span>';
+  var html='<p class="wizard-q"><span class="q-num">Guía I — Pregunta '+(gi_idx+1)+'</span>';
   if(it.instruccion) html+='<span class="q-preamble">'+esc(it.instruccion)+'</span>';
   html+=esc(it.texto)+'</p>'
     +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>SÃ­</div>'
+    +'<div class="wizard-opt'+(gi_resp[it.id]==='Si'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'Si\')"><span class="opt-check"></span>Sí</div>'
     +'<div class="wizard-opt'+(gi_resp[it.id]==='No'?' selected':'')+'" onclick="selectGI(\''+it.id+'\',\'No\')"><span class="opt-check"></span>No</div>'
     +'</div>';
   card.innerHTML=html;
@@ -292,13 +292,13 @@ function cerrarBloqueGI(){
     (gi_secciones[0]&&gi_secciones[0].preguntas||[]).forEach(function(p){
       if(gi_resp[p.id]==='Si') hubo=true;
     });
-    console.log('[NOM035] GuÃ­a I SecciÃ³n I con algÃºn "SÃ­":',hubo,'â†’',hubo?'aplica II, III y IV':'termina GuÃ­a I');
+    console.log('[NOM035] Guía I Sección I con algún "Sí":',hubo,'→',hubo?'aplica II, III y IV':'termina Guía I');
     if(!hubo){completarGI();return}
     gi_bloque='resto';
     gi_items=_giConstruirItems(false);
     gi_idx=0;
     fase='gi_transicion';
-    celebrar('Unas preguntas mÃ¡s','Necesitamos algunos datos adicionales sobre lo que indicaste.',function(){
+    celebrar('Unas preguntas más','Necesitamos algunos datos adicionales sobre lo que indicaste.',function(){
       fase='gi';
       mostrarPantalla('wizard');
       renderGIQuestion();
@@ -314,10 +314,10 @@ function completarGI(){
 }
 
 /* ============================================================
-   PREGUNTAS FILTRO (GuÃ­a II y GuÃ­a III)
+   PREGUNTAS FILTRO (Guía II y Guía III)
    ============================================================ */
 const FILTROS_DEF=[
-  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, pÃºblico en general.'},
+  {key:'clientes',texto:'En mi trabajo debo brindar servicio a clientes o usuarios',nota:'Por ejemplo: pacientes, estudiantes, clientes, usuarios, público en general.'},
   {key:'jefe',texto:'Soy jefe de otros trabajadores',nota:'Es decir, tienes personas que te reportan directamente.'}
 ];
 let filtros={clientes:null,jefe:null},filtroIdx=0,filtrosActivos=[];
@@ -364,7 +364,7 @@ function renderFiltro(){
   card.innerHTML='<p class="wizard-q"><span class="q-num">Antes de continuar</span>'+esc(f.texto)
     +'<span class="q-nota">'+esc(f.nota)+'</span></p>'
     +'<div class="wizard-opts">'
-    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>SÃ­</div>'
+    +'<div class="wizard-opt'+(actual===true?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',true)"><span class="opt-check"></span>Sí</div>'
     +'<div class="wizard-opt'+(actual===false?' selected':'')+'" onclick="selectFiltro(\''+f.key+'\',false)"><span class="opt-check"></span>No</div>'
     +'</div>';
   $('nav-counter').textContent=(filtroIdx+1)+' / '+filtrosActivos.length;
@@ -381,7 +381,7 @@ function selectFiltro(key,val){
 }
 
 /* ============================================================
-   GUÃA II / III â€” Factores de riesgo psicosocial
+   GUÍA II / III — Factores de riesgo psicosocial
    ============================================================ */
 function iniciarFRP(){
   const cuest=nom035Data.cuestionarioFRP||{};
@@ -398,7 +398,7 @@ function iniciarFRP(){
     catMap[cat].push(idx);
   });
   respuestas={};currentIdx=0;fase='frp';
-  console.log('[NOM035] FRP â€” filtros:',JSON.stringify(filtros),'| aplicables:',allItems.length,'de',todos.length);
+  console.log('[NOM035] FRP — filtros:',JSON.stringify(filtros),'| aplicables:',allItems.length,'de',todos.length);
   mostrarPantalla('wizard');
   renderFRPQuestion();
 }
@@ -440,9 +440,9 @@ function selectFRP(val){
   }
   var currentCat=allItems[currentIdx].categoria;
   var nextCat=allItems[nextIdx].categoria;
-  // Los Ã­tems de una misma categorÃ­a no son contiguos (p. ej. "Factores
-  // propios de la actividad" reaparece mÃ¡s adelante). Solo se celebra
-  // cuando ya no queda ningÃºn Ã­tem pendiente de esa categorÃ­a.
+  // Los ítems de una misma categoría no son contiguos (p. ej. "Factores
+  // propios de la actividad" reaparece más adelante). Solo se celebra
+  // cuando ya no queda ningún ítem pendiente de esa categoría.
   var quedan=allItems.slice(nextIdx).some(function(x){return (x.categoria||'General')===currentCat});
   currentIdx=nextIdx;
   if(currentCat!==nextCat && !quedan){
@@ -500,9 +500,9 @@ async function enviarResultados(){
     }})});
     const d=await r.json();
     if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>No se pudo guardar</h2><p>'+esc(d.message||'Intenta de nuevo mÃ¡s tarde.')+'</p>';
+    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>No se pudo guardar</h2><p>'+esc(d.message||'Intenta de nuevo más tarde.')+'</p>';
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>Error de conexiÃ³n</h2><p>Revisa tu conexiÃ³n e intenta de nuevo.</p>';
+    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>Error de conexión</h2><p>Revisa tu conexión e intenta de nuevo.</p>';
   }
 }
 
@@ -518,7 +518,7 @@ function mostrarResultado(d){
     +'<p>Nivel de riesgo</p><p>'+esc(frp.nivelTotal||'Sin dato')+'</p></div>';
   if(gi.requiereValoracion){
     html+='<div class="rc-gi" style="background:#fef3c7;color:#92400e">'
-      +'<i class="fas fa-user-doctor"></i> El Ã¡rea de salud ocupacional te contactarÃ¡ para una valoraciÃ³n.</div>';
+      +'<i class="fas fa-user-doctor"></i> El área de salud ocupacional te contactará para una valoración.</div>';
   }
   if(filtros.clientes===false||filtros.jefe===false){
     html+='<div class="rc-gi" style="background:#f1f5f9;color:#475569">'
