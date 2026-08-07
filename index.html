@@ -108,6 +108,27 @@
   .org-tree.lista-plana .org-children::before{ display:none; }
   .org-tree.lista-plana .org-node::before{ display:none; }
   .org-tree.lista-plana .org-count{ position:static; margin-left:auto; }
+ @media (max-width:768px){
+  .module-section *:has(> table){
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    max-width:100%;
+  }
+  .module-section table{ min-width:680px }
+  .module-section table th,
+  .module-section table td{ white-space:nowrap }
+  .module-section table td .rounded-full{ display:inline-block;white-space:nowrap }
+
+  .module-section select,
+  .module-section input[type="text"],
+  .module-section input[type="search"],
+  .module-section input[type="email"],
+  .module-section input[type="date"]{
+    width:100%; max-width:100%; min-width:0;
+  }
+
+  .module-section .flex > *{ min-width:0 }
+}
 </style>
 <style>
 /* ── REDISEÑO SHELL: textura del sidebar + estados de navegación ──
