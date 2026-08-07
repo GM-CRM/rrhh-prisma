@@ -178,16 +178,55 @@ function categoriaDeNotif(tipo){
 // simple lectura O(1) del cache — no vuelve a recorrer las 494.
 let _notifGrupos = null;
 function invalidarCacheNotifs(){ _notifGrupos = null; }
+/* Deduce a cuántos días está el evento leyendo el texto de la
+   notificación. MENOR = MÁS URGENTE:
+     -N  ya venció   0  hoy   1  mañana   N  faltan N días
+   Devuelve null si no se puede determinar. */
+function _notifDiasRestantes(n){
+  var txt = ((n.titulo||'') + ' ' + (n.mensaje||'')).toLowerCase();
+  var venc = txt.match(/venci[oó]|vencid[oa]|expir/);
+  var haceN = txt.match(/hace\s+(\d+)\s*d[ií]a/);
+  if(venc && haceN) return -parseInt(haceN[1],10);
+  if(venc && /\bhoy\b/.test(txt)) return -1;
+  if(/\bhoy\b/.test(txt)) return 0;
+  if(/\bmañana\b|\bmanana\b/.test(txt)) return 1;
+  var enN = txt.match(/(?:en|faltan?|dentro de|vence en|quedan?)\s+(\d+)\s*d[ií]a/);
+  if(enN) return parseInt(enN[1],10);
+  var suelto = txt.match(/(\d+)\s*d[ií]a/);
+  if(suelto) return parseInt(suelto[1],10);
+  if(venc) return -1;
+  return null;
+}
+
+/* Vencido y hoy arriba, después por días ascendente. Lo que no tiene
+   fecha detectable se va al final, ordenado por más reciente. */
+function _ordenarNotifsPorUrgencia(arr){
+  return arr.sort(function(a,b){
+    var da = _notifDiasRestantes(a);
+    var db = _notifDiasRestantes(b);
+    if(da === null && db === null) return new Date(b.fecha) - new Date(a.fecha);
+    if(da === null) return 1;
+    if(db === null) return -1;
+    if(da !== db) return da - db;
+    return (a.titulo||'').localeCompare(b.titulo||'','es');
+  });
+}
+
 function obtenerNotifsPorCategoria(){
-    if(_notifGrupos) return _notifGrupos;
-    const grupos = { todas:[], cumple:[], aniversario:[], contrato:[], otros:[] };
-    for(let i=0;i<notificaciones.length;i++){
-        const n = notificaciones[i];
-        grupos.todas.push(n);
-        grupos[categoriaDeNotif(n.tipo)].push(n);
-    }
-    _notifGrupos = grupos;
-    return grupos;
+  if(_notifGrupos) return _notifGrupos;
+  const grupos = { todas:[], cumple:[], aniversario:[], contrato:[], otros:[] };
+  for(let i=0;i<notificaciones.length;i++){
+    const n = notificaciones[i];
+    grupos.todas.push(n);
+    grupos[categoriaDeNotif(n.tipo)].push(n);
+  }
+  // Se ordena UNA sola vez aquí dentro del cache. Cambiar de pestaña
+  // sigue siendo lectura O(1); no se reordena en cada clic.
+  Object.keys(grupos).forEach(function(k){
+    _ordenarNotifsPorUrgencia(grupos[k]);
+  });
+  _notifGrupos = grupos;
+  return grupos;
 }
 
 
