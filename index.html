@@ -289,6 +289,180 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
+<style>
+/* ═══ DASHBOARD — sistema visual violeta ═══════════════════════ */
+
+/* Cifras: ancho fijo por dígito para que las columnas no bailen
+   cuando cambian los datos al filtrar. */
+.dsh-num{font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+
+/* ── KPI principal ──
+   Sin barra lateral de color, sin badge con gradiente. La jerarquía
+   la carga el número; la decoración solo competía con él. */
+.dsh-kpi{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(91% 0.006 285);
+  border-radius:14px;
+  padding:18px 20px 20px;
+  transition:border-color .2s cubic-bezier(.16,1,.3,1),
+             box-shadow .2s cubic-bezier(.16,1,.3,1),
+             transform .2s cubic-bezier(.16,1,.3,1);
+  animation:dshIn .4s cubic-bezier(.16,1,.3,1) backwards;
+  animation-delay:calc(var(--i,0) * 55ms);
+}
+.dsh-kpi:hover{
+  border-color:oklch(84% 0.03 285);
+  box-shadow:0 4px 16px oklch(20% 0.02 285/.05);
+  transform:translateY(-1px);
+}
+@keyframes dshIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.dsh-kpi{animation:none}}
+
+.dsh-kpi-label{
+  font-size:.68rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:oklch(56% 0.012 285);margin:0 0 10px;
+  display:flex;align-items:center;gap:7px;
+}
+.dsh-kpi-label i{font-size:.72rem;color:oklch(70% 0.01 285)}
+.dsh-kpi-val{
+  font-size:2rem;font-weight:750;line-height:1;
+  color:oklch(20% 0.02 285);margin:0;
+  font-variant-numeric:tabular-nums;letter-spacing:-.03em;
+}
+/* Color solo donde comunica estado. Tres acentos, no siete. */
+.dsh-kpi-val.acento{color:oklch(45% 0.2 285)}   /* dato principal */
+.dsh-kpi-val.alerta{color:oklch(52% 0.19 25)}   /* bajas */
+.dsh-kpi-val.aviso {color:oklch(58% 0.15 65)}   /* rotación */
+.dsh-kpi-val.sm{font-size:1.4rem}
+.dsh-kpi-val .unidad{font-size:.85rem;font-weight:500;color:oklch(58% 0.012 285)}
+.dsh-kpi-sub{font-size:.72rem;color:oklch(62% 0.01 285);margin:7px 0 0}
+
+/* ── Métricas de contexto ──
+   Edad, antigüedad y finiquitos son datos de referencia, no
+   indicadores de acción. Comparten superficie en vez de tener
+   tarjeta propia cada uno. */
+.dsh-strip{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(91% 0.006 285);
+  border-radius:14px;
+  display:grid;grid-template-columns:repeat(3,1fr);
+}
+.dsh-strip > div{padding:18px 20px}
+.dsh-strip > div + div{border-left:1px solid oklch(93% 0.006 285)}
+@media(max-width:640px){
+  .dsh-strip{grid-template-columns:1fr}
+  .dsh-strip > div + div{border-left:none;border-top:1px solid oklch(93% 0.006 285)}
+}
+
+/* ── Filtros colapsables ──
+   En móvil los cuatro selects se comían la pantalla antes de que se
+   viera un solo dato. Ahora resumen su estado en chips. */
+.dsh-filtros{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(91% 0.006 285);
+  border-radius:14px;overflow:hidden;
+}
+.dsh-filtros-bar{
+  display:flex;align-items:center;gap:9px;
+  padding:11px 16px;cursor:pointer;
+  transition:background-color .15s ease;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+}
+.dsh-filtros-bar::-webkit-scrollbar{display:none}
+.dsh-filtros-bar:hover{background:oklch(97.5% 0.004 285)}
+.dsh-filtros-bar > i:first-child{color:oklch(60% 0.15 285);font-size:.8rem;flex-shrink:0}
+.dsh-chip{
+  font-size:.74rem;font-weight:550;flex-shrink:0;
+  background:oklch(95% 0.03 285);color:oklch(38% 0.14 285);
+  padding:3px 10px;border-radius:99px;white-space:nowrap;
+}
+.dsh-chip.vacio{background:oklch(95% 0.005 285);color:oklch(55% 0.01 285);font-weight:450}
+.dsh-filtros-body{
+  display:none;padding:4px 16px 16px;
+  border-top:1px solid oklch(94% 0.006 285);
+}
+.dsh-filtros.abierto .dsh-filtros-body{display:block}
+.dsh-filtros.abierto .dsh-caret{transform:rotate(180deg)}
+.dsh-caret{
+  transition:transform .25s cubic-bezier(.16,1,.3,1);
+  color:oklch(65% 0.01 285);font-size:.7rem;margin-left:auto;flex-shrink:0;
+}
+.dsh-field label{
+  display:block;font-size:.66rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:oklch(56% 0.012 285);margin:12px 0 5px;
+}
+.dsh-select{
+  width:100%;max-width:100%;min-width:0;
+  border:1px solid oklch(88% 0.008 285);border-radius:9px;
+  padding:8px 11px;font-size:.85rem;font-family:inherit;
+  background:oklch(98.5% 0.003 285);color:oklch(25% 0.015 285);
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.dsh-select:focus{
+  outline:none;border-color:oklch(60% 0.19 285);
+  box-shadow:0 0 0 3px oklch(93% 0.04 285);
+}
+.dsh-btn{
+  font-size:.8rem;font-weight:550;font-family:inherit;
+  padding:7px 13px;border-radius:8px;cursor:pointer;
+  border:1px solid oklch(89% 0.008 285);
+  background:oklch(98% 0.004 285);color:oklch(42% 0.012 285);
+  transition:background-color .15s ease,border-color .15s ease;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.dsh-btn:hover{background:oklch(95.5% 0.006 285);border-color:oklch(84% 0.01 285)}
+
+/* ── Panel para gráficas y tablas ── */
+.dsh-panel{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(91% 0.006 285);
+  border-radius:14px;
+  padding:20px 22px 22px;
+}
+.dsh-panel-tit{
+  font-size:.78rem;font-weight:650;color:oklch(28% 0.018 285);
+  margin:0 0 16px;display:flex;align-items:center;gap:8px;
+}
+.dsh-panel-tit i{color:oklch(65% 0.13 285);font-size:.8rem}
+
+/* Encabezado de sección: once gráficas seguidas sin separación son
+   una lista, no un tablero. */
+.dsh-sec{
+  font-size:.68rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
+  color:oklch(58% 0.012 285);margin:32px 0 12px;
+}
+
+/* ── Género: una sola barra apilada ──
+   Son dos partes de un total; separarlas obligaba a comparar
+   mentalmente. Los IDs de las barras no cambian. */
+.dsh-genero-bar{
+  display:flex;height:9px;border-radius:99px;overflow:hidden;
+  background:oklch(93% 0.006 285);margin:14px 0 12px;
+}
+.dsh-gen-h{background:oklch(52% 0.18 265);transition:width .7s cubic-bezier(.16,1,.3,1)}
+.dsh-gen-m{background:oklch(65% 0.17 350);transition:width .7s cubic-bezier(.16,1,.3,1)}
+.dsh-leyenda{display:flex;gap:22px;font-size:.8rem;flex-wrap:wrap}
+.dsh-leyenda > div{display:flex;align-items:center;gap:7px;color:oklch(42% 0.012 285)}
+.dsh-leyenda .sw{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.dsh-leyenda b{font-weight:650;color:oklch(22% 0.02 285);font-variant-numeric:tabular-nums}
+
+/* ── Tablas del dashboard ── */
+.dsh-tabla{width:100%;text-align:left;border-collapse:collapse}
+.dsh-tabla thead th{
+  font-size:.66rem;font-weight:650;letter-spacing:.07em;text-transform:uppercase;
+  color:oklch(58% 0.012 285);padding:0 0 9px;
+  border-bottom:1px solid oklch(92% 0.006 285);
+}
+.dsh-tabla tbody td{
+  padding:9px 0;font-size:.84rem;color:oklch(32% 0.015 285);
+  border-bottom:1px solid oklch(95% 0.005 285);
+  font-variant-numeric:tabular-nums;
+}
+.dsh-tabla tbody tr:last-child td{border-bottom:none}
+</style>
+ 
+ 
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
@@ -625,43 +799,42 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
   <div class="p-5 md:p-8 max-w-screen-xl mx-auto w-full">
 
   <!-- ══ DASHBOARD ════════════════════════════════════════════ -->
-  <section id="module-dashboard" class="module-section active">
+<section id="module-dashboard" class="module-section active">
 
-    <div class="mb-5">
-      <h1 class="text-xl font-bold text-slate-800 tracking-tight">Resumen General</h1>
-      <p class="text-sm text-slate-400 mt-0.5">Vista consolidada de la plantilla, movimientos y costos de Grupo Multimedia México.</p>
+  <div style="margin-bottom:20px">
+    <h1 style="font-size:1.45rem;font-weight:750;letter-spacing:-.025em;color:oklch(18% 0.02 285);margin:0 0 4px">Resumen General</h1>
+    <p style="font-size:.85rem;color:oklch(55% 0.012 285);margin:0;line-height:1.55">Plantilla, movimientos y costos de Grupo Multimedia México.</p>
+  </div>
+
+  <!-- ── Filtros: colapsados por defecto, con chips de estado ── -->
+  <div class="dsh-filtros" id="dsh-filtros" style="margin-bottom:20px">
+    <div class="dsh-filtros-bar" onclick="document.getElementById('dsh-filtros').classList.toggle('abierto')">
+      <i class="fas fa-sliders"></i>
+      <span class="dsh-chip vacio" id="chip-empresa">Todas las empresas</span>
+      <span class="dsh-chip vacio" id="chip-grupo">Todos los grupos</span>
+      <span class="dsh-chip vacio" id="chip-periodo">Todo el periodo</span>
+      <i class="fas fa-chevron-down dsh-caret"></i>
     </div>
+    <div class="dsh-filtros-body">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 14px">
 
-    <!-- Segmentadores del dashboard -->
-    <div class="bg-white rounded-2xl border border-slate-200 px-5 py-4 mb-5">
-      <div class="flex flex-wrap items-end gap-3">
-
-        <div class="flex flex-col gap-1 min-w-[160px] flex-1">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-            <i class="fas fa-building text-blue-500"></i>Empresa
-          </label>
-          <select id="filtroEmpresaGlobal" onchange="cargarDashboard()"
-            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 transition">
+        <div class="dsh-field">
+          <label>Empresa</label>
+          <select id="filtroEmpresaGlobal" class="dsh-select" onchange="cargarDashboard();actualizarChipsDashboard()">
             <option value="ALL">Todas</option>
           </select>
         </div>
 
-        <div class="flex flex-col gap-1 min-w-[150px] flex-1">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-            <i class="fas fa-layer-group text-violet-500"></i>Grupo
-          </label>
-          <select id="filtroGrupoGlobal" onchange="cargarDashboard()"
-            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-violet-500 transition">
+        <div class="dsh-field">
+          <label>Grupo</label>
+          <select id="filtroGrupoGlobal" class="dsh-select" onchange="cargarDashboard();actualizarChipsDashboard()">
             <option value="ALL">Todos los grupos</option>
           </select>
         </div>
 
-        <div class="flex flex-col gap-1 min-w-[130px]">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-            <i class="fas fa-calendar-days text-emerald-500"></i>Mes
-          </label>
-          <select id="filtroMesGlobal" onchange="cargarDashboard()"
-            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-500 transition">
+        <div class="dsh-field">
+          <label>Mes</label>
+          <select id="filtroMesGlobal" class="dsh-select" onchange="cargarDashboard();actualizarChipsDashboard()">
             <option value="ALL">Todos</option>
             <option value="01">Enero</option><option value="02">Febrero</option>
             <option value="03">Marzo</option><option value="04">Abril</option>
@@ -672,187 +845,198 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
           </select>
         </div>
 
-        <div class="flex flex-col gap-1 min-w-[100px]">
-          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
-            <i class="fas fa-calendar text-amber-500"></i>Año
-          </label>
-          <select id="filtroAnioGlobal" onchange="cargarDashboard()"
-            class="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-50 focus:ring-2 focus:ring-amber-500 transition">
+        <div class="dsh-field">
+          <label>Año</label>
+          <select id="filtroAnioGlobal" class="dsh-select" onchange="cargarDashboard();actualizarChipsDashboard()">
             <option value="ALL">Todos</option>
           </select>
         </div>
 
-        <div class="flex gap-2 ml-auto flex-shrink-0">
-          <button onclick="limpiarFiltrosDashboard()"
-            class="text-sm font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-            <i class="fas fa-filter-circle-xmark text-xs"></i>Limpiar
-          </button>
-          <button onclick="forzarActualizacion()"
-            class="text-sm font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5">
-            <i class="fas fa-sync-alt text-xs"></i>Actualizar
-          </button>
-        </div>
-
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        <button class="dsh-btn" onclick="limpiarFiltrosDashboard();actualizarChipsDashboard()">
+          <i class="fas fa-filter-circle-xmark" style="font-size:.72rem"></i>Limpiar
+        </button>
+        <button class="dsh-btn" onclick="forzarActualizacion()">
+          <i class="fas fa-sync-alt" style="font-size:.72rem"></i>Actualizar
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- KPIs fila 1 -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-      <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5" style="--i:0">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Histórico</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center shadow-sm"><i class="fas fa-users text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-3xl font-bold text-slate-800" id="kpi-total">—</h3>
-        <p class="text-xs text-slate-400 mt-1">colaboradores registrados</p>
-      </div>
-      <div class="kpi-card bg-white rounded-2xl border border-l-4 border-slate-200 border-l-blue-500 p-5" style="--i:1">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Plantilla Activa</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-sm"><i class="fas fa-user-check text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-3xl font-bold text-blue-600" id="kpi-activos">—</h3>
-        <p class="text-xs text-slate-400 mt-1">colaboradores activos</p>
-      </div>
-      <div class="kpi-card bg-white rounded-2xl border border-l-4 border-slate-200 border-l-red-400 p-5" style="--i:2">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Bajas</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-400 to-red-500 flex items-center justify-center shadow-sm"><i class="fas fa-user-times text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-3xl font-bold text-red-500" id="kpi-bajas">—</h3>
-        <p class="text-xs text-slate-400 mt-1">bajas acumuladas</p>
-      </div>
-      <div class="kpi-card bg-white rounded-2xl border border-l-4 border-slate-200 border-l-amber-400 p-5" style="--i:3">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Índice Rotación</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm"><i class="fas fa-arrows-rotate text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-3xl font-bold text-amber-500" id="kpi-rotacion">—</h3>
-        <p class="text-xs text-slate-400 mt-1">sobre total histórico</p>
-      </div>
+  <!-- ── KPIs principales ──
+       Plantilla activa va primero: es el dato que se consulta a diario.
+       Antes "Total histórico" iba primero solo por orden de aparición. -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px">
+
+    <div class="dsh-kpi" style="--i:0">
+      <p class="dsh-kpi-label"><i class="fas fa-user-check"></i>Plantilla activa</p>
+      <p class="dsh-kpi-val acento" id="kpi-activos">—</p>
+      <p class="dsh-kpi-sub">colaboradores hoy</p>
     </div>
 
-    <!-- KPIs fila 2 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-      <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5" style="--i:4">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Edad Promedio</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center shadow-sm"><i class="fas fa-cake-candles text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-2xl font-bold text-slate-800" id="kpi-edad-prom">—</h3>
-        <p class="text-xs text-slate-400 mt-1">activos con fecha de nacimiento</p>
-      </div>
-      <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5" style="--i:5">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Antigüedad Promedio</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center shadow-sm"><i class="fas fa-medal text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-2xl font-bold text-slate-800" id="kpi-ant-prom">—</h3>
-        <p class="text-xs text-slate-400 mt-1">plantilla activa</p>
-      </div>
-      <div class="kpi-card bg-white rounded-2xl border border-slate-200 p-5" style="--i:6">
-        <div class="flex justify-between items-start mb-3">
-          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Finiquitos Pagados</p>
-          <span class="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm"><i class="fas fa-hand-holding-dollar text-white text-sm"></i></span>
-        </div>
-        <h3 class="text-xl font-bold text-slate-800 leading-tight" id="kpi-finiquitos">—</h3>
-        <p class="text-xs text-slate-400 mt-1">suma total acumulada</p>
-      </div>
+    <div class="dsh-kpi" style="--i:1">
+      <p class="dsh-kpi-label"><i class="fas fa-users"></i>Total histórico</p>
+      <p class="dsh-kpi-val" id="kpi-total">—</p>
+      <p class="dsh-kpi-sub">registrados desde el inicio</p>
     </div>
 
-    <!-- Género -->
-    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-5">
-      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Distribución por Género — Plantilla Activa</p>
-      <div class="flex flex-col md:flex-row gap-6">
-        <div class="flex items-center gap-4 flex-1">
-          <div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#2563eb" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <div class="flex justify-between mb-1.5">
-              <span class="text-sm font-semibold text-slate-700">Hombres</span>
-              <span class="text-sm font-bold text-blue-600" id="kpi-genero-h">—</span>
-            </div>
-            <div class="bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div class="bg-blue-500 h-2 rounded-full transition-all duration-700" id="kpi-genero-bar-h" style="width:0%"></div>
-            </div>
-          </div>
-        </div>
-        <div class="flex items-center gap-4 flex-1">
-          <div class="w-14 h-14 rounded-2xl bg-pink-50 flex items-center justify-center flex-shrink-0">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#db2777" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/>
-              <line x1="12" y1="11" x2="12" y2="15"/><line x1="10" y1="13" x2="14" y2="13"/>
-            </svg>
-          </div>
-          <div class="flex-1">
-            <div class="flex justify-between mb-1.5">
-              <span class="text-sm font-semibold text-slate-700">Mujeres</span>
-              <span class="text-sm font-bold text-pink-500" id="kpi-genero-m">—</span>
-            </div>
-            <div class="bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div class="bg-pink-400 h-2 rounded-full transition-all duration-700" id="kpi-genero-bar-m" style="width:0%"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="dsh-kpi" style="--i:2">
+      <p class="dsh-kpi-label"><i class="fas fa-user-minus"></i>Total bajas</p>
+      <p class="dsh-kpi-val alerta" id="kpi-bajas">—</p>
+      <p class="dsh-kpi-sub">acumuladas</p>
     </div>
 
-    <!-- Gráficas fila 1 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-      <div class="chart-card">
-        <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-chart-line text-blue-500 mr-2"></i>Tendencia Mensual — Altas y Bajas</p>
-        <div class="relative h-52"><canvas id="chartTendencia"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-building text-slate-400 mr-2"></i>Plantilla por Empresa</p>
-        <div class="relative h-52"><canvas id="chartEmpresas"></canvas></div>
-      </div>
+    <div class="dsh-kpi" style="--i:3">
+      <p class="dsh-kpi-label"><i class="fas fa-arrows-rotate"></i>Índice de rotación</p>
+      <p class="dsh-kpi-val aviso" id="kpi-rotacion">—</p>
+      <p class="dsh-kpi-sub">sobre total histórico</p>
     </div>
-    <!-- Gráficas fila 2 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-      <div class="chart-card">
-        <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-chart-bar text-violet-500 mr-2"></i>Distribución por Rango de Edad</p>
-        <div class="relative h-44"><canvas id="chartRangoEdad"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-sitemap text-purple-500 mr-2"></i>Top 8 Departamentos</p>
-        <div class="relative h-44"><canvas id="chartDeptos"></canvas></div>
-      </div>
+
+  </div>
+
+  <!-- ── Métricas de contexto: superficie compartida ── -->
+  <div class="dsh-strip" style="margin-bottom:20px">
+    <div>
+      <p class="dsh-kpi-label" style="margin-bottom:7px"><i class="fas fa-cake-candles"></i>Edad promedio</p>
+      <p class="dsh-kpi-val sm" id="kpi-edad-prom">—</p>
     </div>
-    <!-- Gráficas fila 3 -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-      <div class="chart-card">
-        <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-door-open text-red-500 mr-2"></i>Top 8 Motivos de Baja</p>
-        <div class="relative h-52"><canvas id="chartMotivoBaja"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-list-ol text-red-400 mr-2"></i>Causas de Baja — Cantidad y %</p>
-        <table class="w-full text-left">
-          <thead><tr class="border-b border-slate-100">
-            <th class="pb-2 text-xs font-semibold text-slate-400 uppercase">Motivo</th>
-            <th class="pb-2 text-xs font-semibold text-slate-400 uppercase text-center">N</th>
-            <th class="pb-2 text-xs font-semibold text-slate-400 uppercase">%</th>
-          </tr></thead>
-          <tbody id="tabla-causas-baja"></tbody>
-        </table>
-      </div>
+    <div>
+      <p class="dsh-kpi-label" style="margin-bottom:7px"><i class="fas fa-medal"></i>Antigüedad promedio</p>
+      <p class="dsh-kpi-val sm" id="kpi-ant-prom">—</p>
     </div>
-    <!-- Finiquitos -->
-    <div class="chart-card mb-2">
-      <p class="text-sm font-semibold text-slate-700 mb-4"><i class="fas fa-hand-holding-dollar text-amber-500 mr-2"></i>Finiquitos Pagados por Mes (MXN)</p>
-      <div class="relative h-48"><canvas id="chartFiniquitos"></canvas></div>
+    <div>
+      <p class="dsh-kpi-label" style="margin-bottom:7px"><i class="fas fa-hand-holding-dollar"></i>Finiquitos pagados</p>
+      <p class="dsh-kpi-val sm" id="kpi-finiquitos">—</p>
     </div>
-        <div class="chart-card mb-2">
-        <p class="text-sm font-semibold text-slate-700 mb-3"><i class="fas fa-calendar-days text-amber-400 mr-2"></i>Total de Finiquitos por Año</p>
-        <table class="w-full text-left">
-          <thead><tr class="border-b border-slate-100"><th class="pb-2 text-xs font-semibold text-slate-400 uppercase">Año</th><th class="pb-2 text-xs font-semibold text-slate-400 uppercase text-right">Monto</th></tr></thead>
-          <tbody id="tabla-finiquitos-anio"></tbody>
-        </table>
-      </div>
-    </section>
+  </div>
+
+  <!-- ── Género: una barra apilada, no dos tarjetas ── -->
+  <div class="dsh-panel" style="margin-bottom:4px">
+    <p class="dsh-panel-tit" style="margin-bottom:0"><i class="fas fa-venus-mars"></i>Distribución por género · plantilla activa</p>
+    <div class="dsh-genero-bar">
+      <div class="dsh-gen-h" id="kpi-genero-bar-h" style="width:0%"></div>
+      <div class="dsh-gen-m" id="kpi-genero-bar-m" style="width:0%"></div>
+    </div>
+    <div class="dsh-leyenda">
+      <div><span class="sw dsh-gen-h"></span>Hombres <b id="kpi-genero-h">—</b></div>
+      <div><span class="sw dsh-gen-m"></span>Mujeres <b id="kpi-genero-m">—</b></div>
+    </div>
+  </div>
+
+  <!-- ══ MOVIMIENTOS ══ -->
+  <p class="dsh-sec">Movimientos</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-chart-line"></i>Tendencia mensual · altas y bajas</p>
+      <div style="position:relative;height:13rem"><canvas id="chartTendencia"></canvas></div>
+    </div>
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-building"></i>Plantilla por empresa</p>
+      <div style="position:relative;height:13rem"><canvas id="chartEmpresas"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ══ PERSONAS ══ -->
+  <p class="dsh-sec">Personas</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-chart-simple"></i>Distribución por rango de edad</p>
+      <div style="position:relative;height:11rem"><canvas id="chartRangoEdad"></canvas></div>
+    </div>
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-sitemap"></i>Top 8 departamentos</p>
+      <div style="position:relative;height:11rem"><canvas id="chartDeptos"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ══ BAJAS ══ -->
+  <p class="dsh-sec">Bajas</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-door-open"></i>Top 8 motivos de baja</p>
+      <div style="position:relative;height:13rem"><canvas id="chartMotivoBaja"></canvas></div>
+    </div>
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-list-ol"></i>Causas de baja · cantidad y %</p>
+      <table class="dsh-tabla">
+        <thead>
+          <tr>
+            <th>Motivo</th>
+            <th style="text-align:center">N</th>
+            <th style="text-align:right">%</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-causas-baja"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ COSTOS ══ -->
+  <p class="dsh-sec">Costos</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:8px">
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-hand-holding-dollar"></i>Finiquitos pagados por mes · MXN</p>
+      <div style="position:relative;height:12rem"><canvas id="chartFiniquitos"></canvas></div>
+    </div>
+    <div class="dsh-panel">
+      <p class="dsh-panel-tit"><i class="fas fa-calendar-days"></i>Total de finiquitos por año</p>
+      <table class="dsh-tabla">
+        <thead>
+          <tr>
+            <th>Año</th>
+            <th style="text-align:right">Monto</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-finiquitos-anio"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+  /* Refleja en los chips qué filtros están aplicados, para poder
+     dejar el panel cerrado sin perder de vista el contexto.
+     Es puramente visual: no toca cargarDashboard() ni los datos. */
+  function actualizarChipsDashboard(){
+    var txt = function(id){
+      var s = document.getElementById(id);
+      if(!s || !s.options.length || s.selectedIndex < 0) return null;
+      return { valor:s.value, etiqueta:s.options[s.selectedIndex].text };
+    };
+    var pintar = function(chipId, dato, textoVacio){
+      var chip = document.getElementById(chipId);
+      if(!chip || !dato) return;
+      var vacio = (dato.valor === 'ALL' || dato.valor === '');
+      chip.textContent = vacio ? textoVacio : dato.etiqueta;
+      chip.classList.toggle('vacio', vacio);
+    };
+
+    pintar('chip-empresa', txt('filtroEmpresaGlobal'), 'Todas las empresas');
+    pintar('chip-grupo',   txt('filtroGrupoGlobal'),   'Todos los grupos');
+
+    // Mes y año se resumen en un solo chip de periodo
+    var mes = txt('filtroMesGlobal'), anio = txt('filtroAnioGlobal');
+    var chipP = document.getElementById('chip-periodo');
+    if(chipP && mes && anio){
+      var hayMes  = mes.valor  !== 'ALL' && mes.valor  !== '';
+      var hayAnio = anio.valor !== 'ALL' && anio.valor !== '';
+      if(hayMes && hayAnio)      chipP.textContent = mes.etiqueta + ' ' + anio.etiqueta;
+      else if(hayMes)            chipP.textContent = mes.etiqueta + ' · todos los años';
+      else if(hayAnio)           chipP.textContent = anio.etiqueta;
+      else                       chipP.textContent = 'Todo el periodo';
+      chipP.classList.toggle('vacio', !hayMes && !hayAnio);
+    }
+  }
+
+  /* Los <select> se llenan por JS después de cargar la BD, así que
+     los chips se refrescan cuando eso ocurre. */
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(actualizarChipsDashboard, 1200);
+  });
+  </script>
+
+</section>
+
 
   <!-- ══ ONBOARDING — STEPPER ══════════════════════════════════ -->
   <section id="module-alta" class="module-section">
