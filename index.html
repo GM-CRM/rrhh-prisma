@@ -1084,6 +1084,242 @@ if ('serviceWorker' in navigator) {
 .mod-body [style*="overflow-y"],
 .mod-body .overflow-y-auto{padding-right:6px}
 </style>
+
+<style>
+/* ═══ DRAWER DE EXPEDIENTE ════════════════════════════════════ */
+
+/* Backdrop: antes el modal flotaba sobre el contenido sin oscurecerlo,
+   así que la tabla de atrás competía visualmente con el formulario. */
+#drawer-backdrop{
+  background-color:oklch(20% 0.02 285/0);
+  backdrop-filter:blur(0px);
+  -webkit-backdrop-filter:blur(0px);
+  opacity:0;pointer-events:none;
+  transition:background-color .3s cubic-bezier(.4,0,.2,1),
+             backdrop-filter .3s cubic-bezier(.4,0,.2,1),
+             opacity .3s cubic-bezier(.4,0,.2,1);
+}
+#drawer-backdrop.is-open{
+  background-color:oklch(20% 0.02 285/.4);
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+  opacity:1;pointer-events:auto;
+}
+
+.dw-panel{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(90% 0.008 285);
+  border-radius:18px;
+  box-shadow:0 24px 64px oklch(18% 0.02 285/.18);
+  overflow:hidden;
+}
+
+/* ── Encabezado ── */
+.dw-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 22px;
+  border-bottom:1px solid oklch(93% 0.006 285);
+  background:oklch(98.5% 0.003 285);
+  flex-shrink:0;
+}
+.dw-cerrar{
+  width:32px;height:32px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:8px;cursor:pointer;
+  background:transparent;color:oklch(60% 0.012 285);
+  transition:background-color .15s ease,color .15s ease;
+}
+.dw-cerrar:hover{background:oklch(94% 0.008 285);color:oklch(30% 0.015 285)}
+
+/* Estilo por descendencia: el título lo pinta main.js */
+#drawer-titulo{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+#drawer-titulo .rounded-full,
+#drawer-titulo .rounded-xl,
+#drawer-titulo .rounded-2xl{flex-shrink:0}
+
+/* ── Pestañas: subrayado, no píldora ──
+   Seis pestañas en un modal de ancho fijo, una con punto de aviso.
+   Las píldoras competirían con ese indicador y con el formulario.
+   El subrayado es más silencioso, y esto es un panel de captura. */
+.dw-tabs-wrap{
+  flex-shrink:0;
+  border-bottom:1px solid oklch(93% 0.006 285);
+  background:oklch(99.5% 0.002 285);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+}
+.dw-tabs-wrap::-webkit-scrollbar{display:none}
+.dw-tabs-wrap > div{display:flex;gap:2px;padding:0 14px;min-width:max-content}
+
+/* Se conserva el nombre .drawer-tab porque cambiarTabDrawer() lo usa */
+.drawer-tab{
+  display:flex;align-items:center;gap:7px;
+  padding:12px 13px;
+  font-family:inherit;font-size:.76rem;font-weight:600;
+  white-space:nowrap;cursor:pointer;position:relative;
+  background:transparent;border:none;
+  border-bottom:2px solid transparent;
+  color:oklch(56% 0.012 285);
+  transition:color .16s ease,border-color .16s ease,background-color .16s ease;
+}
+.drawer-tab i{font-size:.78rem;opacity:.7;transition:opacity .16s ease}
+.drawer-tab:hover{color:oklch(32% 0.015 285);background:oklch(97.5% 0.006 285)}
+
+.drawer-tab.drawer-tab-activa{
+  color:oklch(45% 0.2 285);
+  border-bottom-color:oklch(50% 0.2 285);
+  background:oklch(98% 0.015 285);
+}
+.drawer-tab.drawer-tab-activa i{opacity:1}
+
+/* Punto de aviso de baja */
+#tab-baja-dot{
+  position:absolute;top:8px;right:5px;
+  width:6px;height:6px;border-radius:50%;
+  background:oklch(58% 0.19 25);
+  box-shadow:0 0 0 2px oklch(99.5% 0.002 285);
+}
+
+/* ── Cuerpo ── */
+.dw-body{flex:1;overflow-y:auto;background:oklch(99.5% 0.002 285)}
+.dw-body::-webkit-scrollbar{width:9px}
+.dw-body::-webkit-scrollbar-track{background:transparent}
+.dw-body::-webkit-scrollbar-thumb{background:oklch(89% 0.008 285);border-radius:9px}
+.dw-body::-webkit-scrollbar-thumb:hover{background:oklch(82% 0.012 285)}
+
+/* Los campos los inyecta main.js: estilo por descendencia */
+.drawer-tab-panel input[type="text"],
+.drawer-tab-panel input[type="email"],
+.drawer-tab-panel input[type="tel"],
+.drawer-tab-panel input[type="number"],
+.drawer-tab-panel input[type="date"],
+.drawer-tab-panel select,
+.drawer-tab-panel textarea{
+  border-color:oklch(88% 0.008 285)!important;
+  border-radius:9px!important;
+  background:oklch(99% 0.003 285)!important;
+  color:oklch(25% 0.015 285)!important;
+  max-width:100%;min-width:0;
+  transition:border-color .15s ease,box-shadow .15s ease!important;
+}
+.drawer-tab-panel input:focus,
+.drawer-tab-panel select:focus,
+.drawer-tab-panel textarea:focus{
+  outline:none!important;
+  border-color:oklch(60% 0.19 285)!important;
+  box-shadow:0 0 0 3px oklch(93% 0.04 285)!important;
+}
+.drawer-tab-panel input:disabled,
+.drawer-tab-panel select:disabled{
+  background:oklch(96% 0.005 285)!important;
+  color:oklch(58% 0.012 285)!important;
+  cursor:not-allowed;
+}
+/* Etiquetas de campo */
+.drawer-tab-panel label{color:oklch(54% 0.012 285)!important}
+
+/* Tarjeta de historial: el violeta ya estaba bien, solo se afina */
+#tab-historial-card{
+  background:oklch(99.5% 0.002 285)!important;
+  border-color:oklch(91% 0.02 285)!important;
+  border-radius:13px!important;
+}
+
+/* ── Pie ── */
+.dw-pie{
+  display:flex;gap:10px;
+  padding:15px 22px;
+  border-top:1px solid oklch(93% 0.006 285);
+  background:oklch(98.5% 0.003 285);
+  flex-shrink:0;
+}
+.dw-btn{
+  flex:1;
+  font-family:inherit;font-size:.85rem;font-weight:600;
+  padding:11px;border-radius:10px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:1px solid oklch(89% 0.008 285);
+  background:oklch(99.5% 0.002 285);color:oklch(42% 0.012 285);
+  transition:background-color .15s ease,border-color .15s ease,transform .12s ease;
+}
+.dw-btn:hover{background:oklch(96% 0.006 285);border-color:oklch(84% 0.01 285)}
+.dw-btn:active{transform:scale(.985)}
+.dw-btn-guardar{
+  border-color:transparent;
+  background:oklch(50% 0.2 285);color:oklch(98% 0.005 285);
+  box-shadow:0 2px 10px oklch(50% 0.2 285/.22);
+}
+.dw-btn-guardar:hover{background:oklch(43% 0.18 285);border-color:transparent}
+
+@media(max-width:640px){
+  .dw-head{padding:14px 16px}
+  .dw-pie{padding:13px 16px}
+  .dw-tabs-wrap > div{padding:0 10px}
+  .drawer-tab{padding:11px 10px;font-size:.74rem}
+  .drawer-tab span{display:none}      /* solo icono en pantallas chicas */
+  .drawer-tab i{font-size:.9rem;opacity:1}
+  .drawer-tab-panel{padding:16px 14px!important}
+  .drawer-tab-panel.grid{grid-template-columns:1fr!important}
+}
+
+
+/* ═══ PANEL DE NOTIFICACIONES ═════════════════════════════════ */
+
+.notif-panel-sup{
+  background:oklch(99.5% 0.002 285);
+  border-left:1px solid oklch(91% 0.006 285);
+  box-shadow:-16px 0 48px oklch(18% 0.02 285/.14);
+}
+.nt-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 18px;
+  border-bottom:1px solid oklch(93% 0.006 285);
+  flex-shrink:0;
+}
+/* Antes: cuadro con gradiente indigo→azul y sombra de color. Era el
+   elemento más ruidoso de un panel cuyo trabajo es no distraer. */
+.nt-icono{
+  width:34px;height:34px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:oklch(95% 0.035 285);color:oklch(48% 0.19 285);font-size:.85rem;
+}
+.nt-titulo{font-size:.9rem;font-weight:700;color:oklch(20% 0.02 285);margin:0;line-height:1.25}
+.nt-sub{font-size:.74rem;color:oklch(58% 0.012 285);margin:1px 0 0;line-height:1.3}
+
+.nt-accion{
+  font-family:inherit;font-size:.74rem;font-weight:600;
+  padding:6px 10px;border-radius:8px;cursor:pointer;
+  border:none;background:transparent;color:oklch(58% 0.012 285);
+  transition:background-color .15s ease,color .15s ease;
+}
+.nt-accion:hover{background:oklch(96% 0.025 25);color:oklch(52% 0.18 25)}
+.nt-cerrar{
+  width:32px;height:32px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border:none;border-radius:8px;cursor:pointer;
+  background:transparent;color:oklch(60% 0.012 285);
+  transition:background-color .15s ease,color .15s ease;
+}
+.nt-cerrar:hover{background:oklch(94% 0.008 285);color:oklch(30% 0.015 285)}
+
+.nt-tabs{
+  display:flex;align-items:center;gap:6px;
+  padding:12px 16px;
+  border-bottom:1px solid oklch(93% 0.006 285);
+  flex-shrink:0;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;flex-wrap:nowrap;
+}
+.nt-tabs::-webkit-scrollbar{display:none}
+.nt-tabs > *{flex-shrink:0}
+
+.nt-lista{flex:1;overflow-y:auto;padding:12px}
+.nt-lista::-webkit-scrollbar{width:9px}
+.nt-lista::-webkit-scrollbar-track{background:transparent}
+.nt-lista::-webkit-scrollbar-thumb{background:oklch(90% 0.008 285);border-radius:9px}
+
+/* El botón "Ver empleado" de cada tarjeta lo pinta main.js en azul */
+.notif-card .notif-emp-btn{color:oklch(48% 0.19 285)!important}
+</style>
  
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -2074,71 +2310,73 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 <!-- Overlay modal expediente -->
 <div id="drawer-overlay" onclick="cerrarEditor()" class="hidden fixed inset-0 bg-black/50 z-40 backdrop-blur-sm"></div>
 
-<!-- Modal expediente centrado -->
-<div id="drawer-editor" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col pointer-events-auto opacity-0 scale-95 transition-all duration-200" id="drawer-inner">
+<!-- ══ MODAL DE EXPEDIENTE ══════════════════════════════════ -->
+<!-- El backdrop es nuevo: antes el modal flotaba sobre la tabla sin
+     oscurecerla y el fondo competía con el formulario. -->
+<div id="drawer-backdrop" class="hidden fixed inset-0 z-40" onclick="cerrarEditor()"></div>
 
-    <!-- Header modal (fijo) -->
-    <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50 rounded-t-2xl flex-shrink-0">
-      <div class="flex items-center gap-3 flex-1 min-w-0" id="drawer-titulo"></div>
-      <button onclick="cerrarEditor()" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition flex-shrink-0">
-        <i class="fas fa-times"></i>
+<div id="drawer-editor" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+  <div id="drawer-inner"
+       class="dw-panel w-full max-w-5xl max-h-[92vh] flex flex-col pointer-events-auto opacity-0 scale-95 transition-all duration-200">
+
+    <!-- ── Encabezado ── -->
+    <div class="dw-head">
+      <div id="drawer-titulo"></div>
+      <button onclick="cerrarEditor()" class="dw-cerrar" aria-label="Cerrar">
+        <i class="fas fa-xmark"></i>
       </button>
     </div>
 
-    <!-- Barra de pestañas (fija) -->
-    <div class="flex-shrink-0 border-b border-slate-100 bg-white overflow-x-auto">
-      <div class="flex gap-1 px-4 min-w-max" id="drawer-tabs">
-        <button type="button" onclick="cambiarTabDrawer('personal')" data-tab="personal"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-id-card"></i>Personal y Contacto
+    <!-- ── Pestañas ── -->
+    <div class="dw-tabs-wrap">
+      <div id="drawer-tabs">
+        <button type="button" onclick="cambiarTabDrawer('personal')" data-tab="personal" class="drawer-tab">
+          <i class="fas fa-id-card"></i><span>Personal y contacto</span>
         </button>
-        <button type="button" onclick="cambiarTabDrawer('laboral')" data-tab="laboral"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap relative">
-          <i class="fas fa-briefcase"></i>Datos Laborales
-          <span id="tab-baja-dot" class="hidden absolute top-2 right-1 w-2 h-2 rounded-full bg-red-500"></span>
+        <button type="button" onclick="cambiarTabDrawer('laboral')" data-tab="laboral" class="drawer-tab">
+          <i class="fas fa-briefcase"></i><span>Datos laborales</span>
+          <span id="tab-baja-dot" class="hidden"></span>
         </button>
-        <button type="button" onclick="cambiarTabDrawer('historial')" data-tab="historial"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-timeline"></i>Historial de Carrera
+        <button type="button" onclick="cambiarTabDrawer('historial')" data-tab="historial" class="drawer-tab">
+          <i class="fas fa-timeline"></i><span>Historial de carrera</span>
         </button>
-        <button type="button" onclick="cambiarTabDrawer('contratos')" data-tab="contratos"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-file-contract"></i>Contratos
+        <button type="button" onclick="cambiarTabDrawer('contratos')" data-tab="contratos" class="drawer-tab">
+          <i class="fas fa-file-contract"></i><span>Contratos</span>
         </button>
-        <button type="button" onclick="cambiarTabDrawer('documentos')" data-tab="documentos"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-folder-open"></i>Expediente Digital
+        <button type="button" onclick="cambiarTabDrawer('documentos')" data-tab="documentos" class="drawer-tab">
+          <i class="fas fa-folder-open"></i><span>Expediente digital</span>
         </button>
-        <button type="button" onclick="cambiarTabDrawer('nom035')" data-tab="nom035"
-          class="drawer-tab flex items-center gap-2 px-3.5 py-3 text-xs font-semibold border-b-2 transition whitespace-nowrap">
-          <i class="fas fa-shield-heart"></i>NOM-035
+        <button type="button" onclick="cambiarTabDrawer('nom035')" data-tab="nom035" class="drawer-tab">
+          <i class="fas fa-shield-heart"></i><span>NOM-035</span>
         </button>
       </div>
     </div>
 
-    <!-- Cuerpo modal — un panel visible por pestaña -->
-    <div class="flex-1 overflow-y-auto" id="drawer-body-scroll">
+    <!-- ── Cuerpo: un panel visible por pestaña ── -->
+    <div class="dw-body" id="drawer-body-scroll">
+
       <div id="tab-panel-personal" class="drawer-tab-panel p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
-      <div id="tab-panel-laboral" class="drawer-tab-panel hidden p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
+      <div id="tab-panel-laboral"  class="drawer-tab-panel hidden p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-0"></div>
 
       <div id="tab-panel-historial" class="drawer-tab-panel hidden p-6">
         <div id="tab-historial-reingreso"></div>
-        <div id="tab-historial-card" class="bg-white rounded-2xl border border-violet-100 p-4">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-xs font-bold text-violet-600 uppercase tracking-wide flex items-center gap-1.5">
-              <i class="fas fa-timeline"></i>Historial de Carrera
+        <div id="tab-historial-card" class="border p-4">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <p style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:oklch(48% 0.19 285);margin:0;display:flex;align-items:center;gap:7px">
+              <i class="fas fa-timeline"></i>Historial de carrera
             </p>
             <button onclick="abrirModalMovimiento(empleadoEdicion?.['ID_PERSONA'], empleadoEdicion?.['NOMBRE DEL TRABAJADOR'])"
-              class="text-xs font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 px-2.5 py-1 rounded-lg transition flex items-center gap-1">
-              <i class="fas fa-plus text-xs"></i>Movimiento
+                    style="font-family:inherit;font-size:.74rem;font-weight:600;color:oklch(45% 0.19 285);background:oklch(96% 0.03 285);border:none;padding:5px 11px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background-color .15s ease"
+                    onmouseover="this.style.background='oklch(93% 0.045 285)'"
+                    onmouseout="this.style.background='oklch(96% 0.03 285)'">
+              <i class="fas fa-plus" style="font-size:.68rem"></i>Movimiento
             </button>
           </div>
           <div id="sec-historial">
-            <div class="text-xs text-slate-400 text-center py-3">Cargando...</div>
+            <p style="font-size:.78rem;color:oklch(62% 0.012 285);text-align:center;padding:14px 0;margin:0">Cargando...</p>
           </div>
         </div>
-        <div id="tab-historial-sin-id" class="hidden text-xs text-slate-400 text-center py-6">
+        <div id="tab-historial-sin-id" class="hidden" style="font-size:.78rem;color:oklch(62% 0.012 285);text-align:center;padding:26px 0">
           Esta persona aún no tiene un ID de historial asignado.
         </div>
       </div>
@@ -2147,54 +2385,91 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 
       <div id="tab-panel-documentos" class="drawer-tab-panel hidden p-6">
         <div id="tab-documentos-drive"></div>
-        <div id="tab-documentos-archivos" class="mt-5"></div>
+        <div id="tab-documentos-archivos" style="margin-top:20px"></div>
       </div>
+
       <div id="tab-panel-nom035" class="drawer-tab-panel hidden p-6">
         <div id="nom035-drawer-content">
-          <div class="text-center py-8 text-slate-400">
-            <i class="fas fa-shield-heart text-3xl mb-3 text-slate-300"></i>
-            <p class="text-sm">Cargando resultados NOM-035...</p>
+          <div style="text-align:center;padding:34px 20px">
+            <i class="fas fa-shield-heart" style="font-size:1.9rem;color:oklch(87% 0.012 285);display:block;margin-bottom:12px"></i>
+            <p style="font-size:.84rem;color:oklch(60% 0.012 285);margin:0">Cargando resultados NOM-035...</p>
           </div>
         </div>
       </div>
+
     </div>
 
-    <!-- Footer modal (fijo, visible sin importar la pestaña) -->
-    <div class="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl flex-shrink-0">
-      <button onclick="cerrarEditor()" class="flex-1 text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 py-2.5 rounded-xl transition">Cancelar</button>
-      <button onclick="guardarCambiosEditor()" class="flex-1 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 py-2.5 rounded-xl transition shadow-sm">
-        <i class="fas fa-save mr-2"></i>Guardar cambios
+    <!-- ── Pie ── -->
+    <div class="dw-pie">
+      <button onclick="cerrarEditor()" class="dw-btn">Cancelar</button>
+      <button onclick="guardarCambiosEditor()" class="dw-btn dw-btn-guardar">
+        <i class="fas fa-floppy-disk" style="font-size:.8rem"></i>Guardar cambios
       </button>
     </div>
 
   </div>
 </div>
 
+<script>
+/* El backdrop se sincroniza con el modal observando su clase, así no
+   hay que modificar abrirEditor() ni cerrarEditor() en main.js.
+   También se agrega cierre con Escape, que el modal no tenía. */
+(function(){
+  var modal = document.getElementById('drawer-editor');
+  var backdrop = document.getElementById('drawer-backdrop');
+  if(!modal || !backdrop) return;
+
+  var sincronizar = function(){
+    var abierto = !modal.classList.contains('hidden');
+    if(abierto){
+      backdrop.classList.remove('hidden');
+      requestAnimationFrame(function(){ backdrop.classList.add('is-open') });
+    }else{
+      backdrop.classList.remove('is-open');
+      setTimeout(function(){
+        if(modal.classList.contains('hidden')) backdrop.classList.add('hidden');
+      }, 300);
+    }
+  };
+
+  new MutationObserver(sincronizar).observe(modal, {attributes:true, attributeFilter:['class']});
+
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !modal.classList.contains('hidden')){
+      if(typeof cerrarEditor === 'function') cerrarEditor();
+    }
+  });
+})();
+</script>
+
 <!-- Backdrop del panel de notificaciones (REDISEÑO: reemplaza el listener
      global de "clic afuera" — ver nota junto a abrirCentroNotifs en main.js) -->
 <div id="notif-backdrop" class="notif-backdrop hidden fixed inset-0 z-40" onclick="cerrarCentroNotifs()"></div>
 
 <!-- Panel de notificaciones — Side Drawer -->
-<aside id="notif-panel" class="notif-drawer hidden fixed top-0 right-0 z-50 h-full w-full sm:w-[26rem] max-w-full bg-white/95 shadow-2xl flex flex-col">
-  <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
-    <div class="flex items-center gap-2.5 min-w-0">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-lg shadow-indigo-200 flex-shrink-0">
-        <i class="fas fa-bell text-white text-sm"></i>
-      </div>
-      <div class="min-w-0">
-        <p class="text-sm font-bold text-slate-800 leading-tight">Notificaciones</p>
-        <p id="notif-subtitulo" class="text-xs text-slate-400 leading-tight truncate">Sin novedades</p>
+<aside id="notif-panel"
+       class="notif-drawer notif-panel-sup hidden fixed top-0 right-0 z-50 h-full w-full sm:w-[26rem] max-w-full flex flex-col">
+
+  <div class="nt-head">
+    <div style="display:flex;align-items:center;gap:11px;min-width:0">
+      <div class="nt-icono"><i class="fas fa-bell"></i></div>
+      <div style="min-width:0">
+        <p class="nt-titulo">Notificaciones</p>
+        <p id="notif-subtitulo" class="nt-sub" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sin novedades</p>
       </div>
     </div>
-    <div class="flex items-center gap-1 flex-shrink-0">
-      <button onclick="limpiarNotificaciones()" class="text-xs font-medium text-slate-400 hover:text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition">Limpiar</button>
-      <button onclick="cerrarCentroNotifs()" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
-        <i class="fas fa-times text-sm"></i>
+    <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+      <button onclick="limpiarNotificaciones()" class="nt-accion">Limpiar</button>
+      <button onclick="cerrarCentroNotifs()" class="nt-cerrar" aria-label="Cerrar">
+        <i class="fas fa-xmark" style="font-size:.85rem"></i>
       </button>
     </div>
   </div>
-  <div id="notif-tabs" class="flex items-center gap-1.5 px-4 py-3 border-b border-slate-100 flex-shrink-0 overflow-x-auto notif-tabs-scroll"></div>
-  <div id="notif-lista" class="flex-1 overflow-y-auto px-3 py-3 notif-lista-scroll"></div>
+
+  <div id="notif-tabs" class="nt-tabs notif-tabs-scroll"></div>
+
+  <div id="notif-lista" class="nt-lista notif-lista-scroll"></div>
+
 </aside>
 
 <script>
