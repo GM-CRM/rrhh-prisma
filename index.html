@@ -670,8 +670,31 @@ if ('serviceWorker' in navigator) {
     display:inline-flex;align-items:center;justify-content:center;
   }
 
-  /* Un poco más de aire en la cabecera */
+    /* Un poco más de aire en la cabecera */
   .exp-head{padding:18px 16px}
+}
+
+/* ── FIX: neutraliza el parche responsive genérico ── */
+@media (max-width:768px){
+  .module-section .exp-tabla,
+  .module-section .exp-tabla tbody,
+  .module-section .exp-tabla tr,
+  .module-section .exp-tabla td{
+    min-width:0 !important;
+    white-space:normal !important;
+    max-width:100% !important;
+  }
+  .module-section *:has(> .exp-tabla){
+    overflow-x:visible !important;
+  }
+  .module-section .exp-tabla{
+    width:100% !important;
+    display:block !important;
+  }
+  .module-section .exp-tabla tbody td:nth-child(1){
+    white-space:nowrap !important;
+    width:auto !important;
+  }
 }
 </style>
 
