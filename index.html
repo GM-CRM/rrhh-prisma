@@ -916,6 +916,148 @@ if ('serviceWorker' in navigator) {
 .ab-stepper .rounded-full{flex-shrink:0}
 </style>
 
+<style>
+/* ═══ MÓDULOS CON PESTAÑAS — sistema visual violeta ═══════════
+   Comparten esqueleto: Personas, Evaluaciones, Encuestas y
+   Usuarios. Una sola definición para los cuatro. */
+
+.mod-wrap{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(91% 0.006 285);
+  border-radius:16px;
+  overflow:hidden;
+}
+
+/* ── Barra de pestañas ── */
+.mod-tabs{
+  display:flex;gap:6px;
+  padding:14px 16px;
+  border-bottom:1px solid oklch(93% 0.006 285);
+  background:oklch(98.5% 0.003 285);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  scrollbar-width:none;scroll-snap-type:x proximity;
+}
+.mod-tabs::-webkit-scrollbar{display:none}
+
+/* Píldora en vez de pestaña tipo carpeta: se lee igual de bien a
+   cualquier ancho y no depende de un borde inferior que se pierde
+   al scrollear en horizontal. */
+.mod-tab{
+  flex-shrink:0;scroll-snap-align:start;
+  font-family:inherit;font-size:.79rem;font-weight:600;
+  padding:7px 14px;border-radius:99px;cursor:pointer;
+  border:1px solid transparent;
+  background:transparent;color:oklch(52% 0.012 285);
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  transition:background-color .16s ease,color .16s ease,border-color .16s ease;
+}
+.mod-tab:hover{background:oklch(95.5% 0.008 285);color:oklch(32% 0.015 285)}
+.mod-tab i{font-size:.78rem;opacity:.75}
+
+.mod-tab.active{
+  background:oklch(50% 0.2 285);
+  color:oklch(98% 0.005 285);
+  border-color:transparent;
+  box-shadow:0 2px 8px oklch(50% 0.2 285/.2);
+}
+.mod-tab.active:hover{background:oklch(46% 0.19 285);color:oklch(98% 0.005 285)}
+.mod-tab.active i{opacity:1}
+
+/* Compatibilidad: main.js puede seguir alternando las clases
+   originales. Estas reglas las neutralizan para que no peleen
+   con .mod-tab.active. */
+.mod-tab.per-tab,.mod-tab.eval-tab,.mod-tab.enc-tab{border-bottom-width:1px}
+
+/* ── Cuerpo ── */
+.mod-body{padding:20px 22px;min-height:31rem}
+.mod-body-sm{min-height:25rem}
+
+/* Estado inicial mientras main.js no ha pintado nada */
+.mod-placeholder{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:72px 20px;text-align:center;
+}
+.mod-placeholder i{font-size:2rem;color:oklch(87% 0.012 285);margin-bottom:14px}
+.mod-placeholder p{font-size:.85rem;color:oklch(60% 0.012 285);margin:0}
+
+/* ── Cabecera para módulos sin pestañas (Usuarios) ── */
+.mod-head{
+  padding:20px 22px;
+  border-bottom:1px solid oklch(93% 0.006 285);
+  display:flex;flex-wrap:wrap;align-items:flex-start;
+  justify-content:space-between;gap:14px;
+}
+.mod-head h3{
+  font-size:1.1rem;font-weight:750;letter-spacing:-.02em;
+  color:oklch(20% 0.02 285);margin:0 0 3px;
+}
+.mod-head p{font-size:.8rem;color:oklch(57% 0.012 285);margin:0}
+
+.mod-btn{
+  font-size:.79rem;font-weight:600;font-family:inherit;
+  padding:8px 15px;border-radius:9px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  border:1px solid transparent;
+  background:oklch(50% 0.2 285);color:oklch(98% 0.005 285);
+  box-shadow:0 2px 8px oklch(50% 0.2 285/.2);
+  transition:background-color .15s ease,transform .12s ease;
+}
+.mod-btn:hover{background:oklch(43% 0.18 285)}
+.mod-btn:active{transform:scale(.98)}
+
+/* ── Estilo por descendencia para lo que main.js inyecta ──
+   El contenido de cada pestaña lo genera el JS con sus propias
+   clases. Esto lo alinea con la identidad sin tocar una línea. */
+.mod-body input[type="text"],
+.mod-body input[type="search"],
+.mod-body input[type="email"],
+.mod-body input[type="number"],
+.mod-body input[type="date"],
+.mod-body select,
+.mod-body textarea{
+  border-color:oklch(88% 0.008 285)!important;
+  border-radius:9px!important;
+  background:oklch(99% 0.003 285)!important;
+  color:oklch(25% 0.015 285)!important;
+  max-width:100%;min-width:0;
+}
+.mod-body input:focus,
+.mod-body select:focus,
+.mod-body textarea:focus{
+  outline:none!important;
+  border-color:oklch(60% 0.19 285)!important;
+  box-shadow:0 0 0 3px oklch(93% 0.04 285)!important;
+}
+
+/* Tablas que el JS pinte dentro de estos módulos */
+.mod-body table{width:100%;border-collapse:collapse;font-size:.84rem}
+.mod-body thead th{
+  font-size:.66rem;font-weight:650;letter-spacing:.07em;text-transform:uppercase;
+  color:oklch(56% 0.012 285);padding:10px 12px;
+  background:oklch(97.5% 0.004 285);
+  border-bottom:1px solid oklch(92% 0.006 285);text-align:left;
+}
+.mod-body tbody td{
+  padding:10px 12px;color:oklch(35% 0.015 285);
+  border-bottom:1px solid oklch(95.5% 0.004 285);
+}
+.mod-body tbody tr:last-child td{border-bottom:none}
+
+@media(max-width:640px){
+  .mod-tabs{padding:12px 14px;gap:5px}
+  /* Seis pestañas con icono no caben en un teléfono. Solo texto:
+     más pestañas visibles sin scroll y menos ruido. */
+  .mod-tab i{display:none}
+  .mod-tab{padding:7px 13px;font-size:.78rem}
+  .mod-body{padding:16px 14px;min-height:22rem}
+  .mod-head{padding:16px 14px}
+  .mod-head > div:last-child{width:100%}
+  .mod-btn{width:100%;justify-content:center}
+  /* Las tablas que inyecte el JS no deben desbordar */
+  .mod-body table{display:block;overflow-x:auto;white-space:nowrap}
+}
+</style>
+ 
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
@@ -1616,124 +1758,125 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
   </div>
 </section>
 
-  <!-- ══ DIRECTORIO ═══════════════════════════════════════════ -->
-  <!-- MÓDULO: Personas -->
+  <!-- ══ PERSONAS ═════════════════════════════════════════════ -->
 <section id="module-personas" class="module-section">
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
-    <!-- Tabs -->
-    <div class="border-b border-slate-100 px-4 pt-4">
-      <div class="flex gap-1 overflow-x-auto pb-0">
-        <button onclick="activarTabPersonas('directorio',this)" data-tab="directorio"
-          class="per-tab active flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-violet-600 text-violet-700 bg-violet-50 transition">
-          <i class="fas fa-id-badge mr-1.5"></i>Directorio
-        </button>
-        <button onclick="activarTabPersonas('organigrama',this)" data-tab="organigrama"
-          class="per-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-sitemap mr-1.5"></i>Organigrama
-        </button>
-        <button onclick="activarTabPersonas('informes',this)" data-tab="informes"
-          class="per-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-chart-pie mr-1.5"></i>Informes
-        </button>
-        <button onclick="activarTabPersonas('admin',this)" data-tab="admin"
-          class="per-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-cog mr-1.5"></i>Administración
-        </button>
-      </div>
-    </div>
-    <div id="personas-contenido" class="p-5 min-h-[500px]">
-      <p class="text-sm text-slate-400 text-center py-12">Selecciona una sección.</p>
-    </div>
-  </div>
-</section>
-
-<!-- MÓDULO: Evaluaciones -->
-<section id="module-evaluaciones" class="module-section">
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
-    <div class="border-b border-slate-100 px-4 pt-4">
-      <div class="flex gap-1 overflow-x-auto pb-0">
-        <button onclick="activarTabEval('miseval',this)" data-tab="miseval"
-          class="eval-tab active flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-violet-600 text-violet-700 bg-violet-50 transition">
-          <i class="fas fa-clipboard-check mr-1.5"></i>Mis Evaluaciones
-        </button>
-        <button onclick="activarTabEval('equipo',this)" data-tab="equipo"
-          class="eval-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-users mr-1.5"></i>Mi Equipo
-        </button>
-        <button onclick="activarTabEval('informes',this)" data-tab="informes"
-          class="eval-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-chart-bar mr-1.5"></i>Informes
-        </button>
-        <button onclick="activarTabEval('admin',this)" data-tab="admin"
-          class="eval-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-cog mr-1.5"></i>Administración
-        </button>
-      </div>
-    </div>
-    <div id="eval-contenido" class="p-5 min-h-[500px]">
-      <p class="text-sm text-slate-400 text-center py-12">Selecciona una sección.</p>
-    </div>
-  </div>
-</section>
-
-<!-- MÓDULO: Encuestas -->
-<section id="module-encuestas" class="module-section">
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
-    <!-- Tabs -->
-    <div class="border-b border-slate-100 px-4 pt-4">
-      <div class="flex gap-1 overflow-x-auto pb-0" id="enc-tabs">
-        <button onclick="activarTabEncuesta('SALIDA',this)" class="enc-tab active flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-violet-600 text-violet-700 bg-violet-50 transition">
-          <i class="fas fa-door-open mr-1.5"></i>Encuesta de Salida
-        </button>
-        <button onclick="activarTabEncuesta('CLIMA',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-cloud-sun mr-1.5"></i>Clima Laboral
-        </button>
-        <button onclick="activarTabEncuesta('DESEMPE',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-chart-line mr-1.5"></i>Desempeño
-        </button>
-        <button onclick="activarTabEncuesta('CAPAC',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-graduation-cap mr-1.5"></i>Capacitación
-        </button>
-        <button onclick="activarTabEncuesta('PULSO',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-heartbeat mr-1.5"></i>Pulso
-        </button>
-        <button onclick="activarTabEncuesta('NOM035',this)" class="enc-tab flex-shrink-0 px-4 py-2.5 text-xs font-semibold rounded-t-xl border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition">
-          <i class="fas fa-shield-heart mr-1.5"></i>NOM-035
-        </button>
-      </div>
-    </div>
-    <!-- Contenido del tab activo -->
-    <div id="enc-contenido" class="p-5 min-h-[400px]">
-      <p class="text-sm text-slate-400 text-center py-12">Selecciona una encuesta para ver su dashboard.</p>
-    </div>
-  </div>
-</section>
-
-<!-- MÓDULO: Usuarios / Perfil -->
-<section id="module-usuarios" class="module-section">
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-200" id="panel-usuarios-admin">
-    <!-- Admin: gestión de usuarios -->
-    <div class="p-5 border-b border-slate-100 bg-slate-50 rounded-t-2xl flex items-center justify-between">
-      <div>
-        <h3 class="text-base font-bold text-slate-800">Gestión de Usuarios</h3>
-        <p class="text-xs text-slate-400 mt-0.5">Administra los accesos al sistema</p>
-      </div>
-      <button onclick="abrirModalNuevoUsuario()" class="bg-violet-600 text-white px-4 py-2 rounded-xl hover:bg-violet-700 flex items-center gap-2 text-xs font-semibold transition shadow-sm">
-        <i class="fas fa-user-plus"></i> Nuevo Usuario
+  <div class="mod-wrap">
+    <div class="mod-tabs">
+      <button onclick="activarTabPersonas('directorio',this)" data-tab="directorio" class="mod-tab per-tab active">
+        <i class="fas fa-id-badge"></i>Directorio
+      </button>
+      <button onclick="activarTabPersonas('organigrama',this)" data-tab="organigrama" class="mod-tab per-tab">
+        <i class="fas fa-sitemap"></i>Organigrama
+      </button>
+      <button onclick="activarTabPersonas('informes',this)" data-tab="informes" class="mod-tab per-tab">
+        <i class="fas fa-chart-pie"></i>Informes
+      </button>
+      <button onclick="activarTabPersonas('admin',this)" data-tab="admin" class="mod-tab per-tab">
+        <i class="fas fa-gear"></i>Administración
       </button>
     </div>
-    <div id="tabla-usuarios-container" class="p-4">
-      <p class="text-sm text-slate-400 text-center py-8">Cargando usuarios...</p>
+    <div id="personas-contenido" class="mod-body">
+      <div class="mod-placeholder">
+        <i class="fas fa-id-badge"></i>
+        <p>Selecciona una sección.</p>
+      </div>
     </div>
   </div>
-  <!-- Auxiliar: perfil propio -->
-  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 hidden" id="panel-perfil-auxiliar">
-    <div class="p-5 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
-      <h3 class="text-base font-bold text-slate-800">Mi Perfil</h3>
-      <p class="text-xs text-slate-400 mt-0.5">Actualiza tu información personal</p>
+</section>
+
+<!-- ══ EVALUACIONES ═════════════════════════════════════════ -->
+<section id="module-evaluaciones" class="module-section">
+  <div class="mod-wrap">
+    <div class="mod-tabs">
+      <button onclick="activarTabEval('miseval',this)" data-tab="miseval" class="mod-tab eval-tab active">
+        <i class="fas fa-clipboard-check"></i>Mis evaluaciones
+      </button>
+      <button onclick="activarTabEval('equipo',this)" data-tab="equipo" class="mod-tab eval-tab">
+        <i class="fas fa-users"></i>Mi equipo
+      </button>
+      <button onclick="activarTabEval('informes',this)" data-tab="informes" class="mod-tab eval-tab">
+        <i class="fas fa-chart-column"></i>Informes
+      </button>
+      <button onclick="activarTabEval('admin',this)" data-tab="admin" class="mod-tab eval-tab">
+        <i class="fas fa-gear"></i>Administración
+      </button>
     </div>
-    <div id="perfil-auxiliar-body" class="p-6"></div>
+    <div id="eval-contenido" class="mod-body">
+      <div class="mod-placeholder">
+        <i class="fas fa-clipboard-check"></i>
+        <p>Selecciona una sección.</p>
+      </div>
+    </div>
   </div>
+</section>
+
+<!-- ══ ENCUESTAS ════════════════════════════════════════════ -->
+<section id="module-encuestas" class="module-section">
+  <div class="mod-wrap">
+    <div class="mod-tabs" id="enc-tabs">
+      <button onclick="activarTabEncuesta('SALIDA',this)" class="mod-tab enc-tab active">
+        <i class="fas fa-door-open"></i>Salida
+      </button>
+      <button onclick="activarTabEncuesta('CLIMA',this)" class="mod-tab enc-tab">
+        <i class="fas fa-cloud-sun"></i>Clima laboral
+      </button>
+      <button onclick="activarTabEncuesta('DESEMPE',this)" class="mod-tab enc-tab">
+        <i class="fas fa-chart-line"></i>Desempeño
+      </button>
+      <button onclick="activarTabEncuesta('CAPAC',this)" class="mod-tab enc-tab">
+        <i class="fas fa-graduation-cap"></i>Capacitación
+      </button>
+      <button onclick="activarTabEncuesta('PULSO',this)" class="mod-tab enc-tab">
+        <i class="fas fa-heart-pulse"></i>Pulso
+      </button>
+      <button onclick="activarTabEncuesta('NOM035',this)" class="mod-tab enc-tab">
+        <i class="fas fa-shield-heart"></i>NOM-035
+      </button>
+    </div>
+    <div id="enc-contenido" class="mod-body mod-body-sm">
+      <div class="mod-placeholder">
+        <i class="fas fa-clipboard-list"></i>
+        <p>Selecciona una encuesta para ver su dashboard.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ USUARIOS ═════════════════════════════════════════════ -->
+<section id="module-usuarios" class="module-section">
+
+  <!-- Vista de administrador -->
+  <div class="mod-wrap" id="panel-usuarios-admin">
+    <div class="mod-head">
+      <div>
+        <h3>Gestión de usuarios</h3>
+        <p>Administra los accesos al sistema.</p>
+      </div>
+      <div>
+        <button onclick="abrirModalNuevoUsuario()" class="mod-btn">
+          <i class="fas fa-user-plus" style="font-size:.75rem"></i>Nuevo usuario
+        </button>
+      </div>
+    </div>
+    <div id="tabla-usuarios-container" class="mod-body" style="min-height:auto">
+      <div class="mod-placeholder">
+        <i class="fas fa-users-gear"></i>
+        <p>Cargando usuarios...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vista de usuario auxiliar: su propio perfil -->
+  <div class="mod-wrap hidden" id="panel-perfil-auxiliar">
+    <div class="mod-head">
+      <div>
+        <h3>Mi perfil</h3>
+        <p>Actualiza tu información personal.</p>
+      </div>
+    </div>
+    <div id="perfil-auxiliar-body" class="mod-body" style="min-height:auto"></div>
+  </div>
+
 </section>
 
 <!-- ══ EXPEDIENTES ══════════════════════════════════════════ -->
