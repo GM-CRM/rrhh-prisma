@@ -461,7 +461,220 @@ if ('serviceWorker' in navigator) {
 }
 .dsh-tabla tbody tr:last-child td{border-bottom:none}
 </style>
- 
+
+ <style>
+/* ═══ EXPEDIENTES — sistema visual violeta ═════════════════════ */
+
+.exp-wrap{
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(91% 0.006 285);
+  border-radius:16px;
+  overflow:hidden;
+}
+
+/* ── Cabecera ── */
+.exp-head{
+  padding:20px 22px;
+  border-bottom:1px solid oklch(93% 0.006 285);
+}
+.exp-head h3{
+  font-size:1.15rem;font-weight:750;letter-spacing:-.02em;
+  color:oklch(20% 0.02 285);margin:0 0 3px;
+}
+.exp-head .sub{
+  font-size:.8rem;color:oklch(58% 0.012 285);margin:0;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Botones de acción */
+.exp-btn{
+  font-size:.78rem;font-weight:600;font-family:inherit;
+  padding:8px 14px;border-radius:9px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  border:1px solid oklch(89% 0.008 285);
+  background:oklch(98% 0.004 285);color:oklch(38% 0.012 285);
+  transition:background-color .15s ease,border-color .15s ease;
+}
+.exp-btn:hover{background:oklch(95.5% 0.006 285);border-color:oklch(84% 0.01 285)}
+.exp-btn-primario{
+  border-color:transparent;
+  background:oklch(50% 0.2 285);color:oklch(98% 0.005 285);
+  box-shadow:0 2px 8px oklch(50% 0.2 285/.2);
+}
+.exp-btn-primario:hover{background:oklch(43% 0.18 285);border-color:transparent}
+
+/* ── Filtros ── */
+.exp-buscador{position:relative}
+.exp-buscador i{
+  position:absolute;left:13px;top:50%;transform:translateY(-50%);
+  color:oklch(65% 0.01 285);font-size:.78rem;pointer-events:none;
+}
+.exp-input,.exp-select{
+  width:100%;max-width:100%;min-width:0;
+  border:1px solid oklch(88% 0.008 285);border-radius:9px;
+  padding:9px 12px;font-size:.85rem;font-family:inherit;
+  background:oklch(99% 0.003 285);color:oklch(25% 0.015 285);
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.exp-input{padding-left:36px}
+.exp-input:focus,.exp-select:focus{
+  outline:none;border-color:oklch(60% 0.19 285);
+  box-shadow:0 0 0 3px oklch(93% 0.04 285);
+}
+.exp-input::placeholder{color:oklch(66% 0.01 285)}
+
+.exp-meta{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin-top:12px;flex-wrap:wrap;
+}
+.exp-contador{font-size:.76rem;color:oklch(58% 0.012 285);margin:0;font-variant-numeric:tabular-nums}
+.exp-limpiar{
+  font-size:.76rem;font-weight:600;font-family:inherit;
+  color:oklch(50% 0.2 285);background:none;border:none;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;padding:0;
+  transition:color .15s ease;
+}
+.exp-limpiar:hover{color:oklch(38% 0.16 285)}
+
+/* ── Tabla en escritorio ── */
+.exp-tabla{width:100%;text-align:left;font-size:.85rem;table-layout:fixed;border-collapse:collapse}
+.exp-tabla thead th{
+  font-size:.66rem;font-weight:650;letter-spacing:.07em;text-transform:uppercase;
+  color:oklch(56% 0.012 285);padding:11px 14px;
+  background:oklch(97.5% 0.004 285);
+  border-bottom:1px solid oklch(92% 0.006 285);
+}
+.exp-tabla tbody tr{
+  border-bottom:1px solid oklch(95.5% 0.004 285);
+  transition:background-color .12s ease;
+}
+.exp-tabla tbody tr:hover{background:oklch(98% 0.008 285)}
+.exp-tabla tbody tr:last-child{border-bottom:none}
+.exp-tabla tbody td{
+  padding:11px 14px;color:oklch(35% 0.015 285);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+/* Columna 1 (No. Emp) tabular para que los números alineen */
+.exp-tabla tbody td:nth-child(1){font-variant-numeric:tabular-nums;color:oklch(55% 0.012 285)}
+/* Columna 2 (Colaborador) es el dato ancla de cada fila */
+.exp-tabla tbody td:nth-child(2){font-weight:600;color:oklch(22% 0.02 285)}
+
+/* Estado vacío */
+.exp-vacio{padding:64px 20px;text-align:center}
+.exp-vacio i{font-size:2.2rem;color:oklch(85% 0.01 285);margin-bottom:14px;display:block}
+.exp-vacio .t{font-size:.9rem;font-weight:650;color:oklch(42% 0.015 285);margin:0 0 4px}
+.exp-vacio .s{font-size:.78rem;color:oklch(62% 0.01 285);margin:0}
+
+
+/* ═══════════════════════════════════════════════════════════
+   MÓVIL: la tabla se convierte en tarjetas.
+   El scroll horizontal era un parche; en un teléfono nadie
+   quiere deslizar una tabla de 6 columnas.
+
+   Cada <tr> pasa a ser una tarjeta y las etiquetas de columna
+   se inyectan con ::before según la posición del <td>.
+   Orden actual de columnas:
+     1 No. Emp · 2 Colaborador · 3 Empresa
+     4 Puesto  · 5 Estatus     · 6 Acciones
+   Si cambias ese orden en cargarDatosTabla(), ajusta los
+   nth-child de abajo.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width:768px){
+
+  .exp-tabla,
+  .exp-tabla tbody,
+  .exp-tabla tr,
+  .exp-tabla td{display:block;width:auto}
+
+  .exp-tabla{table-layout:auto}
+  .exp-tabla colgroup{display:none}
+  .exp-tabla thead{
+    position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;  /* oculto pero accesible */
+  }
+
+  /* Cada fila es una tarjeta */
+  .exp-tabla tbody tr{
+    position:relative;
+    border:1px solid oklch(92% 0.006 285);
+    border-radius:13px;
+    padding:14px 16px 12px;
+    margin:0 14px 10px;
+    background:oklch(99.5% 0.002 285);
+  }
+  .exp-tabla tbody tr:hover{background:oklch(99.5% 0.002 285)}
+  .exp-tabla tbody tr:first-child{margin-top:14px}
+
+  .exp-tabla tbody td{
+    padding:0;
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+  }
+
+  /* ── Col 1 · No. Emp: chip discreto arriba ── */
+  .exp-tabla tbody td:nth-child(1){
+    font-size:.68rem;font-weight:650;letter-spacing:.04em;
+    color:oklch(50% 0.14 285);
+    background:oklch(95.5% 0.03 285);
+    display:inline-block;
+    padding:2px 8px;border-radius:6px;
+    margin-bottom:8px;
+  }
+
+  /* ── Col 2 · Colaborador: título de la tarjeta ── */
+  .exp-tabla tbody td:nth-child(2){
+    font-size:.95rem;font-weight:650;line-height:1.35;
+    color:oklch(20% 0.02 285);
+    margin-bottom:10px;
+    padding-right:0;
+  }
+
+  /* ── Cols 3 y 4 · Empresa y Puesto: etiqueta + valor ── */
+  .exp-tabla tbody td:nth-child(3),
+  .exp-tabla tbody td:nth-child(4){
+    display:grid;
+    grid-template-columns:74px 1fr;
+    gap:10px;align-items:baseline;
+    font-size:.82rem;color:oklch(38% 0.015 285);
+    padding:4px 0;
+  }
+  .exp-tabla tbody td:nth-child(3)::before{content:'Empresa'}
+  .exp-tabla tbody td:nth-child(4)::before{content:'Puesto'}
+  .exp-tabla tbody td:nth-child(3)::before,
+  .exp-tabla tbody td:nth-child(4)::before{
+    font-size:.66rem;font-weight:650;letter-spacing:.06em;text-transform:uppercase;
+    color:oklch(62% 0.012 285);
+  }
+
+  /* ── Col 5 · Estatus: se sube a la esquina superior derecha ── */
+  .exp-tabla tbody td:nth-child(5){
+    position:absolute;
+    top:12px;right:14px;
+    margin:0;
+  }
+
+  /* ── Col 6 · Acciones: pie de tarjeta con separador ── */
+  .exp-tabla tbody td:nth-child(6){
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:6px;
+    margin-top:11px;padding-top:11px;
+    border-top:1px solid oklch(95% 0.005 285);
+  }
+  /* Los botones de acción necesitan área táctil real (44px) */
+  .exp-tabla tbody td:nth-child(6) button,
+  .exp-tabla tbody td:nth-child(6) a{
+    min-width:38px;min-height:38px;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+
+  /* Un poco más de aire en la cabecera */
+  .exp-head{padding:18px 16px}
+}
+</style>
+
  
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -1279,98 +1492,97 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
   </div>
 </section>
 
+<!-- ══ EXPEDIENTES ══════════════════════════════════════════ -->
 <section id="module-basedatos" class="module-section">
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200">
+  <div class="exp-wrap">
 
-      <!-- Cabecera con acciones -->
-      <div class="p-5 border-b border-slate-100 bg-slate-50 rounded-t-2xl">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-          <div>
-            <h3 class="text-base font-bold text-slate-800">Expedientes</h3>
-            <p class="text-xs text-slate-400 mt-0.5" id="subtitulo-directorio">Cargando...</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <button onclick="exportarExcel()"
-              class="bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-xl hover:bg-slate-50 flex items-center gap-2 text-xs font-semibold transition shadow-sm">
-              <i class="fas fa-file-excel text-green-600"></i> Exportar
-            </button>
-            <label class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 flex items-center gap-2 text-xs font-semibold cursor-pointer transition shadow-sm">
-              <i class="fas fa-cloud-upload-alt"></i> Carga Masiva
-              <input type="file" id="fileImport" accept=".xlsx,.csv" class="hidden" onchange="importarExcel(event)">
-            </label>
-          </div>
+    <!-- ── Cabecera con acciones ── -->
+    <div class="exp-head">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px">
+        <div>
+          <h3>Expedientes</h3>
+          <p class="sub" id="subtitulo-directorio">Cargando...</p>
         </div>
-
-        <!-- Filtros -->
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <!-- Buscador -->
-          <div class="md:col-span-2 relative">
-            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
-            <input type="text" id="filtro-busqueda" placeholder="Buscar por nombre, puesto, No. empleado..."
-              oninput="aplicarFiltros()"
-              class="w-full border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-          </div>
-          <!-- Filtro grupo comercial -->
-          <select id="filtro-grupo" onchange="aplicarFiltros()"
-            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-violet-500 transition cursor-pointer">
-            <option value="">Todos los grupos</option>
-          </select>
-          <!-- Filtro empresa -->
-          <select id="filtro-empresa" onchange="aplicarFiltros()"
-            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
-            <option value="">Todas las empresas</option>
-          </select>
-          <!-- Filtro estatus -->
-          <select id="filtro-estatus" onchange="aplicarFiltros()"
-            class="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 transition cursor-pointer">
-            <option value="">Todos los estatus</option>
-            <option value="Activo">Solo Activos</option>
-            <option value="Baja">Solo Bajas</option>
-          </select>
-        </div>
-        <!-- Contador de resultados filtrados -->
-        <div class="flex items-center justify-between mt-3">
-          <p class="text-xs text-slate-400" id="contador-filtros"></p>
-          <button onclick="limpiarFiltros()" id="btn-limpiar-filtros"
-            class="hidden text-xs text-blue-600 hover:text-blue-800 font-medium transition flex items-center gap-1">
-            <i class="fas fa-times-circle text-xs"></i> Limpiar filtros
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button onclick="exportarExcel()" class="exp-btn">
+            <i class="fas fa-file-export" style="font-size:.75rem;color:oklch(55% 0.14 155)"></i>Exportar
           </button>
+          <label class="exp-btn exp-btn-primario">
+            <i class="fas fa-cloud-arrow-up" style="font-size:.75rem"></i>Carga masiva
+            <input type="file" id="fileImport" accept=".xlsx,.csv" class="hidden" onchange="importarExcel(event)">
+          </label>
         </div>
       </div>
 
-      <!-- Tabla -->
-      <div class="w-full">
-        <table class="w-full text-sm text-left table-fixed">
-          <colgroup>
-            <col style="width:7%">
-            <col style="width:22%">
-            <col style="width:28%">
-            <col style="width:22%">
-            <col style="width:9%">
-            <col style="width:12%">
-          </colgroup>
-          <thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b border-slate-100">
-            <tr>
-              <th class="px-3 py-3 font-semibold">No. Emp</th>
-              <th class="px-3 py-3 font-semibold">Colaborador</th>
-              <th class="px-3 py-3 font-semibold">Empresa</th>
-              <th class="px-3 py-3 font-semibold">Puesto</th>
-              <th class="px-3 py-3 font-semibold">Estatus</th>
-              <th class="px-3 py-3 font-semibold text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tabla-directorio" class="divide-y divide-slate-100 text-slate-600"></tbody>
-        </table>
-        <!-- Sin resultados -->
-        <div id="sin-resultados" class="hidden py-16 text-center">
-          <i class="fas fa-search text-slate-300 text-4xl mb-3"></i>
-          <p class="text-sm font-semibold text-slate-500">Sin resultados</p>
-          <p class="text-xs text-slate-400 mt-1">Intenta con otros términos de búsqueda</p>
+      <!-- ── Filtros ── -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">
+
+        <div class="exp-buscador" style="grid-column:span 2;min-width:0">
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="text" id="filtro-busqueda" class="exp-input"
+                 placeholder="Buscar por nombre, puesto, No. empleado..."
+                 oninput="aplicarFiltros()">
         </div>
+
+        <select id="filtro-grupo" class="exp-select" onchange="aplicarFiltros()">
+          <option value="">Todos los grupos</option>
+        </select>
+
+        <select id="filtro-empresa" class="exp-select" onchange="aplicarFiltros()">
+          <option value="">Todas las empresas</option>
+        </select>
+
+        <select id="filtro-estatus" class="exp-select" onchange="aplicarFiltros()">
+          <option value="">Todos los estatus</option>
+          <option value="Activo">Solo activos</option>
+          <option value="Baja">Solo bajas</option>
+        </select>
+
       </div>
-      <div id="paginacion-directorio"></div>
+
+      <div class="exp-meta">
+        <p class="exp-contador" id="contador-filtros"></p>
+        <button onclick="limpiarFiltros()" id="btn-limpiar-filtros" class="exp-limpiar hidden">
+          <i class="fas fa-circle-xmark" style="font-size:.72rem"></i>Limpiar filtros
+        </button>
+      </div>
     </div>
-  </section>
+
+    <!-- ── Tabla · en móvil se convierte en tarjetas vía CSS ── -->
+    <div>
+      <table class="exp-tabla">
+        <colgroup>
+          <col style="width:7%">
+          <col style="width:22%">
+          <col style="width:28%">
+          <col style="width:22%">
+          <col style="width:9%">
+          <col style="width:12%">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>No. Emp</th>
+            <th>Colaborador</th>
+            <th>Empresa</th>
+            <th>Puesto</th>
+            <th>Estatus</th>
+            <th style="text-align:center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-directorio"></tbody>
+      </table>
+
+      <div id="sin-resultados" class="exp-vacio hidden">
+        <i class="fas fa-magnifying-glass"></i>
+        <p class="t">Sin resultados</p>
+        <p class="s">Intenta con otros términos de búsqueda</p>
+      </div>
+    </div>
+
+    <div id="paginacion-directorio"></div>
+
+  </div>
+</section>
 
   </div><!-- /max-w -->
 </main>
