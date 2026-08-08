@@ -1056,6 +1056,33 @@ if ('serviceWorker' in navigator) {
   /* Las tablas que inyecte el JS no deben desbordar */
   .mod-body table{display:block;overflow-x:auto;white-space:nowrap}
 }
+/* ── FIX móvil: encabezados que main.js arma como flex row ──
+   Título + select o título + botón en la misma línea: el select
+   no encoge y se encima con el texto. */
+@media (max-width:768px){
+  .mod-body .flex:not(.flex-col){flex-wrap:wrap}
+  .mod-body .flex:not(.flex-col) > *{min-width:0}
+  .mod-body .flex:not(.flex-col) > select,
+  .mod-body .flex:not(.flex-col) > .relative{flex:1 1 100%;margin-top:10px}
+  .mod-body select{width:100%;max-width:100%}
+
+  /* Los chips de GRUPO en una sola fila deslizable en vez de tres
+     renglones: recupera media pantalla de alto */
+  .mod-body .flex-wrap:has(> button){
+    flex-wrap:nowrap!important;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    padding-bottom:2px;
+  }
+  .mod-body .flex-wrap:has(> button)::-webkit-scrollbar{display:none}
+  .mod-body .flex-wrap:has(> button) > *{flex-shrink:0}
+}
+
+/* Las listas de catálogos con scroll interno: aire para que la
+   barra no tape los números */
+.mod-body [style*="overflow-y"],
+.mod-body .overflow-y-auto{padding-right:6px}
 </style>
  
 </head>
