@@ -874,9 +874,48 @@ if ('serviceWorker' in navigator) {
   .ab-paso-ind{order:3;width:100%;text-align:center;margin-top:4px}
   .ab-stepper{padding:14px 16px}
 }
+/* ── FIX móvil: encabezado del paso del stepper ──
+   main.js arma ese header como flex de icono + texto + botón de
+   acción. En pantallas angostas el botón no encoge y aplasta la
+   descripción hasta dejarla en una columna de dos palabras.
+   Debajo de 640px el header se apila. */
+@media (max-width:640px){
+
+  /* Cualquier flex-row directo dentro del paso pasa a columna */
+  .ab-cuerpo > .flex:not(.flex-col),
+  .ab-cuerpo > div > .flex:not(.flex-col){
+    flex-wrap:wrap;
+  }
+
+  /* El botón de acción del encabezado ocupa su propio renglón */
+  .ab-cuerpo .flex > button{
+    flex:1 1 100%;
+    justify-content:center;
+    margin-top:12px;
+  }
+
+  /* El bloque de título y descripción recupera su ancho */
+  .ab-cuerpo .flex > div{
+    min-width:0;
+    flex:1 1 auto;
+  }
+
+  /* La descripción deja de partirse palabra por palabra */
+  .ab-cuerpo p{
+    min-width:0;
+    word-break:normal;
+    overflow-wrap:break-word;
+  }
+
+  /* Los campos siempre a ancho completo */
+  .ab-cuerpo .grid{grid-template-columns:1fr!important}
+}
+
+/* La barra de pasos ya se desliza, pero los círculos no deben
+   encogerse al hacerlo */
+.ab-stepper .rounded-full{flex-shrink:0}
 </style>
 
- 
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
