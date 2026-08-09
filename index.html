@@ -1409,6 +1409,126 @@ if ('serviceWorker' in navigator) {
 #notif-backdrop.is-open{pointer-events:auto}
 #login-screen{z-index:300!important}
 </style>
+
+<style>
+/* ═══ INDICADOR DE SESIÓN ═════════════════════════════════════ */
+
+.ses-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 11px;border-radius:99px;
+  font-family:inherit;font-size:.72rem;font-weight:650;
+  border:1px solid transparent;cursor:default;
+  white-space:nowrap;
+  transition:background-color .25s ease,color .25s ease,border-color .25s ease;
+}
+.ses-punto{
+  width:6px;height:6px;border-radius:50%;flex-shrink:0;
+  transition:background-color .25s ease;
+}
+
+/* Sesión viva */
+.ses-badge[data-estado="activa"]{
+  background:oklch(95% 0.04 285);
+  color:oklch(38% 0.16 285);
+  border-color:oklch(89% 0.05 285);
+}
+.ses-badge[data-estado="activa"] .ses-punto{
+  background:oklch(60% 0.19 285);
+  animation:sesLatido 2.4s cubic-bezier(.4,0,.6,1) infinite;
+}
+/* El latido es sutil a propósito: un pulso agresivo en algo que
+   está bien acaba siendo ruido que se ignora. */
+@keyframes sesLatido{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.45;transform:scale(.85)}
+}
+
+/* Verificando: mientras el latido está en vuelo */
+.ses-badge[data-estado="verificando"]{
+  background:oklch(96% 0.006 285);
+  color:oklch(52% 0.012 285);
+  border-color:oklch(91% 0.008 285);
+}
+.ses-badge[data-estado="verificando"] .ses-punto{
+  background:oklch(70% 0.012 285);
+  animation:sesLatido 1s linear infinite;
+}
+
+/* Por expirar: clic para renovar */
+.ses-badge[data-estado="porexpirar"]{
+  background:oklch(96% 0.05 70);
+  color:oklch(42% 0.13 70);
+  border-color:oklch(88% 0.07 70);
+  cursor:pointer;
+}
+.ses-badge[data-estado="porexpirar"]:hover{background:oklch(93% 0.07 70)}
+.ses-badge[data-estado="porexpirar"] .ses-punto{
+  background:oklch(65% 0.15 70);
+  animation:sesLatido 1.4s cubic-bezier(.4,0,.6,1) infinite;
+}
+
+/* Muerta: clic para reconectar */
+.ses-badge[data-estado="expirada"]{
+  background:oklch(96% 0.03 25);
+  color:oklch(45% 0.16 25);
+  border-color:oklch(89% 0.05 25);
+  cursor:pointer;
+}
+.ses-badge[data-estado="expirada"]:hover{background:oklch(93% 0.045 25)}
+.ses-badge[data-estado="expirada"] .ses-punto{
+  background:oklch(55% 0.19 25);
+  animation:none;   /* no late: no hay nada vivo que mostrar */
+}
+
+/* Sin conexión de red (distinto de sesión muerta) */
+.ses-badge[data-estado="offline"]{
+  background:oklch(95% 0.008 285);
+  color:oklch(45% 0.012 285);
+  border-color:oklch(89% 0.01 285);
+}
+.ses-badge[data-estado="offline"] .ses-punto{background:oklch(62% 0.012 285)}
+
+@media(max-width:768px){
+  /* En móvil solo el punto: el texto se lo come el header */
+  .ses-badge{padding:6px;gap:0}
+  .ses-txt{display:none}
+  .ses-punto{width:8px;height:8px}
+}
+
+/* ── Aviso de sesión expirada ── */
+#ses-aviso{
+  position:fixed;left:50%;transform:translateX(-50%) translateY(-130%);
+  top:14px;z-index:400;
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;border-radius:12px;
+  background:oklch(99.5% 0.002 285);
+  border:1px solid oklch(88% 0.04 25);
+  box-shadow:0 12px 36px oklch(20% 0.02 285/.16);
+  transition:transform .4s cubic-bezier(.16,1,.3,1);
+  max-width:calc(100vw - 28px);
+}
+#ses-aviso.visible{transform:translateX(-50%) translateY(0)}
+#ses-aviso .ico{
+  width:32px;height:32px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:oklch(95% 0.04 25);color:oklch(52% 0.18 25);font-size:.85rem;
+}
+#ses-aviso .txt{min-width:0}
+#ses-aviso .t{font-size:.84rem;font-weight:650;color:oklch(20% 0.02 285);margin:0;line-height:1.3}
+#ses-aviso .s{font-size:.75rem;color:oklch(55% 0.012 285);margin:2px 0 0;line-height:1.4}
+#ses-aviso button{
+  font-family:inherit;font-size:.78rem;font-weight:600;
+  padding:7px 13px;border-radius:8px;cursor:pointer;flex-shrink:0;
+  border:1px solid transparent;
+  background:oklch(50% 0.2 285);color:oklch(98% 0.005 285);
+  transition:background-color .15s ease;
+}
+#ses-aviso button:hover{background:oklch(43% 0.18 285)}
+@media(max-width:640px){
+  #ses-aviso{flex-wrap:wrap;gap:10px}
+  #ses-aviso button{width:100%}
+}
+</style>
  
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
@@ -1705,11 +1825,6 @@ class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left t
 </div>
 </nav>
 
-<div class="p-4 border-t border-white/[0.06]">
-<div class="flex items-center gap-2 text-xs text-[oklch(48%_0.015_285)]">
-<span class="w-1.5 h-1.5 rounded-full bg-[oklch(65%_0.19_285)] animate-pulse"></span>Sistema en línea
-</div>
-</div>
 </aside>
 
 <div id="sidebar-overlay" onclick="toggleMenu()" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
@@ -1738,9 +1853,11 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 <i class="fas fa-bell text-sm"></i>
 <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 w-4 h-4 bg-[oklch(58%_0.19_25)] text-white text-xs font-bold rounded-full flex items-center justify-center leading-none">0</span>
 </button>
-<span class="bg-[oklch(95%_0.04_285)] text-[oklch(38%_0.16_285)] text-xs font-bold px-3 py-1.5 rounded-full border border-[oklch(88%_0.05_285)] flex items-center gap-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-[oklch(60%_0.19_285)] animate-pulse"></span>En línea
-</span>
+<button id="estado-sesion" class="ses-badge" data-estado="verificando"
+        onclick="accionEstadoSesion()" title="Estado de la sesión">
+  <span class="ses-punto"></span>
+  <span class="ses-txt">Verificando</span>
+</button>
 </div>
 </header>
   <div class="p-5 md:p-8 max-w-screen-xl mx-auto w-full">
@@ -2568,5 +2685,15 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
 <script src="main.js?v=69.25"></script>
+
+ <div id="ses-aviso">
+  <div class="ico"><i class="fas fa-clock-rotate-left"></i></div>
+  <div class="txt">
+    <p class="t">Tu sesión expiró</p>
+    <p class="s">Vuelve a entrar para seguir guardando cambios. Lo que tienes en pantalla no se pierde.</p>
+  </div>
+  <button onclick="reconectarSesion()">Reconectar</button>
+</div>
+ 
 </body>
 </html>
