@@ -1400,6 +1400,14 @@ if ('serviceWorker' in navigator) {
   background:oklch(50% 0.2 285)!important;
 }
 [class*="fixed"] button.bg-blue-600:hover{background:oklch(43% 0.18 285)!important}
+
+ #drawer-backdrop.hidden,
+#notif-backdrop.hidden{display:none!important}
+#drawer-backdrop:not(.is-open),
+#notif-backdrop:not(.is-open){pointer-events:none}
+#drawer-backdrop.is-open,
+#notif-backdrop.is-open{pointer-events:auto}
+#login-screen{z-index:300!important}
 </style>
  
 </head>
