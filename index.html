@@ -1319,6 +1319,87 @@ if ('serviceWorker' in navigator) {
 
 /* El botón "Ver empleado" de cada tarjeta lo pinta main.js en azul */
 .notif-card .notif-emp-btn{color:oklch(48% 0.19 285)!important}
+
+ /* ── FIX móvil: grids anidados dentro del drawer ──
+   main.js genera sus propios grid-cols-2 dentro de cada panel, así
+   que apuntar solo al panel no los alcanzaba. */
+@media (max-width:640px){
+  .drawer-tab-panel .grid,
+  .drawer-tab-panel [class*="grid-cols-"]{
+    grid-template-columns:1fr!important;
+  }
+  .drawer-tab-panel input,
+  .drawer-tab-panel select,
+  .drawer-tab-panel textarea{
+    width:100%!important;
+    font-size:.9rem!important;   /* menos de 16px hace que iOS haga zoom */
+  }
+  .drawer-tab-panel label{font-size:.62rem!important;line-height:1.35!important}
+}
+
+/* ── SweetAlert2: alinearlo con la identidad ──
+   Varios diálogos (generar contrato, confirmaciones) son SweetAlert2.
+   Traía su tipografía y sus botones de fábrica, así que se veían
+   como de otra aplicación. */
+.swal2-popup{
+  border-radius:16px!important;
+  font-family:'Inter',sans-serif!important;
+  padding:24px!important;
+}
+.swal2-title{
+  font-size:1.2rem!important;
+  font-weight:750!important;
+  letter-spacing:-.02em!important;
+  color:oklch(20% 0.02 285)!important;
+  padding:0 0 4px!important;
+}
+.swal2-html-container{
+  font-size:.87rem!important;
+  color:oklch(42% 0.015 285)!important;
+  margin:12px 0 0!important;
+}
+.swal2-actions{gap:8px!important;margin-top:22px!important}
+.swal2-styled{
+  border-radius:9px!important;
+  font-family:'Inter',sans-serif!important;
+  font-size:.85rem!important;
+  font-weight:600!important;
+  padding:10px 20px!important;
+  box-shadow:none!important;
+  transition:background-color .15s ease!important;
+}
+.swal2-styled.swal2-confirm{
+  background:oklch(50% 0.2 285)!important;
+  color:oklch(98% 0.005 285)!important;
+}
+.swal2-styled.swal2-confirm:hover{background:oklch(43% 0.18 285)!important}
+/* Cancelar era gris sólido: parecía tan importante como confirmar */
+.swal2-styled.swal2-cancel{
+  background:oklch(98% 0.004 285)!important;
+  color:oklch(42% 0.012 285)!important;
+  border:1px solid oklch(89% 0.008 285)!important;
+}
+.swal2-styled.swal2-cancel:hover{background:oklch(95% 0.006 285)!important}
+/* Confirmaciones destructivas (borrar, dar de baja) */
+.swal2-styled.swal2-deny{
+  background:oklch(50% 0.19 25)!important;
+  color:oklch(98% 0.005 25)!important;
+}
+.swal2-icon{margin:6px auto 0!important}
+
+/* Los campos del formulario de contrato ya traen sus propias clases
+   .gc-* definidas en main.js. Solo se afina el color de foco. */
+.gc-input:focus,.gc-textarea:focus{
+  border-color:oklch(60% 0.19 285)!important;
+  box-shadow:0 0 0 3px oklch(93% 0.04 285)!important;
+}
+
+/* ── Modal "Subir documentos": su botón seguía azul ── */
+[class*="fixed"] button.bg-blue-600,
+[class*="fixed"] button.bg-blue-700{
+  background:oklch(50% 0.2 285)!important;
+}
+[class*="fixed"] button.bg-blue-600:hover{background:oklch(43% 0.18 285)!important}
 </style>
  
 </head>
