@@ -76,7 +76,7 @@ function ocultarLoader(){document.getElementById('global-loader').style.display=
 // Centro de notificaciones (campana en header, lista persistente)
 let notificaciones = JSON.parse(localStorage.getItem('gm_notifs') || '[]');
 
-function guardarNotifs(){localStorage.setItem('gm_notifs', JSON.stringify(notificaciones.slice(0,50)));}
+function guardarNotifs(){localStorage.setItem('gm_notifs', JSON.stringify(notificaciones.slice(0,300)));}
 
 function mostrarToast(tipo, titulo, mensaje, duracion=5000){
     const contenedor = document.getElementById('toast-container');
@@ -121,12 +121,18 @@ function cerrarToast(id){
 }
 
 function agregarNotificacion(tipo, titulo, mensaje, empleadoId='', silencioso=false){
-    const notif = {id: Date.now(), tipo, titulo, mensaje, empleadoId, leida: false, fecha: new Date().toISOString()};
-    notificaciones.unshift(notif);
-    invalidarCacheNotifs();
-    guardarNotifs();
-    actualizarBadgeNotifs();
-    if(!silencioso) mostrarToast(tipo, titulo, mensaje);
+  // Guarda anti-duplicados: evaluarAlertas() regenera todas las alertas
+  // en cada carga y las que sobrevivieron en localStorage volvían a entrar.
+  // La huella es el contenido, no el id (Date.now() siempre difiere).
+  const huella = tipo+'|'+titulo+'|'+mensaje+'|'+empleadoId;
+  if(notificaciones.some(n => (n.tipo+'|'+n.titulo+'|'+n.mensaje+'|'+n.empleadoId) === huella)) return;
+  const notif = {id: Date.now()+Math.random(), tipo, titulo, mensaje, empleadoId, leida: false, fecha: new Date().toISOString()};
+  notificaciones.unshift(notif);
+  if(notificaciones.length > 300) notificaciones.length = 300;
+  invalidarCacheNotifs();
+  guardarNotifs();
+  actualizarBadgeNotifs();
+  if(!silencioso) mostrarToast(tipo, titulo, mensaje);
 }
 
 // Mapa de estilos por tipo de notificación — REDISEÑO: badges cromáticos
