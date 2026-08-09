@@ -6469,7 +6469,39 @@ async function subirDocumentosExpediente() {
 
 // ─── DASHBOARD ────────────────────────────────────────────────
 let charts={};
-const CD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{family:"'Inter',sans-serif",size:11},padding:10,boxWidth:12,boxHeight:12}}}};
+// Paleta única para todas las gráficas. Antes cada una elegía sus
+// colores por su cuenta: seis paletas distintas en un mismo tablero.
+// Criterio: violeta = plantilla y estructura · rojo = SOLO bajas ·
+// ámbar = SOLO dinero. Las escalas ordinales (edad, motivos) usan
+// degradado de un tono, no colores distintos: cuatro azules sugieren
+// cuatro categorías sin relación cuando en realidad son un rango.
+const PAL = {
+  primario:  '#6d3ee8',   // violeta: plantilla activa, estructura
+  primario2: '#8b6df0',
+  primario3: '#a99bf5',
+  primario4: '#c9c1f9',
+  baja:      '#e0524d',   // rojo: bajas, y solo bajas
+  baja2:     '#eb7d78',
+  baja3:     '#f2a5a1',
+  baja4:     '#f7c9c6',
+  dinero:    '#dd9127',   // ámbar: finiquitos
+  activos:   '#3f9d78',   // verde: línea acumulada
+  grid:      '#eeecf5',   // rejilla tintada hacia violeta, no gris puro
+  texto:     '#6b6880'
+};
+const CD={
+  responsive:true,
+  maintainAspectRatio:false,
+  plugins:{
+    legend:{labels:{font:{family:"'Inter',sans-serif",size:11},padding:10,boxWidth:10,boxHeight:10,color:PAL.texto}},
+    tooltip:{
+      backgroundColor:'#241f35',
+      titleFont:{family:"'Inter',sans-serif",size:12,weight:'600'},
+      bodyFont:{family:"'Inter',sans-serif",size:12},
+      padding:10,cornerRadius:8,displayColors:true,boxPadding:4
+    }
+  }
+};
 // Helper para mostrar/ocultar mensajes "sin datos" en contenedores de gráficas
 // sin destruir el canvas (lo que causaría null en la siguiente carga)
 function chartSinDatos(canvasId, mensaje){
@@ -6481,7 +6513,8 @@ function chartSinDatos(canvasId, mensaje){
     if(!p){
         p = document.createElement('p');
         p.id = pid;
-        p.className = 'text-xs text-slate-400 text-center pt-12';
+        p.className = 'text-center';
+        p.style.cssText = 'font-size:.8rem;color:#8d8aa3;padding-top:3rem;margin:0';
         c.parentNode.insertBefore(p, c.nextSibling);
     }
     p.textContent = mensaje;
@@ -6689,17 +6722,17 @@ async function cargarDashboard(){
     // ── Gráfica: Empresas ──────────────────────────────────────
     const empL=Object.keys(cEmp).map(e=>e.length>14?e.substring(0,14)+'…':e);
     charts.emp=dc(charts.emp);
-    charts.emp=safeChart('chartEmpresas',{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:'#3b82f6',borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:'#ef4444',borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:'#f1f5f9'}}}}});
+    charts.emp=safeChart('chartEmpresas',{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:PAL.primario,borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:PAL.baja,borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:PAL.grid}}}}});
 
     // ── Gráfica: Rango de edad ─────────────────────────────────
     charts.rango=dc(charts.rango);
-    charts.rango=safeChart('chartRangoEdad',{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:['#2563eb','#3b82f6','#60a5fa','#93c5fd'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}});
+    charts.rango=safeChart('chartRangoEdad',{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:[PAL.primario,PAL.primario2,PAL.primario3,PAL.primario4],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:PAL.grid}},y:{grid:{display:false}}}}});
 
     // ── Gráfica: Motivos de baja ───────────────────────────────
     const mot=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.mot=dc(charts.mot);
     if(mot.length){
-        charts.mot=safeChart('chartMotivoBaja',{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:['#dc2626','#ef4444','#f87171','#fca5a5','#dc2626','#ef4444','#f87171','#fca5a5'],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+        charts.mot=safeChart('chartMotivoBaja',{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:[PAL.baja,PAL.baja,PAL.baja2,PAL.baja2,PAL.baja3,PAL.baja3,PAL.baja4,PAL.baja4],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:PAL.grid}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
     } else {
         chartSinDatos('chartMotivoBaja','Sin bajas registradas aún');
     }
@@ -6707,7 +6740,7 @@ async function cargarDashboard(){
     // ── Gráfica: Top departamentos ─────────────────────────────
     const dep=Object.entries(cDepto).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.dep=dc(charts.dep);
-    charts.dep=safeChart('chartDeptos',{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:'#7c3aed',borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#f1f5f9'}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    charts.dep=safeChart('chartDeptos',{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:PAL.primario,borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:PAL.grid}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
 
     // ── Gráfica: Tendencia mensual — Altas, Bajas y Activos ───
     // Muestra los últimos 24 meses con 3 líneas
@@ -6718,12 +6751,12 @@ async function cargarDashboard(){
         data:{
             labels:mesesTend.map(fmtM),
             datasets:[
-                {label:'Activos',   data:mesesTend.map(k=>cTend[k].activos), borderColor:'#10b981',backgroundColor:'rgba(16,185,129,0.06)',tension:0.4,fill:true,pointRadius:2,pointBackgroundColor:'#10b981',borderWidth:2},
-                {label:'Altas',     data:mesesTend.map(k=>cTend[k].altas),   borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.06)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:'#3b82f6',borderWidth:1.5},
-                {label:'Bajas',     data:mesesTend.map(k=>cTend[k].bajas),   borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.06)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:'#ef4444',borderWidth:1.5},
+                {label:'Activos', data:mesesTend.map(k=>cTend[k].activos), borderColor:PAL.activos,backgroundColor:'rgba(63,157,120,0.07)',tension:0.4,fill:true,pointRadius:2,pointBackgroundColor:PAL.activos,borderWidth:2},
+                {label:'Altas', data:mesesTend.map(k=>cTend[k].altas), borderColor:PAL.primario,backgroundColor:'rgba(109,62,232,0.07)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.primario,borderWidth:1.5},
+                {label:'Bajas', data:mesesTend.map(k=>cTend[k].bajas), borderColor:PAL.baja,backgroundColor:'rgba(224,82,77,0.07)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.baja,borderWidth:1.5},
             ]
         },
-        options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:'#f1f5f9'}}}}
+        options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:PAL.grid}}}}
     });
 
     // ── Gráfica: Finiquitos pagados por MES ────────────────────
@@ -6739,7 +6772,7 @@ async function cargarDashboard(){
                 datasets:[{
                     label:'Finiquitos',
                     data:mesesFin.map(m=>finPorMes[m]),
-                    backgroundColor:'#f59e0b',
+                    backgroundColor:PAL.dinero,
                     borderRadius:4
                 }]
             },
@@ -6751,7 +6784,7 @@ async function cargarDashboard(){
                 },
                 scales:{   // ← BUG FIX: era "schools"
                     x:{grid:{display:false},ticks:{font:{size:10}}},
-                    y:{beginAtZero:true,grid:{color:'#f1f5f9'},ticks:{callback:v=>fmtMXN(v),font:{size:10}}}
+                    y:{beginAtZero:true,grid:{color:PAL.grid},ticks:{callback:v=>fmtMXN(v),font:{size:10}}}
                 }
             }
         });
@@ -6766,7 +6799,7 @@ async function cargarDashboard(){
         if(top.length){
             tb.innerHTML=top.map(([m,n])=>{
                 const pct=bajas>0?((n/bajas)*100).toFixed(1):"0";
-                return`<tr class="border-b border-slate-100 last:border-0"><td class="py-2.5 pr-4 text-sm text-slate-700">${m}</td><td class="py-2.5 text-center text-sm font-bold text-slate-800">${n}</td><td class="py-2.5 pl-4"><div class="flex items-center gap-2"><div class="flex-1 bg-slate-100 rounded-full h-1.5"><div class="bg-red-400 h-1.5 rounded-full" style="width:${pct}%"></div></div><span class="text-xs text-slate-500 w-10 text-right">${pct}%</span></div></td></tr>`;
+                return`<tr class="border-b border-slate-100 last:border-0"><td class="py-2.5 pr-4 text-sm text-slate-700">${m}</td><td class="py-2.5 text-center text-sm font-bold text-slate-800">${n}</td><td class="py-2.5 pl-4"><div class="flex items-center gap-2"><div style="flex:1;background:#eeecf5;border-radius:99px;height:5px;overflow:hidden"><div style="background:${PAL.baja};height:5px;border-radius:99px;width:${pct}%"></div></div><span style="font-size:.72rem;color:#6b6880;width:2.6rem;text-align:right;font-variant-numeric:tabular-nums">${pct}%</span></div></td></tr>`;
             }).join('');
         } else {
             tb.innerHTML='<tr><td colspan="3" class="py-8 text-center text-xs text-slate-400">Sin bajas registradas aún</td></tr>';
