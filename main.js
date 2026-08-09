@@ -7706,3 +7706,238 @@ function mostrarEditorCuestionarioNOM035(tipo, estructura) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════
+   ESTADO DE SESIÓN
+   Antes había dos indicadores "En línea" decorativos: puntos con
+   animate-pulse fijos en el HTML que no consultaban nada. Decían
+   que todo estaba bien incluso cuando el backend ya rechazaba
+   cada petición.
+
+   Ahora hay uno solo, alimentado por tres señales:
+     1. La respuesta del backend (la más confiable)
+     2. Un latido cada 4 min contra validar_token
+     3. Inactividad local, solo para avisar ANTES de expirar
+   ═══════════════════════════════════════════════════════════ */
+
+/* ⚠ AJUSTA ESTO al valor real de tu backend. El endpoint
+   validar_token no devuelve cuánto le queda a la sesión, así que
+   el aviso previo se calcula localmente desde tu última
+   interacción. */
+const SESION_MINUTOS       = 60;   // duración de la sesión en el servidor
+const SESION_AVISO_MINUTOS = 5;    // cuántos minutos antes avisar
+const SESION_LATIDO_MS     = 4 * 60 * 1000;
+
+let _sesEstado      = 'verificando';
+let _sesUltimaAccion = Date.now();
+let _sesLatidoId    = null;
+let _sesTicId       = null;
+
+/* Mensajes con los que el backend indica sesión muerta. Se compara
+   en minúsculas y sin acentos para no depender de la redacción. */
+function _sesEsMensajeDeSesion(msg){
+  if(!msg) return false;
+  var t = msg.toString().toLowerCase()
+             .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return t.indexOf('sesion') !== -1 ||
+         t.indexOf('token')  !== -1 ||
+         t.indexOf('expiro') !== -1 ||
+         t.indexOf('expirada') !== -1 ||
+         t.indexOf('no autorizado') !== -1;
+}
+
+function _sesPintar(estado, texto){
+  var el = document.getElementById('estado-sesion');
+  if(!el) return;
+  _sesEstado = estado;
+  el.dataset.estado = estado;
+  var txt = el.querySelector('.ses-txt');
+  if(txt) txt.textContent = texto;
+  el.title = ({
+    activa:      'Sesión activa',
+    verificando: 'Verificando sesión...',
+    porexpirar:  'Tu sesión está por expirar. Clic para renovarla.',
+    expirada:    'Sesión expirada. Clic para reconectar.',
+    offline:     'Sin conexión a internet'
+  })[estado] || '';
+}
+
+function _sesMostrarAviso(mostrar){
+  var a = document.getElementById('ses-aviso');
+  if(!a) return;
+  a.classList.toggle('visible', !!mostrar);
+}
+
+/* Marca la sesión como muerta. Se llama desde el interceptor de
+   respuestas o desde el latido. NO manda al login: eso borraría
+   lo que el usuario tenga capturado a medias. */
+function marcarSesionExpirada(){
+  if(_sesEstado === 'expirada') return;   // no repetir el aviso
+  _sesPintar('expirada','Desconectado');
+  _sesMostrarAviso(true);
+  if(_sesLatidoId){ clearInterval(_sesLatidoId); _sesLatidoId = null; }
+}
+
+function marcarSesionActiva(){
+  _sesUltimaAccion = Date.now();
+  _sesPintar('activa','En línea');
+  _sesMostrarAviso(false);
+  if(!_sesLatidoId) _sesIniciarLatido();
+}
+
+/* Latido silencioso: confirma con el servidor que el token vive.
+   Silencioso a propósito: si el usuario no está haciendo nada, no
+   tiene por qué ver un spinner cada cuatro minutos. */
+async function _sesLatido(){
+  if(_sesEstado === 'expirada') return;
+  var token = (typeof getToken === 'function') ? getToken() : null;
+  if(!token){ marcarSesionExpirada(); return; }
+
+  if(!navigator.onLine){ _sesPintar('offline','Sin conexión'); return; }
+
+  try{
+    var r = await enviarPeticion('validar_token', {token});
+    if(r && r.status === 'success'){
+      // Ojo: NO se toca _sesUltimaAccion. El latido confirma que el
+      // token vive, no que el usuario esté activo. Si lo actualizara,
+      // el aviso previo nunca se dispararía.
+      if(_sesEstado !== 'porexpirar') _sesPintar('activa','En línea');
+      _sesMostrarAviso(false);
+    }else{
+      marcarSesionExpirada();
+    }
+  }catch(e){
+    // Error de red: la sesión puede seguir viva. No se mata.
+    _sesPintar('offline','Sin conexión');
+  }
+}
+
+function _sesIniciarLatido(){
+  if(_sesLatidoId) clearInterval(_sesLatidoId);
+  _sesLatidoId = setInterval(_sesLatido, SESION_LATIDO_MS);
+}
+
+/* Reloj de inactividad: solo para el aviso previo. */
+function _sesTic(){
+  if(_sesEstado === 'expirada' || _sesEstado === 'offline') return;
+  var minutos    = (Date.now() - _sesUltimaAccion) / 60000;
+  var restantes  = Math.ceil(SESION_MINUTOS - minutos);
+
+  if(restantes <= 0){
+    // El reloj local cree que expiró; se confirma con el servidor
+    // antes de declararlo. El reloj local puede estar desfasado.
+    _sesLatido();
+  }else if(restantes <= SESION_AVISO_MINUTOS){
+    _sesPintar('porexpirar','Expira en ' + restantes + ' min');
+  }else if(_sesEstado === 'porexpirar'){
+    _sesPintar('activa','En línea');
+  }
+}
+
+/* Clic en el badge */
+function accionEstadoSesion(){
+  if(_sesEstado === 'expirada'){ reconectarSesion(); return; }
+  if(_sesEstado === 'porexpirar'){ renovarSesion(); return; }
+  if(_sesEstado === 'offline'){ _sesLatido(); return; }
+  // Si está activa, un clic fuerza verificación manual
+  _sesPintar('verificando','Verificando');
+  _sesLatido();
+}
+
+/* Renovar = cualquier petición válida reinicia el reloj del servidor */
+async function renovarSesion(){
+  _sesPintar('verificando','Renovando');
+  _sesUltimaAccion = Date.now();
+  await _sesLatido();
+  if(_sesEstado !== 'expirada'){
+    marcarSesionActiva();
+    if(typeof mostrarToast === 'function'){
+      mostrarToast('success','Sesión renovada','Puedes seguir trabajando.');
+    }
+  }
+}
+
+/* Reconectar: sí manda al login, pero solo cuando el usuario lo pide */
+function reconectarSesion(){
+  _sesMostrarAviso(false);
+  if(typeof mostrarLoginScreen === 'function'){
+    mostrarLoginScreen('Tu sesión expiró. Ingresa de nuevo para continuar.');
+  }else{
+    location.reload();
+  }
+}
+
+/* ── Interceptor de respuestas ──
+   Envuelve enviarPeticion sin modificar su código. Cada respuesta
+   del backend actualiza el estado: es la señal más confiable que
+   existe, porque viene del servidor. */
+(function(){
+  if(typeof enviarPeticion !== 'function') return;
+  var original = enviarPeticion;
+
+  window.enviarPeticion = async function(action, payload, timeoutMs){
+    try{
+      var r = await original(action, payload, timeoutMs);
+
+      // El login exitoso reactiva todo
+      if(action === 'login' && r && r.status === 'success'){
+        marcarSesionActiva();
+        return r;
+      }
+
+      if(r && r.status === 'error' && _sesEsMensajeDeSesion(r.message)){
+        marcarSesionExpirada();
+      }else if(r && r.status === 'success' && action !== 'validar_token'){
+        // Una petición exitosa prueba dos cosas: hay red y el token
+        // sirve. También cuenta como actividad del usuario.
+        _sesUltimaAccion = Date.now();
+        if(_sesEstado !== 'activa') marcarSesionActiva();
+      }
+      return r;
+
+    }catch(e){
+      if(_sesEstado === 'activa' || _sesEstado === 'porexpirar'){
+        _sesPintar('offline','Sin conexión');
+      }
+      throw e;
+    }
+  };
+})();
+
+/* ── Actividad del usuario ──
+   Reinicia el contador de inactividad. Se usa `passive` y un umbral
+   de 20s para no escribir la variable miles de veces por minuto. */
+(function(){
+  var ultimoRegistro = 0;
+  var registrar = function(){
+    var ahora = Date.now();
+    if(ahora - ultimoRegistro < 20000) return;
+    ultimoRegistro   = ahora;
+    _sesUltimaAccion = ahora;
+  };
+  ['click','keydown','touchstart','scroll'].forEach(function(ev){
+    document.addEventListener(ev, registrar, {passive:true});
+  });
+
+  // Al volver de otra pestaña o de suspensión, verificar de inmediato:
+  // el reloj local pudo quedar muy desfasado.
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden && _sesEstado !== 'expirada') _sesLatido();
+  });
+  window.addEventListener('online',  function(){ _sesLatido(); });
+  window.addEventListener('offline', function(){ _sesPintar('offline','Sin conexión'); });
+})();
+
+/* Arranque: se engancha a initApp sin modificarla */
+(function(){
+  var arrancar = function(){
+    if(typeof getToken === 'function' && getToken()) marcarSesionActiva();
+    else _sesPintar('expirada','Desconectado');
+    if(_sesTicId) clearInterval(_sesTicId);
+    _sesTicId = setInterval(_sesTic, 30000);   // revisa cada 30s
+  };
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(arrancar, 2500) });
+  }else{
+    setTimeout(arrancar, 2500);
+  }
+})();
