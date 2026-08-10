@@ -8030,3 +8030,17 @@ async function generarInforme77UI(){
     mostrarToast('error','Error', e.message || 'No se pudo generar el informe.');
   }
 }
+
+/* El botón de Informe 7.7 solo tiene sentido en la pestaña NOM-035:
+   el numeral 7.7 aplica a esa evaluación, no a Clima ni a Salida.
+   Se envuelve activarTabEncuesta para no modificarla. */
+(function(){
+  if(typeof activarTabEncuesta !== 'function') return;
+  var original = activarTabEncuesta;
+  window.activarTabEncuesta = function(tipo, btn){
+    var r = original.apply(this, arguments);
+    var wrap = document.getElementById('wrap-informe77');
+    if(wrap) wrap.style.display = (tipo === 'NOM035') ? 'flex' : 'none';
+    return r;
+  };
+})();
