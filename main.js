@@ -8059,4 +8059,11 @@ async function generarInforme77UI(){
   if(typeof activarTabEncuesta === 'function'){
     var original = activarTabEncuesta;
     window.activarTabEncuesta = function(){
-      var r = original.apply(this, argument
+      var r = original.apply(this, arguments);
+      setTimeout(sincronizar, 30);
+      return r;
+    };
+  }
+  document.addEventListener('DOMContentLoaded', function(){ setTimeout(sincronizar, 1500) });
+  setTimeout(sincronizar, 2000);
+})();
