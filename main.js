@@ -8031,22 +8031,50 @@ async function generarInforme77UI(){
   }
 }
 
-/* El botón de Informe 7.7 solo aplica a NOM-035, no a Clima ni Salida.
-   Detecta la pestaña activa por su clase, y además se auto-sincroniza
-   por si el módulo pinta la pestaña inicial sin pasar por la función. */
+/* El botón de Informe 7.7 solo aplica a NOM-035. Además, en esa
+   pestaña se retira "Excel": el informe del 7.7 es el entregable
+   formal y un volcado de hoja de cálculo al lado le resta claridad.
+   CSV se queda para quien necesite los datos crudos. */
 (function(){
   var sincronizar = function(){
     var wrap = document.getElementById('wrap-informe77');
     if(!wrap) return;
+
     var activa = document.querySelector('#enc-tabs .mod-tab.active, #enc-tabs .enc-tab.active');
-    var esNom = activa && /nom.?035/i.test(activa.textContent || '');
-    wrap.style.display = esNom ? 'flex' : 'none';
+    var esNom  = activa && /nom.?035/i.test(activa.textContent || '');
+
+    if(!esNom){
+      wrap.style.display = 'none';
+      return;
+    }
+
+    var cont = document.getElementById('enc-contenido');
+    if(!cont) return;
+
+    // Oculta el botón de Excel solo en esta pestaña
+    Array.prototype.forEach.call(cont.querySelectorAll('button'), function(b){
+      if(/^\s*excel\s*$/i.test(b.textContent.trim())) b.style.display = 'none';
+    });
+
+    // Mueve el botón a la fila donde vive "Copiar link"
+    var ancla = Array.prototype.filter.call(cont.querySelectorAll('button'), function(b){
+      return /copiar link/i.test(b.textContent);
+    })[0];
+
+    var btn = wrap.querySelector('button');
+    if(ancla && btn && ancla.parentNode && btn.parentNode !== ancla.parentNode){
+      ancla.parentNode.appendChild(btn);
+      wrap.style.display = 'none';
+      return;
+    }
+    if(!ancla) wrap.style.display = 'flex';   // respaldo: se queda arriba
   };
+
   if(typeof activarTabEncuesta === 'function'){
     var original = activarTabEncuesta;
     window.activarTabEncuesta = function(){
       var r = original.apply(this, arguments);
-      setTimeout(sincronizar, 30);
+      setTimeout(sincronizar, 60);
       return r;
     };
   }
