@@ -8031,20 +8031,6 @@ async function generarInforme77UI(){
   }
 }
 
-/* El botón de Informe 7.7 solo tiene sentido en la pestaña NOM-035:
-   el numeral 7.7 aplica a esa evaluación, no a Clima ni a Salida.
-   Se envuelve activarTabEncuesta para no modificarla. */
-(function(){
-  if(typeof activarTabEncuesta !== 'function') return;
-  var original = activarTabEncuesta;
-  window.activarTabEncuesta = function(tipo, btn){
-    var r = original.apply(this, arguments);
-    var wrap = document.getElementById('wrap-informe77');
-    if(wrap) wrap.style.display = (tipo === 'NOM035') ? 'flex' : 'none';
-    return r;
-  };
-})();
-
 /* El botón de Informe 7.7 solo aplica a NOM-035, no a Clima ni Salida.
    Detecta la pestaña activa por su clase, y además se auto-sincroniza
    por si el módulo pinta la pestaña inicial sin pasar por la función. */
