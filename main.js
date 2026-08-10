@@ -135,31 +135,33 @@ function agregarNotificacion(tipo, titulo, mensaje, empleadoId='', silencioso=fa
   if(!silencioso) mostrarToast(tipo, titulo, mensaje);
 }
 
-// Mapa de estilos por tipo de notificación — REDISEÑO: badges cromáticos
-// con gradiente para la insignia del ícono (antes solo un color plano de
-// fondo), pensados para las nuevas tarjetas tipo "card" del side drawer.
+// Estilos por tipo de notificación. Antes cada tipo tenía su
+// propio gradiente (siete en total): el panel parecía un semáforo
+// descompuesto y ninguna alerta destacaba sobre otra.
+// Ahora el color codifica URGENCIA, no categoría.
 const NOTIF_ESTILOS = {
-    error:       { bg:'bg-red-50/70',     border:'border-red-100',     icon:'fa-circle-exclamation',   iconBg:'bg-gradient-to-br from-red-400 to-rose-500',      badge:'bg-red-100 text-red-700'        },
-    warning:     { bg:'bg-amber-50/70',   border:'border-amber-100',   icon:'fa-triangle-exclamation', iconBg:'bg-gradient-to-br from-amber-400 to-orange-400', badge:'bg-amber-100 text-amber-700'    },
-    contrato:    { bg:'bg-orange-50/70',  border:'border-orange-100',  icon:'fa-file-contract',        iconBg:'bg-gradient-to-br from-orange-400 to-amber-500', badge:'bg-orange-100 text-orange-700'  },
-    info:        { bg:'bg-blue-50/70',    border:'border-blue-100',    icon:'fa-circle-info',          iconBg:'bg-gradient-to-br from-blue-400 to-indigo-500',  badge:'bg-blue-100 text-blue-700'      },
-    success:     { bg:'bg-emerald-50/70', border:'border-emerald-100', icon:'fa-circle-check',         iconBg:'bg-gradient-to-br from-emerald-400 to-teal-500', badge:'bg-emerald-100 text-emerald-700'},
-    cumple:      { bg:'bg-pink-50/70',    border:'border-pink-100',    icon:'fa-cake-candles',         iconBg:'bg-gradient-to-br from-pink-400 to-fuchsia-500', badge:'bg-pink-100 text-pink-700'      },
-    aniversario: { bg:'bg-violet-50/70',  border:'border-violet-100',  icon:'fa-trophy',               iconBg:'bg-gradient-to-br from-violet-400 to-purple-500',badge:'bg-violet-100 text-violet-700'  },
+  error:       { bg:'', border:'', icon:'fa-circle-exclamation',  iconBg:'nt-ico-rojo',    badge:'nt-bdg-rojo'    },
+  warning:     { bg:'', border:'', icon:'fa-triangle-exclamation',iconBg:'nt-ico-ambar',   badge:'nt-bdg-ambar'   },
+  contrato:    { bg:'', border:'', icon:'fa-file-contract',       iconBg:'nt-ico-rojo',    badge:'nt-bdg-rojo'    },
+  info:        { bg:'', border:'', icon:'fa-circle-info',         iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
+  success:     { bg:'', border:'', icon:'fa-circle-check',        iconBg:'nt-ico-verde',   badge:'nt-bdg-verde'   },
+  cumple:      { bg:'', border:'', icon:'fa-cake-candles',        iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
+  aniversario: { bg:'', border:'', icon:'fa-trophy',              iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
 };
 
-// ─── Pestañas del centro de notificaciones ───────────────────
-// Agrupa los tipos crudos (n.tipo) en 4 categorías visibles al usuario.
-// 'error' se incluye en 'contrato' porque app.js llegó a usar ese tipo
-// para contratos vencidos (inconsistencia histórica entre archivos).
-// REDISEÑO: cada pestaña ahora trae su propia clase de acento ('activo')
-// para pintarse como píldora de color sólido/gradiente cuando está activa.
+// Pestañas del centro de notificaciones.
+// 'error' se agrupa en 'contrato' porque app.js llegó a usar ese
+// tipo para contratos vencidos (inconsistencia histórica).
+// Los gradientes por pestaña se fueron: la pestaña activa se
+// distingue por ser sólida, no por tener un color distinto cada
+// una. Cinco degradados distintos eran cinco decisiones que el
+// usuario tenía que descifrar sin ganar nada.
 const NOTIF_TABS = [
-    { key:'todas',       label:'Todas',            tipos:null,                          activo:'bg-slate-800 text-white' },
-    { key:'cumple',      label:'🎂 Cumpleaños',     tipos:['cumple'],                    activo:'bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white' },
-    { key:'aniversario', label:'🏆 Aniversario',    tipos:['aniversario'],               activo:'bg-gradient-to-r from-violet-500 to-purple-500 text-white' },
-    { key:'contrato',    label:'Contrato',         tipos:['contrato','error'],          activo:'bg-gradient-to-r from-orange-500 to-amber-500 text-white' },
-    { key:'otros',       label:'Otros',            tipos:['warning','info','success'],  activo:'bg-gradient-to-r from-blue-500 to-indigo-500 text-white' }
+  { key:'todas',       label:'Todas',       tipos:null,                          activo:'nt-tab-on' },
+  { key:'cumple',      label:'Cumpleaños',  tipos:['cumple'],                    activo:'nt-tab-on' },
+  { key:'aniversario', label:'Aniversarios',tipos:['aniversario'],               activo:'nt-tab-on' },
+  { key:'contrato',    label:'Contratos',   tipos:['contrato','error'],          activo:'nt-tab-on' },
+  { key:'otros',       label:'Otros',       tipos:['warning','info','success'],  activo:'nt-tab-on' }
 ];
 let notifTabActiva = 'todas';
 
@@ -306,7 +308,7 @@ function renderizarPestanasNotifs(){
         const cuenta = grupos[t.key].length;
         const activa = notifTabActiva === t.key;
         return '<button data-tab="'+t.key+'" class="notif-tab-btn flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap '
-            + (activa ? t.activo : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
+           + (activa ? t.activo : 'nt-tab-off')
             + '">'+t.label
             + (cuenta>0 ? '<span class="notif-tab-count '+(activa?'bg-white/25 text-white':'bg-white text-slate-500')+'">'+(cuenta>99?'99+':cuenta)+'</span>' : '')
             + '</button>';
@@ -361,7 +363,7 @@ function renderizarListaNotifs(){
         }[n.tipo]||n.tipo;
         // --i alimenta la animación de entrada en cascada (stagger) definida
         // en CSS: cada tarjeta se retrasa `idx * 45ms` respecto a la anterior.
-        return '<div style="--i:'+idx+'" class="notif-card '+(n.leida?'opacity-60':'')+' flex gap-3 items-start p-3.5 mb-2 rounded-2xl border '+est.border+' '+est.bg+'">'
+        return '<div style="--i:'+idx+'" class="notif-card nt-card '+(n.leida?'nt-leida':'')+'">'
             +'<div class="w-9 h-9 rounded-xl '+est.iconBg+' flex items-center justify-center flex-shrink-0 shadow-sm">'
             +'<i class="fas '+est.icon+' text-white text-sm"></i></div>'
             +'<div class="flex-1 min-w-0">'
