@@ -8044,3 +8044,19 @@ async function generarInforme77UI(){
     return r;
   };
 })();
+
+/* El botón de Informe 7.7 solo aplica a NOM-035, no a Clima ni Salida.
+   Detecta la pestaña activa por su clase, y además se auto-sincroniza
+   por si el módulo pinta la pestaña inicial sin pasar por la función. */
+(function(){
+  var sincronizar = function(){
+    var wrap = document.getElementById('wrap-informe77');
+    if(!wrap) return;
+    var activa = document.querySelector('#enc-tabs .mod-tab.active, #enc-tabs .enc-tab.active');
+    var esNom = activa && /nom.?035/i.test(activa.textContent || '');
+    wrap.style.display = esNom ? 'flex' : 'none';
+  };
+  if(typeof activarTabEncuesta === 'function'){
+    var original = activarTabEncuesta;
+    window.activarTabEncuesta = function(){
+      var r = original.apply(this, argument
