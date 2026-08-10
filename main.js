@@ -7949,3 +7949,84 @@ function reconectarSesion(){
     setTimeout(arrancar, 2500);
   }
 })();
+
+/* Informe del numeral 7.7 — genera un Google Doc y devuelve el
+   enlace. Llamable desde donde quieras: botón en el dashboard de
+   NOM-035, menú de Encuestas, etc. */
+async function generarInforme77UI(){
+  let centros = [];
+  try{
+    const r = await enviarPeticion('listar_centros_nom035', {});
+    if(r.status === 'success') centros = r.centros || [];
+  }catch(e){}
+
+  if(!centros.length){
+    mostrarToast('warning','Sin centros','No se encontraron centros de trabajo con personal activo.');
+    return;
+  }
+
+  const opciones = centros.map(c =>
+    `<option value="${c.grupo}">${c.grupo} — ${c.activos} trabajadores</option>`).join('');
+
+  const { value: grupo } = await Swal.fire({
+    title: 'Informe NOM-035 · numeral 7.7',
+    html: `
+      <div style="text-align:left">
+        <label style="display:block;font-size:.78rem;font-weight:600;color:#475569;margin-bottom:6px">
+          Centro de trabajo
+        </label>
+        <select id="sw77-centro" class="gc-input">${opciones}</select>
+        <p style="font-size:.75rem;color:#94a3b8;margin-top:12px;line-height:1.5">
+          Se generará un documento en Google Drive con los ocho elementos
+          que exige la Norma. No incluye datos individuales de los trabajadores.
+        </p>
+      </div>`,
+    showCancelButton: true,
+    confirmButtonText: 'Generar informe',
+    cancelButtonText: 'Cancelar',
+    preConfirm: () => document.getElementById('sw77-centro').value
+  });
+
+  if(!grupo) return;
+
+  mostrarLoader('Generando informe...');
+  try{
+    // Crear el Doc y agregar tablas toma su tiempo: 60s de margen.
+    const r = await enviarPeticion('generar_informe_77', {grupo}, 60000);
+    ocultarLoader();
+
+    if(r.status !== 'success'){
+      mostrarToast('error','No se pudo generar', r.message || 'Error desconocido.');
+      return;
+    }
+
+    const aviso = r.completo ? '' :
+      `<div style="background:#fef3c7;color:#92400e;padding:10px 12px;border-radius:9px;
+                   font-size:.78rem;margin-top:14px;text-align:left;line-height:1.5">
+         <strong>Faltan datos del centro.</strong> El informe se generó con campos
+         marcados como [PENDIENTE]. Complétalos en la hoja
+         <code>NOM035_CENTROS</code> y vuelve a generarlo antes de archivarlo.
+       </div>`;
+
+    await Swal.fire({
+      icon: r.completo ? 'success' : 'warning',
+      title: 'Informe generado',
+      html: `
+        <div style="text-align:left;font-size:.85rem;color:#475569;line-height:1.7">
+          <strong>${r.resumen.centro}</strong><br>
+          Trabajadores: ${r.resumen.activos}<br>
+          Respondieron: ${r.resumen.respondieron} (${r.resumen.cobertura}%)<br>
+          Nivel del centro: <strong>${r.resumen.nivelCentro}</strong><br>
+          Requieren valoración clínica: ${r.resumen.giRequieren}
+        </div>
+        ${aviso}`,
+      confirmButtonText: 'Abrir documento',
+      showCancelButton: true,
+      cancelButtonText: 'Cerrar'
+    }).then(res => { if(res.isConfirmed) window.open(r.url, '_blank'); });
+
+  }catch(e){
+    ocultarLoader();
+    mostrarToast('error','Error', e.message || 'No se pudo generar el informe.');
+  }
+}
