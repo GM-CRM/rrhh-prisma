@@ -8031,53 +8031,51 @@ async function generarInforme77UI(){
   }
 }
 
-/* El botón de Informe 7.7 solo aplica a NOM-035. Además, en esa
-   pestaña se retira "Excel": el informe del 7.7 es el entregable
-   formal y un volcado de hoja de cálculo al lado le resta claridad.
-   CSV se queda para quien necesite los datos crudos. */
+/* El botón de Informe 7.7 solo aplica a NOM-035. En esa pestaña se
+   retira "Excel": el informe del 7.7 es el entregable formal y un
+   volcado de hoja de cálculo al lado le resta claridad. CSV se queda.
+
+   Se usa MutationObserver en vez de setTimeout porque el contenido de
+   la pestaña llega por fetch: cuando se dispara activarTabEncuesta los
+   botones aún no existen en el DOM. */
 (function(){
-  var sincronizar = function(){
+  var acomodar = function(){
     var wrap = document.getElementById('wrap-informe77');
-    if(!wrap) return;
+    var cont = document.getElementById('enc-contenido');
+    if(!wrap || !cont) return;
 
     var activa = document.querySelector('#enc-tabs .mod-tab.active, #enc-tabs .enc-tab.active');
-    var esNom  = activa && /nom.?035/i.test(activa.textContent || '');
-
-    if(!esNom){
+    if(!(activa && /nom.?035/i.test(activa.textContent || ''))){
       wrap.style.display = 'none';
       return;
     }
 
-    var cont = document.getElementById('enc-contenido');
-    if(!cont) return;
-
-    // Oculta el botón de Excel solo en esta pestaña
-    Array.prototype.forEach.call(cont.querySelectorAll('button'), function(b){
-      if(/^\s*excel\s*$/i.test(b.textContent.trim())) b.style.display = 'none';
+    var botones = cont.querySelectorAll('button, a');
+    var ancla = null;
+    Array.prototype.forEach.call(botones, function(b){
+      var t = b.textContent.trim();
+      if(t === 'Excel') b.style.display = 'none';
+      if(t === 'Copiar link') ancla = b;
     });
 
-    // Mueve el botón a la fila donde vive "Copiar link"
-    var ancla = Array.prototype.filter.call(cont.querySelectorAll('button'), function(b){
-      return /copiar link/i.test(b.textContent);
-    })[0];
-
     var btn = wrap.querySelector('button');
-    if(ancla && btn && ancla.parentNode && btn.parentNode !== ancla.parentNode){
+    if(ancla && btn && btn.parentNode !== ancla.parentNode){
       ancla.parentNode.appendChild(btn);
-      wrap.style.display = 'none';
-      return;
     }
-    if(!ancla) wrap.style.display = 'flex';   // respaldo: se queda arriba
+    wrap.style.display = 'none';
   };
 
+  var cont = document.getElementById('enc-contenido');
+  if(cont){
+    new MutationObserver(function(){ acomodar(); }).observe(cont, {childList:true, subtree:true});
+  }
   if(typeof activarTabEncuesta === 'function'){
     var original = activarTabEncuesta;
     window.activarTabEncuesta = function(){
       var r = original.apply(this, arguments);
-      setTimeout(sincronizar, 60);
+      acomodar();
       return r;
     };
   }
-  document.addEventListener('DOMContentLoaded', function(){ setTimeout(sincronizar, 1500) });
-  setTimeout(sincronizar, 2000);
+  setTimeout(acomodar, 2000);
 })();
