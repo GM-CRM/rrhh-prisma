@@ -8079,3 +8079,66 @@ async function generarInforme77UI(){
   }
   setTimeout(acomodar, 2000);
 })();
+
+/* Ficha de datos del trabajador (Guía V) en el expediente.
+   Se muestra debajo de los resultados de riesgo. */
+async function cargarGuiaVDrawer(idInterno){
+  var cont = document.getElementById('nom035-drawer-content');
+  if(!cont || !idInterno) return;
+
+  try{
+    var r = await enviarPeticion('datos_trabajador_nom035', {idInterno:idInterno});
+    if(r.status !== 'success' || !r.total) return;
+
+    var f = r.fichas[r.fichas.length - 1];   // la más reciente
+    var fila = function(et, v){
+      if(!v) return '';
+      return '<div style="display:grid;grid-template-columns:150px 1fr;gap:10px;padding:6px 0;'
+           + 'border-bottom:1px solid oklch(95% 0.005 285);font-size:.8rem">'
+           + '<span style="color:oklch(58% 0.012 285);font-weight:600">'+et+'</span>'
+           + '<span style="color:oklch(30% 0.015 285)">'+v+'</span></div>';
+    };
+
+    var corregidos = (f.PRELLENADOS_CORREGIDOS||'').trim();
+    var aviso = corregidos
+      ? '<p style="font-size:.72rem;color:oklch(50% 0.14 70);background:oklch(96% 0.04 70);'
+        + 'padding:7px 10px;border-radius:8px;margin:12px 0 0;line-height:1.45">'
+        + '<i class="fas fa-triangle-exclamation" style="margin-right:5px"></i>'
+        + 'El trabajador corrigió: <strong>'+corregidos+'</strong>. '
+        + 'Conviene verificar esos datos en su expediente.</p>'
+      : '';
+
+    var html = '<div style="margin-top:22px;padding-top:20px;border-top:1px solid oklch(93% 0.006 285)">'
+      + '<p style="font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;'
+      + 'color:oklch(48% 0.19 285);margin:0 0 12px;display:flex;align-items:center;gap:7px">'
+      + '<i class="fas fa-clipboard-user"></i>Datos del trabajador · Guía V</p>'
+      + fila('Sexo', f.SEXO)
+      + fila('Rango de edad', f.RANGO_EDAD)
+      + fila('Estado civil', f.ESTADO_CIVIL)
+      + fila('Nivel de estudios', f.NIVEL_ESTUDIOS + (f.ESTUDIOS_ESTATUS ? ' ('+f.ESTUDIOS_ESTATUS+')' : ''))
+      + fila('Puesto', f.PUESTO)
+      + fila('Área', f.DEPARTAMENTO)
+      + fila('Tipo de puesto', f.TIPO_PUESTO)
+      + fila('Contratación', f.TIPO_CONTRATACION)
+      + fila('Tipo de personal', f.TIPO_PERSONAL)
+      + fila('Jornada', f.TIPO_JORNADA)
+      + fila('Rota turnos', f.ROTACION_TURNOS)
+      + fila('Tiempo en el puesto', f.TIEMPO_PUESTO)
+      + fila('Experiencia total', f.TIEMPO_EXPERIENCIA)
+      + aviso
+      + '</div>';
+
+    cont.insertAdjacentHTML('beforeend', html);
+  }catch(e){}
+}
+
+/* Se engancha a la carga de resultados del drawer sin modificarla */
+(function(){
+  if(typeof cargarResultadosNOM035Drawer !== 'function') return;
+  var original = cargarResultadosNOM035Drawer;
+  window.cargarResultadosNOM035Drawer = async function(idInterno){
+    var r = await original.apply(this, arguments);
+    cargarGuiaVDrawer(idInterno);
+    return r;
+  };
+})();
