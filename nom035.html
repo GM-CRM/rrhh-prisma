@@ -101,6 +101,66 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;bac
   .wizard-opt{min-height:48px;padding:12px 14px;font-size:.85rem}
   .hdr-ver{display:none}
 }
+
+/* ── Ficha de datos del trabajador (Guía V) ── */
+.gv-campo{margin-bottom:22px}
+.gv-label{
+  display:block;font-size:.92rem;font-weight:600;color:var(--ink);
+  line-height:1.45;margin-bottom:4px;
+}
+/* Marca los campos que vienen del expediente. Se avisa a propósito:
+   si mucha gente corrige el mismo campo, el problema está en la base
+   de datos, y eso conviene saberlo. */
+.gv-prellenado{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:.68rem;font-weight:600;
+  background:#ede9fe;color:#6d28d9;
+  padding:2px 7px;border-radius:99px;margin-bottom:8px;
+}
+.gv-input{
+  width:100%;border:2px solid #e8e5f0;border-radius:10px;
+  padding:11px 13px;font-size:.9rem;font-family:inherit;
+  background:#fff;transition:border-color .2s;
+}
+.gv-input:focus{outline:none;border-color:var(--violet)}
+.gv-ops{display:flex;flex-direction:column;gap:7px}
+.gv-op{
+  display:flex;align-items:center;min-height:46px;
+  padding:11px 15px;border:2px solid #e8e5f0;border-radius:11px;
+  cursor:pointer;font-size:.87rem;font-weight:500;color:#475569;
+  transition:all .18s var(--ease-out);
+  -webkit-tap-highlight-color:transparent;user-select:none;
+}
+.gv-op:hover{border-color:#c4b5fd;background:#faf8ff}
+.gv-op.sel{border-color:var(--violet);background:rgba(124,58,237,.08);color:var(--violet);font-weight:600}
+.gv-op .mk{
+  width:18px;height:18px;border-radius:50%;border:2px solid #d4d0e0;
+  margin-right:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  transition:all .18s;
+}
+.gv-op.sel .mk{border-color:var(--violet);background:var(--violet)}
+.gv-op.sel .mk::after{content:'';width:7px;height:7px;border-radius:50%;background:#fff}
+.gv-sec{
+  font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--violet);margin:0 0 4px;
+}
+.gv-btn{
+  width:100%;background:var(--violet);color:#fff;
+  font-family:inherit;font-size:.9rem;font-weight:700;
+  border:none;border-radius:11px;padding:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 14px rgba(124,58,237,.25);
+  transition:background-color .18s,transform .15s;
+}
+.gv-btn:hover{background:#6d28d9}
+.gv-btn:active{transform:scale(.985)}
+.gv-error{
+  font-size:.78rem;color:#b91c1c;background:#fef2f2;
+  border:1.5px solid #fecaca;border-radius:9px;
+  padding:9px 12px;margin-bottom:16px;display:none;
+}
+.gv-error.show{display:block}  
+  
 </style>
 </head>
 <body>
@@ -482,7 +542,8 @@ function selectFRP(val){
 function prevQuestion(){
   if(bloqueado) return;
   if(fase==='gi'&&gi_idx>0){gi_idx--;renderGIQuestion()}
-  else if(fase==='filtros'&&filtroIdx>0){filtroIdx--;renderFiltro()}
+  else if(fase==='filtros'&&filtroIdx>0){filtroIdx--;renderFiltro()}   
+  else if(fase==='guiav'&&gv_idx>0){gv_idx--;renderGV()}
   else if(fase==='frp'&&currentIdx>0){
     currentIdx--;
     const card=$('wizard-card');
@@ -500,33 +561,189 @@ function updateProgress(current,total){
   $('hdr-time').textContent=T.reloj+mins+' min';
 }
 
-async function enviarResultados(){
+/* Antes esta función enviaba de inmediato. Ahora, al terminar los
+   ítems de riesgo, primero se aplica la ficha de datos (Guía V) y
+   se envía todo junto.
+   El orden lo marca el DOF (II.2 / III.2): primero el cuestionario
+   de riesgo psicosocial, después la ficha de datos. Preguntar el
+   perfil antes contamina las respuestas: si al trabajador se le
+   pide su área y su puesto y luego se le pregunta si sufre burlas,
+   responde sintiéndose identificable. */
+function enviarResultados(){
+  iniciarGuiaV();
+}
+
+/* ── GUÍA V · ficha de datos del trabajador ── */
+var gv_def=null, gv_prellenado={}, gv_resp={}, gv_campos=[], gv_idx=0, gv_corregidos=[];
+
+async function iniciarGuiaV(){
+  mostrarPantalla('success');
+  var suc=$('success-screen');
+  suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div>'
+    +'<h2>Un \u00faltimo paso</h2><p>Cargando...</p>';
+
+  try{
+    var r=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+      action:'obtener_guia_v_nom035',
+      payload:{idInterno:empleadoId}
+    })});
+    var d=await r.json();
+    if(d.status!=='success'){ enviarTodoNOM035(); return; }
+    gv_def=d.guiaV; gv_prellenado=d.prellenado||{};
+  }catch(e){ enviarTodoNOM035(); return; }
+
+  // Se aplanan los campos y se siembran los valores del expediente
+  gv_campos=[]; gv_resp={}; gv_corregidos=[];
+  gv_def.secciones.forEach(function(sec){
+    (sec.campos||[]).forEach(function(c,i){
+      gv_campos.push({campo:c, seccion:sec.titulo, primero:i===0});
+      if(c.origen && gv_prellenado[c.id]) gv_resp[c.id]=gv_prellenado[c.id];
+    });
+  });
+
+  gv_idx=0; fase='guiav';
+  $('hdr-progress').style.display='block';
+  mostrarPantalla('wizard');
+  renderGV();
+}
+
+function renderGV(){
+  if(gv_idx>=gv_campos.length){ enviarTodoNOM035(); return; }
+
+  var item=gv_campos[gv_idx], c=item.campo;
+
+  // Campo condicional: si el valor del que depende está en la lista
+  // de exclusión, se salta sin mostrarlo
+  if(c.dependeDe && c.ocultarSi){
+    var v=gv_resp[c.dependeDe]||'';
+    if(c.ocultarSi.indexOf(v)!==-1){
+      delete gv_resp[c.id];
+      gv_idx++; renderGV(); return;
+    }
+  }
+
+  updateProgress(gv_idx, gv_campos.length);
+  $('wiz-cat').textContent=item.seccion;
+  $('wiz-catprog').textContent='Pregunta '+(gv_idx+1)+' de '+gv_campos.length;
+
+  var card=$('wizard-card');
+  card.className='wizard-card slide-left';
+
+  var esPre = c.origen && gv_prellenado[c.id];
+  var actual = gv_resp[c.id]||'';
+
+  var html='<div class="gv-campo">';
+  html+='<p class="gv-sec">Datos del trabajador</p>';
+  if(esPre) html+='<span class="gv-prellenado"><i class="fas fa-wand-magic-sparkles" style="font-size:.62rem"></i>De tu expediente \u00b7 puedes corregirlo</span>';
+  html+='<label class="gv-label">'+esc(c.etiqueta)+'</label>';
+  html+='<div class="gv-error" id="gv-err">Selecciona una opci\u00f3n para continuar.</div>';
+
+  if(c.tipo==='texto'){
+    html+='<input type="text" class="gv-input" id="gv-txt" value="'+esc(actual)+'" placeholder="Escribe aqu\u00ed...">';
+  }else{
+    html+='<div class="gv-ops">';
+    c.opciones.forEach(function(op,i){
+      html+='<div class="gv-op'+(actual===op?' sel':'')+'" onclick="selGV('+i+')">'
+           +'<span class="mk"></span>'+esc(op)+'</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  html+='<button class="gv-btn" onclick="siguienteGV()">'
+       +(gv_idx===gv_campos.length-1
+          ? '<i class="fas fa-check" style="font-size:.8rem"></i>Finalizar'
+          : 'Continuar<i class="fas fa-arrow-right" style="font-size:.75rem"></i>')
+       +'</button>';
+
+  card.innerHTML=html;
+  $('nav-counter').textContent=(gv_idx+1)+' / '+gv_campos.length;
+  $('btn-prev').style.visibility=gv_idx>0?'visible':'hidden';
+}
+
+function selGV(i){
+  if(bloqueado) return;
+  var c=gv_campos[gv_idx].campo;
+  var valor=c.opciones[i];
+  gv_resp[c.id]=valor;
+
+  // Se registra si el trabajador corrigió un dato del expediente:
+  // si muchos corrigen el mismo campo, el problema es la base.
+  if(c.origen && gv_prellenado[c.id] && gv_prellenado[c.id]!==valor){
+    if(gv_corregidos.indexOf(c.id)===-1) gv_corregidos.push(c.id);
+  }
+
+  var ops=$('wizard-card').querySelectorAll('.gv-op');
+  ops.forEach(function(o,j){ o.classList.toggle('sel', j===i) });
+  var err=document.getElementById('gv-err');
+  if(err) err.classList.remove('show');
+}
+
+function siguienteGV(){
+  if(bloqueado) return;
+  var c=gv_campos[gv_idx].campo;
+
+  if(c.tipo==='texto'){
+    var inp=document.getElementById('gv-txt');
+    var v=inp?inp.value.trim():'';
+    if(!v){
+      var e1=document.getElementById('gv-err');
+      if(e1){ e1.textContent='Este campo no puede quedar vac\u00edo.'; e1.classList.add('show') }
+      if(inp) inp.focus();
+      return;
+    }
+    if(c.origen && gv_prellenado[c.id] && gv_prellenado[c.id]!==v){
+      if(gv_corregidos.indexOf(c.id)===-1) gv_corregidos.push(c.id);
+    }
+    gv_resp[c.id]=v;
+  }else if(!gv_resp[c.id]){
+    var e2=document.getElementById('gv-err');
+    if(e2){ e2.textContent='Selecciona una opci\u00f3n para continuar.'; e2.classList.add('show') }
+    return;
+  }
+
+  avanzar(function(){ gv_idx++; renderGV() });
+}
+
+/* Envía respuestas de riesgo + ficha, en una sola petición */
+async function enviarTodoNOM035(){
   $('hdr-progress').style.display='none';
   $('hdr-time').style.display='none';
+
   var itemsFRP=[];
   allItems.forEach(function(it,idx){
     if(respuestas[idx]!==undefined){
-      itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,direccion:it.direccion,respuesta:respuestas[idx]});
+      itemsFRP.push({item:it.item,categoria:it.categoria,dominio:it.dominio,
+                     direccion:it.direccion,respuesta:respuestas[idx]});
     }
   });
-  const suc=$('success-screen');
+
+  var suc=$('success-screen');
   mostrarPantalla('success');
-  suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div><h2>Calculando resultados...</h2><p>Espera un momento</p>';
+  suc.innerHTML='<div class="s-icon"><i class="fas fa-spinner fa-spin"></i></div>'
+    +'<h2>Guardando respuestas...</h2><p>Espera un momento</p>';
+
   try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'guardar_respuesta_nom035',payload:{
-      idInterno:empleadoId,
-      tipoCuestionario:nom035Data.tipoCuestionario,
-      activosGrupo:nom035Data.activosGrupo,
-      respuestasGI:gi_resp,
-      respuestasFRP:itemsFRP,
-      filtros:filtros,
-      itemsAplicables:allItems.length
-    }})});
-    const d=await r.json();
+    var r=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+      action:'guardar_respuesta_nom035',
+      payload:{
+        idInterno:empleadoId,
+        tipoCuestionario:nom035Data.tipoCuestionario,
+        activosGrupo:nom035Data.activosGrupo,
+        respuestasGI:gi_resp,
+        respuestasFRP:itemsFRP,
+        filtros:filtros,
+        itemsAplicables:allItems.length,
+        datosTrabajador:gv_resp,
+        camposCorregidos:gv_corregidos
+      }
+    })});
+    var d=await r.json();
     if(d.status==='success') mostrarResultado(d);
-    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>'+T.noGuardo+'</h2><p>'+esc(d.message||T.intentaDespues)+'</p>';
+    else suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">'
+      +'<i class="fas fa-triangle-exclamation"></i></div><h2>'+T.noGuardo+'</h2><p>'+esc(d.message||T.intentaDespues)+'</p>';
   }catch(e){
-    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)"><i class="fas fa-triangle-exclamation"></i></div><h2>'+T.errConexionTit+'</h2><p>'+T.errConexionSub+'</p>';
+    suc.innerHTML='<div class="s-icon" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">'
+      +'<i class="fas fa-triangle-exclamation"></i></div><h2>'+T.errConexionTit+'</h2><p>'+T.errConexionSub+'</p>';
   }
 }
 
