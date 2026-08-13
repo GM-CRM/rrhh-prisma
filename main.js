@@ -4718,7 +4718,12 @@ var nivelGlobal = null;
       +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
         +'<p class="text-sm font-bold text-slate-700 mb-1"><i class="fas fa-chart-simple text-slate-400 mr-2"></i>Distribución por nivel de riesgo</p>'
 +'<p class="text-xs text-slate-400 mb-4">% de trabajadores en cada nivel. La línea marca el 25%.</p>'
-+'<div class="relative" id="wrap-chart-nom035" style="height:220px"><canvas id="chartNOM035Dona"></canvas></div></div>'
++'<div class="relative" id="wrap-chart-nom035" style="height:220px"><canvas id="chartNOM035Dona"></canvas></div>'
++'<div class="mt-5 pt-4 border-t border-slate-100">'
++'<p class="text-sm font-bold text-slate-700 mb-1"><i class="fas fa-users-viewfinder text-slate-400 mr-2"></i>Dónde se concentra el riesgo</p>'
++'<p class="text-xs text-slate-400 mb-3">Toca un perfil para filtrar todo el tablero.</p>'
++'<div id="nom035-perfil"></div>'
++'</div></div>'
       +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
         +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-table-cells text-red-500 mr-2"></i>Trabajadores por nivel, en cada dominio</p>'
         +'<div id="nom035-heatmap" class="space-y-2"></div></div>'
@@ -8383,5 +8388,189 @@ async function cargarGuiaVDrawer(idInterno){
     var r = await original.apply(this, arguments);
     cargarGuiaVDrawer(idInterno);
     return r;
+  };
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   NOM-035 · FILTROS POR PERFIL (Guía V)
+   Cruza los resultados de riesgo con la ficha de datos del
+   trabajador para responder DÓNDE se concentra el riesgo:
+   turno, tipo de puesto, antigüedad, sexo, edad.
+   ═══════════════════════════════════════════════════════════ */
+
+// Campos de la ficha que sirven para segmentar. El orden es el
+// de utilidad diagnóstica, no el de la hoja: rotación de turnos
+// y tipo de puesto son los que más suelen explicar diferencias.
+const NOM035_PERFIL_CAMPOS = [
+  { key:'ROTACION_TURNOS',   label:'Rota turnos' },
+  { key:'TIPO_PUESTO',       label:'Tipo de puesto' },
+  { key:'TIPO_JORNADA',      label:'Jornada' },
+  { key:'TIEMPO_PUESTO',     label:'Antigüedad' },
+  { key:'TIPO_CONTRATACION', label:'Contratación' },
+  { key:'SEXO',              label:'Sexo' },
+  { key:'RANGO_EDAD',        label:'Edad' }
+];
+
+let _nom035Fichas = null;          // idInterno -> ficha
+let _nom035PerfilActivo = { campo:'', valor:'' };
+
+/* Carga las fichas una sola vez y las indexa por ID.
+   Si un trabajador contestó varias veces se queda la más
+   reciente: la hoja se escribe en orden de captura. */
+async function cargarFichasNOM035(){
+  if(_nom035Fichas) return _nom035Fichas;
+  _nom035Fichas = {};
+  try{
+    const r = await enviarPeticion('datos_trabajador_nom035', {});
+    if(r.status === 'success'){
+      (r.fichas || []).forEach(function(f){
+        const id = (f.ID_INTERNO || '').toString().trim();
+        if(id) _nom035Fichas[id] = f;
+      });
+    }
+  }catch(e){ console.warn('[NOM035] fichas Guía V no disponibles', e); }
+  return _nom035Fichas;
+}
+
+/* Valor de un campo de perfil para un empleado.
+   "Sin dato" cuando no hay ficha: se cuenta, no se esconde. */
+function _nom035ValorPerfil(e, campo){
+  const f = (_nom035Fichas || {})[(e.idInterno || '').toString().trim()];
+  if(!f) return 'Sin dato';
+  const v = (f[campo] || '').toString().trim();
+  return v || 'Sin dato';
+}
+
+/* Empleados que pasan el filtro de perfil activo. */
+function _nom035AplicarPerfil(emp){
+  const p = _nom035PerfilActivo;
+  if(!p.campo || !p.valor) return emp;
+  return emp.filter(function(e){ return _nom035ValorPerfil(e, p.campo) === p.valor });
+}
+
+/* Tabla: para el campo elegido, cuánta gente y qué % en riesgo
+   alto o muy alto en cada valor.
+
+   Se muestra el % en riesgo (no el nivel del grupo) porque con
+   segmentos chicos el criterio del 25% se vuelve ruidoso: entre
+   3 personas, una en Alto ya es 33%. El % crudo más la n dejan
+   ver eso; una etiqueta de nivel lo taparía. */
+function _nom035ResumenPerfil(emp, campo){
+  const grupos = {};
+  emp.forEach(function(e){
+    const v = _nom035ValorPerfil(e, campo);
+    if(!grupos[v]) grupos[v] = { total:0, riesgo:0 };
+    grupos[v].total++;
+    if(e.nivel === 'Alto' || e.nivel === 'Muy alto') grupos[v].riesgo++;
+  });
+  return Object.keys(grupos).map(function(v){
+    const g = grupos[v];
+    return { valor:v, total:g.total, riesgo:g.riesgo,
+             pct: Math.round(g.riesgo/g.total*100) };
+  }).sort(function(a,b){
+    // Peor primero. "Sin dato" siempre al final: no es un perfil,
+    // es una carencia de captura.
+    if(a.valor === 'Sin dato') return 1;
+    if(b.valor === 'Sin dato') return -1;
+    return b.pct - a.pct || b.total - a.total;
+  });
+}
+
+function _nom035PintarPanelPerfil(emp){
+  const cont = document.getElementById('nom035-perfil');
+  if(!cont) return;
+
+  const hayFichas = Object.keys(_nom035Fichas || {}).length > 0;
+  if(!hayFichas){
+    cont.innerHTML =
+      '<div class="text-center py-8 px-4">'
+      + '<i class="fas fa-clipboard-user text-slate-200 text-3xl mb-2"></i>'
+      + '<p class="text-xs text-slate-400 leading-relaxed">Aún no hay fichas de datos del trabajador.<br>'
+      + 'Se llenan al final del cuestionario y permiten cruzar el riesgo por turno, puesto y antigüedad.</p></div>';
+    return;
+  }
+
+  const campo = _nom035PerfilActivo.campo || NOM035_PERFIL_CAMPOS[0].key;
+  const filas = _nom035ResumenPerfil(emp, campo);
+
+  const selector = NOM035_PERFIL_CAMPOS.map(function(c){
+    const on = c.key === campo;
+    return '<button onclick="cambiarCampoPerfilNOM035(\'' + c.key + '\')" '
+      + 'class="px-2.5 py-1 rounded-full text-[11px] font-semibold transition '
+      + (on ? 'bg-violet-600 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200')
+      + '">' + c.label + '</button>';
+  }).join('');
+
+  const p = _nom035PerfilActivo;
+  const cuerpo = filas.map(function(f){
+    const activo = p.campo === campo && p.valor === f.valor;
+    const esSinDato = f.valor === 'Sin dato';
+    // Barra proporcional al % en riesgo. Gris cuando es cero:
+    // pintar de rojo un cero es alarmar sin motivo.
+    const color = f.pct >= 50 ? '#b91c1c' : (f.pct > 0 ? '#ea580c' : '#cbd5e1');
+    return '<button onclick="filtrarPerfilNOM035(\'' + campo + '\',\'' + f.valor.replace(/'/g,"\\'") + '\')" '
+      + 'class="w-full text-left py-2 px-2 rounded-lg transition '
+      + (activo ? 'bg-violet-50' : 'hover:bg-slate-50') + '">'
+      + '<div class="flex justify-between items-baseline gap-2 mb-1">'
+      + '<span class="text-xs ' + (esSinDato ? 'text-slate-400 italic' : 'font-semibold text-slate-700') + ' leading-snug">'
+      + f.valor + '</span>'
+      + '<span class="text-[11px] tabular-nums flex-shrink-0" style="color:' + (f.pct ? color : '#94a3b8') + '">'
+      + '<strong>' + f.pct + '%</strong> <span class="text-slate-400">de ' + f.total + '</span></span>'
+      + '</div>'
+      + '<div class="h-2 rounded-full bg-slate-100 overflow-hidden">'
+      + '<div class="h-full rounded-full" style="width:' + Math.max(f.pct,2) + '%;background:' + color + '"></div>'
+      + '</div></button>';
+  }).join('');
+
+  const aviso = p.valor
+    ? '<div class="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-slate-100">'
+      + '<span class="text-[11px] text-slate-500">Filtrando: <strong>' + p.valor + '</strong></span>'
+      + '<button onclick="filtrarPerfilNOM035(\'\',\'\')" class="text-[11px] text-violet-600 font-semibold hover:underline">Quitar</button></div>'
+    : '';
+
+  cont.innerHTML =
+    '<div class="flex flex-wrap gap-1.5 mb-3">' + selector + '</div>'
+    + '<p class="text-[11px] text-slate-400 mb-1">% en riesgo alto o muy alto</p>'
+    + '<div class="space-y-0.5">' + cuerpo + '</div>'
+    + aviso;
+}
+
+function cambiarCampoPerfilNOM035(campo){
+  // Cambiar de campo limpia el valor: un filtro de "Operativo"
+  // no significa nada al mirar la tabla por turno.
+  _nom035PerfilActivo = { campo: campo, valor: '' };
+  renderSubContenidoNOM035();
+}
+
+function filtrarPerfilNOM035(campo, valor){
+  const p = _nom035PerfilActivo;
+  if(p.campo === campo && p.valor === valor) _nom035PerfilActivo = { campo: campo, valor: '' };
+  else _nom035PerfilActivo = { campo: campo, valor: valor };
+  renderSubContenidoNOM035();
+}
+
+/* Envuelve el dashboard: carga las fichas, filtra por perfil y
+   pinta el panel. Se hace por wrapper para no volver a tocar
+   renderNOM035Dashboard, que ya quedó estable. */
+(function(){
+  if(typeof renderNOM035Dashboard !== 'function') return;
+  const original = renderNOM035Dashboard;
+  window.renderNOM035Dashboard = function(data, cont){
+    const filtrado = Object.assign({}, data);
+    const empOrig = data.empleados || [];
+
+    if(_nom035Fichas){
+      filtrado.empleados = _nom035AplicarPerfil(empOrig);
+      filtrado.total = filtrado.empleados.length;
+    }
+
+    original.call(this, filtrado, cont);
+    _nom035PintarPanelPerfil(empOrig);
+
+    // Primera vez: se piden las fichas y se repinta. Sin await
+    // aquí para no retrasar el dashboard, que ya tiene sus datos.
+    if(!_nom035Fichas){
+      cargarFichasNOM035().then(function(){ renderSubContenidoNOM035(); });
+    }
   };
 })();
