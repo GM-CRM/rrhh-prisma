@@ -4639,6 +4639,41 @@ function renderSubContenidoNOM035(){
     else renderNOM035Colormetria(window._nom035Data, cont);
 }
 
+/* Nivel de riesgo del centro de trabajo.
+   Criterio: el nivel más alto en el que se concentra al menos el
+   25% de los trabajadores evaluados. Es el mismo criterio que usa
+   el informe del numeral 7.7, para que ambos coincidan siempre.
+   Es un criterio interno, no del DOF: la Norma califica por
+   trabajador y no define cómo resumir un centro completo.
+
+   Se usa en lugar de promediar puntajes porque Guía I, II y III
+   tienen 20, 46 y 72 items: sus puntajes no viven en la misma
+   escala y promediarlos no produce un número interpretable. */
+function _nom035NivelCentro(emp){
+  const ORDEN = ['Nulo','Bajo','Medio','Alto','Muy alto'];
+  const UMBRAL = 0.25;
+  const tot = emp.length;
+  if(!tot) return { nivel:'Sin datos', pctRiesgo:0, enRiesgo:0, total:0, conteo:{} };
+
+  const conteo = {};
+  emp.forEach(function(e){ conteo[e.nivel] = (conteo[e.nivel]||0) + 1; });
+
+  // Se recorre de mayor a menor y gana el primero que alcance el 25%
+  let nivel = 'Nulo';
+  for(let i = ORDEN.length - 1; i >= 0; i--){
+    if((conteo[ORDEN[i]]||0) / tot >= UMBRAL){ nivel = ORDEN[i]; break; }
+  }
+
+  const enRiesgo = (conteo['Alto']||0) + (conteo['Muy alto']||0);
+  return {
+    nivel: nivel,
+    pctRiesgo: Math.round(enRiesgo/tot*100),
+    enRiesgo: enRiesgo,
+    total: tot,
+    conteo: conteo
+  };
+}
+
 // ── Sub-tab 1: Dashboard General ───────────────────────────────
 function renderNOM035Dashboard(data, cont){
     const total = data.total || 0;
@@ -4659,15 +4694,21 @@ var nivelGlobal = null;
     }).length;
     const pctPart = elegibles>0 ? Math.round(total/elegibles*100) : 0;
 
+  // Nivel del centro y % en riesgo alto: sustituyen al promedio de
+  // puntajes, que no era comparable entre guías.
+  const centro = _nom035NivelCentro(emp);
+  const nivelCentroUI = NOM035_NIVELES_UI.find(function(n){ return n.nivel === centro.nivel })
+                        || { color:'#64748b', bg:'#f8fafc', borde:'#e2e8f0' };
+
     cont.innerHTML =
       '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">'
       +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
         +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Evaluaciones completadas</p>'
         +'<p class="text-3xl font-black text-slate-800 mt-1">'+total+'</p></div>'
-      +'<div class="rounded-xl p-4 border shadow-sm text-center" style="background:'+nivelGlobal.bg+';border-color:'+nivelGlobal.borde+'">'
-        +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Nivel de riesgo global</p>'
-        +'<p class="text-xl font-black mt-1" style="color:'+nivelGlobal.color+'">'+nivelGlobal.nivel+'</p>'
-        +'<p class="text-xs text-slate-400 mt-0.5">Puntaje promedio: '+puntajeProm.toFixed(1)+'</p></div>'
+      +'<div class="rounded-xl p-4 border shadow-sm text-center" style="background:'+nivelCentroUI.bg+';border-color:'+nivelCentroUI.borde+'">'
+        +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">En riesgo alto o muy alto</p>'
+        +'<p class="text-3xl font-black mt-1 tabular-nums" style="color:'+(centro.enRiesgo?"#b91c1c":"#059669")+'">'+centro.pctRiesgo+'%</p>'
+        +'<p class="text-xs text-slate-400 mt-0.5 tabular-nums">'+centro.enRiesgo+' de '+centro.total+' \u00b7 nivel del centro: <strong style="color:'+nivelCentroUI.color+'">'+centro.nivel+'</strong></p></div>'
       +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
         +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">% Participación</p>'
         +'<p class="text-3xl font-black text-slate-800 mt-1">'+pctPart+'%</p>'
