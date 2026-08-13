@@ -146,7 +146,9 @@ const NOTIF_ESTILOS = {
   info:        { bg:'', border:'', icon:'fa-circle-info',         iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
   success:     { bg:'', border:'', icon:'fa-circle-check',        iconBg:'nt-ico-verde',   badge:'nt-bdg-verde'   },
   cumple:      { bg:'', border:'', icon:'fa-cake-candles',        iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
-  aniversario: { bg:'', border:'', icon:'fa-trophy',              iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
+  aniversario: { bg:'', border:'', icon:'fa-trophy',           iconBg:'nt-ico-violeta', badge:'nt-bdg-violeta' },
+  nom035:      { bg:'', border:'', icon:'fa-shield-halved',    iconBg:'nt-ico-ambar',   badge:'nt-bdg-ambar' },
+  nom035venc:  { bg:'', border:'', icon:'fa-shield-halved',    iconBg:'nt-ico-rojo',    badge:'nt-bdg-rojo' },
 };
 
 // Pestañas del centro de notificaciones.
@@ -161,7 +163,8 @@ const NOTIF_TABS = [
   { key:'cumple',      label:'Cumpleaños',  tipos:['cumple'],                    activo:'nt-tab-on' },
   { key:'aniversario', label:'Aniversarios',tipos:['aniversario'],               activo:'nt-tab-on' },
   { key:'contrato',    label:'Contratos',   tipos:['contrato','error'],          activo:'nt-tab-on' },
-  { key:'otros',       label:'Otros',       tipos:['warning','info','success'],  activo:'nt-tab-on' }
+  { key:'nom035',      label:'NOM-035',      tipos:['nom035','nom035venc'],      activo:'nt-tab-on' },
+  { key:'otros',       label:'Otros',        tipos:['warning','info','success'], activo:'nt-tab-on' }
 ];
 let notifTabActiva = 'todas';
 
@@ -222,7 +225,7 @@ function _ordenarNotifsPorUrgencia(arr){
 
 function obtenerNotifsPorCategoria(){
   if(_notifGrupos) return _notifGrupos;
-  const grupos = { todas:[], cumple:[], aniversario:[], contrato:[], otros:[] };
+  const grupos = { todas:[], cumple:[], aniversario:[], contrato:[], nom035:[], otros:[] };
   for(let i=0;i<notificaciones.length;i++){
     const n = notificaciones[i];
     grupos.todas.push(n);
@@ -359,7 +362,8 @@ function renderizarListaNotifs(){
         const fecha = new Date(n.fecha).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
         const tipoLabel = {
             error:'Contrato', warning:'Seguimiento', contrato:'Contrato',
-            info:'Info', success:'OK', cumple:'Cumple', aniversario:'Aniversario'
+            info:'Info', success:'OK', cumple:'Cumple', aniversario:'Aniversario',
+            nom035:'NOM-035', nom035venc:'NOM-035'
         }[n.tipo]||n.tipo;
         // --i alimenta la animación de entrada en cascada (stagger) definida
         // en CSS: cada tarjeta se retrasa `idx * 45ms` respecto a la anterior.
@@ -4701,7 +4705,8 @@ var nivelGlobal = null;
                         || { color:'#64748b', bg:'#f8fafc', borde:'#e2e8f0' };
 
     cont.innerHTML =
-      '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">'
+  '<div id="nom035-vigencia"></div>'
+  +'<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">'
       +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
         +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">Evaluaciones completadas</p>'
         +'<p class="text-3xl font-black text-slate-800 mt-1">'+total+'</p></div>'
@@ -4884,6 +4889,7 @@ if(canvasDona && emp.length){
     '<div class="flex flex-col items-center justify-center h-full text-center">'
     + '<i class="fas fa-chart-simple text-slate-200 text-3xl mb-2"></i>'
     + '<p class="text-xs text-slate-400">Sin evaluaciones registradas aún</p></div>';
+      _nom035PintarBannerVigencia();
 }
 
     // ── Desglose por dominio ──
@@ -8572,5 +8578,113 @@ function filtrarPerfilNOM035(campo, valor){
     if(!_nom035Fichas){
       cargarFichasNOM035().then(function(){ renderSubContenidoNOM035(); });
     }
+  };
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   NOM-035 · vigencia de la evaluacion
+   La Norma obliga a repetir la identificacion y analisis al
+   menos cada dos anos. Sin un recordatorio automatico esto se
+   incumple sin que nadie lo note, porque el plazo vence 24
+   meses despues de que el tema dejo de estar sobre la mesa.
+   ═══════════════════════════════════════════════════════════ */
+
+let _nom035Vencimientos = null;
+
+async function verificarVencimientosNOM035(){
+  try{
+    const r = await enviarPeticion('vencimientos_nom035', {});
+    if(r.status !== 'success') return;
+    _nom035Vencimientos = r;
+
+    const fmt = function(iso){
+      return new Date(iso).toLocaleDateString('es-MX',
+        {year:'numeric', month:'long', day:'numeric'});
+    };
+
+    (r.grupos || []).forEach(function(g){
+      if(g.estado === 'vigente') return;
+
+      // El texto incluye "hace N dias" o "en N dias" a proposito:
+      // _notifDiasRestantes lo lee para ordenar el panel por
+      // urgencia. Cambiar la redaccion rompe ese orden.
+      if(g.estado === 'vencido'){
+        agregarNotificacion(
+          'nom035venc',
+          'NOM-035 vencida: ' + g.grupo,
+          'La evaluacion de riesgo psicosocial vencio hace ' + Math.abs(g.dias) + ' dias '
+          + '(limite: ' + fmt(g.limite) + '). Debe aplicarse de nuevo.',
+          '', true
+        );
+      } else {
+        agregarNotificacion(
+          'nom035',
+          'NOM-035 por vencer: ' + g.grupo,
+          'La evaluacion vence en ' + g.dias + ' dias (' + fmt(g.limite) + '). '
+          + 'Conviene programar la nueva aplicacion.',
+          '', true
+        );
+      }
+    });
+
+    _nom035PintarBannerVigencia();
+  }catch(e){ console.warn('[NOM035] vencimientos no disponibles', e); }
+}
+
+/* Banner en la pestaña NOM-035. La notificacion avisa una vez;
+   el banner deja el estado a la vista mientras el pendiente
+   siga abierto. */
+function _nom035PintarBannerVigencia(){
+  const cont = document.getElementById('nom035-vigencia');
+  if(!cont || !_nom035Vencimientos) return;
+
+  const g = (_nom035Vencimientos.grupos || []).filter(function(x){
+    return x.estado !== 'vigente';
+  });
+
+  if(!g.length){
+    const total = (_nom035Vencimientos.grupos || []).length;
+    cont.innerHTML = total
+      ? '<div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 mb-4">'
+        + '<i class="fas fa-circle-check text-emerald-500 text-sm"></i>'
+        + '<p class="text-xs text-emerald-800">Evaluaciones vigentes en los '
+        + total + ' centro(s) evaluado(s).</p></div>'
+      : '';
+    return;
+  }
+
+  const fmt = function(iso){
+    return new Date(iso).toLocaleDateString('es-MX',{month:'short', year:'numeric'});
+  };
+
+  cont.innerHTML =
+    '<div class="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 mb-4">'
+    + '<div class="flex items-center gap-2 mb-2">'
+    + '<i class="fas fa-shield-halved text-amber-600 text-sm"></i>'
+    + '<p class="text-xs font-bold text-amber-900">Vigencia de la evaluacion</p></div>'
+    + g.map(function(x){
+        const rojo = x.estado === 'vencido';
+        const txt  = rojo
+          ? 'vencida hace ' + Math.abs(x.dias) + ' dias'
+          : 'vence en ' + x.dias + ' dias';
+        return '<div class="flex justify-between items-baseline gap-3 py-1">'
+          + '<span class="text-xs font-semibold text-slate-700">' + x.grupo + '</span>'
+          + '<span class="text-[11px] tabular-nums" style="color:'
+          + (rojo ? '#b91c1c' : '#b45309') + '">' + txt
+          + ' <span class="text-slate-400">(' + fmt(x.limite) + ')</span></span></div>';
+      }).join('')
+    + '</div>';
+}
+
+/* Se dispara junto con el resto de las alertas, no al abrir la
+   pestaña: el pendiente debe aparecer aunque nadie entre a
+   NOM-035, que es justamente el escenario en el que se olvida. */
+(function(){
+  if(typeof evaluarAlertas !== 'function') return;
+  const original = evaluarAlertas;
+  window.evaluarAlertas = function(){
+    const r = original.apply(this, arguments);
+    verificarVencimientosNOM035();
+    return r;
   };
 })();
