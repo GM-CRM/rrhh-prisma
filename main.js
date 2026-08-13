@@ -4724,24 +4724,162 @@ var nivelGlobal = null;
         +'<div id="nom035-heatmap" class="space-y-2"></div></div>'
       +'</div>';
 
-    // Gráfica de dona
-    if(window._chartNOM035) { try{window._chartNOM035.destroy();}catch(e){} }
-    const distEntries = Object.entries(data.distribucion||{});
-    const canvasDona = document.getElementById('chartNOM035Dona');
-    if(canvasDona && distEntries.some(([,v])=>v>0)){
-        window._chartNOM035 = new Chart(canvasDona.getContext('2d'), {
-            type:'doughnut',
-            data:{
-                labels: distEntries.map(([k])=>k),
-                datasets:[{ data: distEntries.map(([,v])=>v), backgroundColor: distEntries.map(([k])=>{
-                    const n = NOM035_NIVELES_UI.find(x=>x.nivel===k); return n?n.color:'#94a3b8';
-                }), borderWidth:2, borderColor:'#fff' }]
-            },
-            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{size:10}, boxWidth:10, padding:8 } } } }
-        });
-    } else if(canvasDona){
-        canvasDona.parentElement.innerHTML = '<p class="text-xs text-slate-400 text-center pt-16">Sin evaluaciones registradas aún</p>';
+// ── Distribución por nivel: barra 100% apilada ──
+// Antes era una dona del total. Una dona no permite comparar
+// grupos entre sí, que es justo la pregunta que se le hace a
+// estos datos: cuál grupo comercial está peor. Además la
+// NOM-035 se reporta por porcentaje de trabajadores por nivel,
+// y una barra apilada al 100% ES ese reporte.
+if(window._chartNOM035) { try{window._chartNOM035.destroy();}catch(e){} }
+const canvasDona = document.getElementById('chartNOM035Dona');
+
+if(canvasDona && emp.length){
+  const ORDEN = ['Nulo','Bajo','Medio','Alto','Muy alto'];
+  const colorDe = function(niv){
+    const n = NOM035_NIVELES_UI.find(function(x){ return x.nivel === niv });
+    return n ? n.color : '#94a3b8';
+  };
+
+  // Se agrupa por grupo comercial. Si un empleado no tiene
+  // empresa registrada cae en "Sin grupo" en lugar de perderse:
+  // un dato que desaparece silenciosamente es peor que uno feo.
+  const porGrupo = {};
+  emp.forEach(function(e){
+    let g = 'Sin grupo';
+    try{
+      const gg = grupoDeEmpresa(e.empresa || '');
+      if(gg) g = gg;
+    }catch(err){ if(e.empresa) g = e.empresa; }
+    if(!porGrupo[g]) porGrupo[g] = {};
+    porGrupo[g][e.nivel] = (porGrupo[g][e.nivel]||0) + 1;
+  });
+
+  const totalGeneral = {};
+  emp.forEach(function(e){ totalGeneral[e.nivel] = (totalGeneral[e.nivel]||0) + 1; });
+
+  const gravedad = function(c){
+    const t = ORDEN.reduce(function(s,n){ return s + (c[n]||0) }, 0) || 1;
+    return ((c['Alto']||0) + (c['Muy alto']||0)) / t;
+  };
+
+  // El peor primero. Con una sola fila de grupo no vale la pena
+  // repetirla debajo del total, así que se omite.
+  const grupos = Object.keys(porGrupo).sort(function(a,b){
+    const g = gravedad(porGrupo[b]) - gravedad(porGrupo[a]);
+    return g !== 0 ? g : a.localeCompare(b,'es');
+  });
+
+  const filas = [{ etiqueta:'Todos', conteo: totalGeneral }];
+  if(grupos.length > 1){
+    grupos.forEach(function(g){ filas.push({ etiqueta:g, conteo: porGrupo[g] }); });
+  }
+
+  const totalDe = function(c){ return ORDEN.reduce(function(s,n){ return s + (c[n]||0) }, 0); };
+
+  // La n en la etiqueta no es decorativa: un 33% sobre 3 personas
+  // y un 33% sobre 90 se ven idénticos en una barra.
+  const labels = filas.map(function(f){
+    const n = totalDe(f.conteo);
+    return f.etiqueta + '  (n=' + n + ')';
+  });
+
+  const datasets = ORDEN.map(function(niv){
+    return {
+      label: niv,
+      backgroundColor: colorDe(niv),
+      borderWidth: 0,
+      // Se guarda el conteo crudo para el tooltip: el eje muestra
+      // porcentaje, pero al pasar el cursor interesa saber
+      // cuántas personas son.
+      _crudo: filas.map(function(f){ return f.conteo[niv]||0 }),
+      data: filas.map(function(f){
+        const t = totalDe(f.conteo) || 1;
+        return (f.conteo[niv]||0) / t * 100;
+      })
+    };
+  }).filter(function(ds){ return ds.data.some(function(v){ return v > 0 }) });
+
+  // Línea del 25%: el umbral con el que se decide el nivel del
+  // centro. Un porcentaje sin su umbral a la vista obliga a
+  // recordar el criterio de memoria.
+  const lineaUmbral = {
+    id: 'umbral25',
+    afterDatasetsDraw: function(chart){
+      const x = chart.scales.x, ctx = chart.ctx;
+      if(!x) return;
+      const px = x.getPixelForValue(25);
+      ctx.save();
+      ctx.beginPath();
+      ctx.setLineDash([4,4]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(15,23,42,.45)';
+      ctx.moveTo(px, chart.chartArea.top);
+      ctx.lineTo(px, chart.chartArea.bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(15,23,42,.55)';
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('25%', px + 4, chart.chartArea.top + 10);
+      ctx.restore();
     }
+  };
+
+  // Alto dinámico: con 6 grupos, 220px aplasta las barras.
+  const wrap = document.getElementById('wrap-chart-nom035');
+  if(wrap) wrap.style.height = Math.max(160, 60 + filas.length * 42) + 'px';
+
+  window._chartNOM035 = new Chart(canvasDona.getContext('2d'), {
+    type: 'bar',
+    data: { labels: labels, datasets: datasets },
+    plugins: [lineaUmbral],
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { right: 8 } },
+      scales: {
+        x: {
+          stacked: true, min: 0, max: 100,
+          grid: { color: 'rgba(15,23,42,.05)' },
+          ticks: {
+            font: { size: 10 }, color: '#94a3b8',
+            callback: function(v){ return v + '%' }
+          }
+        },
+        y: {
+          stacked: true,
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: '600' }, color: '#475569' }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            font: { size: 10 }, boxWidth: 10, boxHeight: 10,
+            padding: 10, usePointStyle: true, pointStyle: 'rectRounded'
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx){
+              const crudo = (ctx.dataset._crudo || [])[ctx.dataIndex] || 0;
+              return ctx.dataset.label + ': ' + crudo
+                   + ' (' + Math.round(ctx.parsed.x) + '%)';
+            }
+          }
+        }
+      },
+      animation: { duration: 500, easing: 'easeOutQuart' }
+    }
+  });
+} else if(canvasDona){
+  canvasDona.parentElement.innerHTML =
+    '<div class="flex flex-col items-center justify-center h-full text-center">'
+    + '<i class="fas fa-chart-simple text-slate-200 text-3xl mb-2"></i>'
+    + '<p class="text-xs text-slate-400">Sin evaluaciones registradas aún</p></div>';
+}
 
     // ── Desglose por dominio ──
 // Antes se promediaban los puntajes y el promedio se comparaba
