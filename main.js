@@ -4644,10 +4644,7 @@ function renderNOM035Dashboard(data, cont){
     const total = data.total || 0;
     const emp = data.empleados || [];
     const puntajeProm = emp.length ? (emp.reduce((s,e)=>s+e.puntajeTotal,0)/emp.length) : 0;
-    var nivelGlobal = null;
-if (data.empleados && data.empleados.length === 1) {
-  nivelGlobal = NOM035_NIVELES_UI.find(function(n){ return n.nivel === data.empleados[0].nivel; });
-}
+
 var nivelGlobal = null;
     if (emp.length === 1) nivelGlobal = NOM035_NIVELES_UI.find(function(n){ return n.nivel === emp[0].nivel; });
     if (!nivelGlobal) nivelGlobal = _nivelNOM035_UI(puntajeProm);
@@ -4681,7 +4678,7 @@ var nivelGlobal = null;
         +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-chart-pie text-red-500 mr-2"></i>Distribución por Nivel de Riesgo</p>'
         +'<div class="relative h-56"><canvas id="chartNOM035Dona"></canvas></div></div>'
       +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
-        +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-table-cells text-red-500 mr-2"></i>Desglose por Dominio (promedio)</p>'
+        +'<p class="text-sm font-bold text-slate-700 mb-4"><i class="fas fa-table-cells text-red-500 mr-2"></i>Trabajadores por nivel, en cada dominio</p>'
         +'<div id="nom035-heatmap" class="space-y-2"></div></div>'
       +'</div>';
 
@@ -4704,28 +4701,94 @@ var nivelGlobal = null;
         canvasDona.parentElement.innerHTML = '<p class="text-xs text-slate-400 text-center pt-16">Sin evaluaciones registradas aún</p>';
     }
 
-    // Heatmap por dominio (barra horizontal coloreada según nivel del promedio)
-    const heat = document.getElementById('nom035-heatmap');
-    const dominios = Object.entries(data.promediosDominio||{});
-    if(heat){
-        if(!dominios.length){
-            heat.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Sin datos suficientes.</p>';
-        } else {
-            const maxDom = Math.max(...dominios.map(([,v])=>v), 1);
-            heat.innerHTML = dominios.map(function([dom,val]){
-                const n = _nivelNOM035_UI(val);
-                const w = Math.round(val/maxDom*100);
-                return '<div>'
-                  +'<div class="flex justify-between items-center mb-1">'
-                  +'<span class="text-xs font-semibold text-slate-700">'+dom+'</span>'
-                  +'<span class="text-xs font-bold px-2 py-0.5 rounded-full" style="color:'+n.color+';background:'+n.bg+';border:1px solid '+n.borde+'">'+val.toFixed(1)+' · '+n.nivel+'</span>'
-                  +'</div>'
-                  +'<div class="h-3 bg-slate-100 rounded-full overflow-hidden">'
-                  +'<div class="h-full rounded-full transition-all duration-500" style="width:'+w+'%;background:'+n.color+'"></div>'
-                  +'</div></div>';
-            }).join('');
-        }
-    }
+    // ── Desglose por dominio ──
+// Antes se promediaban los puntajes y el promedio se comparaba
+// contra _nivelNOM035_UI, que son los cortes del puntaje TOTAL.
+// Un dominio nunca pasa de ~24 puntos, así que contra una escala
+// que arranca "Alto" en 99 todo salía en el nivel más bajo.
+//
+// Ahora se cuenta cuántos trabajadores cayeron en cada nivel EN
+// CADA DOMINIO, usando el nivel que ya calculó el servidor con
+// los cortes oficiales del DOF. La norma se reporta por
+// porcentaje de trabajadores por nivel, no por promedios: un
+// promedio "Medio" puede ocultar a dos personas en Muy alto, y
+// son esas dos las que obligan a actuar.
+const heat = document.getElementById('nom035-heatmap');
+if(heat){
+  const ORDEN_NIVELES = ['Nulo','Bajo','Medio','Alto','Muy alto'];
+
+  // dominio -> { nivel: cuántos }
+  const porDom = {};
+  emp.forEach(function(e){
+    Object.keys(e.porDominio || {}).forEach(function(dom){
+      const niv = (e.porDominio[dom] || {}).nivel;
+      if(!niv || niv === 'Sin rango') return;
+      if(!porDom[dom]) porDom[dom] = {};
+      porDom[dom][niv] = (porDom[dom][niv] || 0) + 1;
+    });
+  });
+
+  const doms = Object.keys(porDom);
+
+  if(!doms.length){
+    heat.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">'
+      + 'Sin datos suficientes.</p>';
+  } else {
+    const colorDe = function(niv){
+      const n = NOM035_NIVELES_UI.find(function(x){ return x.nivel === niv });
+      return n ? n.color : '#94a3b8';
+    };
+
+    // Los dominios con gente en riesgo alto van primero: el orden
+    // alfabético obliga a leer los diez para encontrar el problema.
+    doms.sort(function(a,b){
+      const grav = function(d){
+        const c = porDom[d];
+        const tot = ORDEN_NIVELES.reduce(function(s,n){ return s + (c[n]||0) }, 0) || 1;
+        return ((c['Alto']||0) + (c['Muy alto']||0)) / tot;
+      };
+      const g = grav(b) - grav(a);
+      return g !== 0 ? g : a.localeCompare(b,'es');
+    });
+
+    heat.innerHTML = doms.map(function(dom){
+      const c = porDom[dom];
+      const tot = ORDEN_NIVELES.reduce(function(s,n){ return s + (c[n]||0) }, 0);
+      const enRiesgo = (c['Alto']||0) + (c['Muy alto']||0);
+      const pctRiesgo = tot ? Math.round(enRiesgo/tot*100) : 0;
+
+      const segmentos = ORDEN_NIVELES.filter(function(n){ return c[n] }).map(function(n){
+        const pct = c[n]/tot*100;
+        return '<div style="width:' + pct + '%;background:' + colorDe(n) + '" '
+             + 'title="' + n + ': ' + c[n] + ' de ' + tot + '"></div>';
+      }).join('');
+
+      // El dato que importa es el % en Alto o Muy alto. Si es 0,
+      // no se pinta nada: un cero en rojo llama la atención sin
+      // haber ningún problema.
+      const etiqueta = enRiesgo
+        ? '<span class="text-xs font-bold tabular-nums" style="color:#b91c1c">'
+          + pctRiesgo + '% en riesgo alto</span>'
+        : '<span class="text-xs text-slate-400 tabular-nums">Sin riesgo alto</span>';
+
+      return '<div class="py-2">'
+        + '<div class="flex justify-between items-baseline gap-3 mb-1.5">'
+        + '<span class="text-xs font-semibold text-slate-700 leading-snug">' + dom + '</span>'
+        + etiqueta
+        + '</div>'
+        + '<div class="flex h-3.5 rounded-full overflow-hidden bg-slate-100">'
+        + segmentos
+        + '</div></div>';
+    }).join('')
+    + '<div class="flex flex-wrap gap-x-3 gap-y-1 pt-3 mt-1 border-t border-slate-100">'
+    + ORDEN_NIVELES.map(function(n){
+        return '<span class="inline-flex items-center gap-1.5 text-[10px] text-slate-500">'
+          + '<span style="width:8px;height:8px;border-radius:2px;background:'
+          + colorDe(n) + ';display:inline-block"></span>' + n + '</span>';
+      }).join('')
+    + '</div>';
+  }
+}
 }
 
 // ── Sub-tab 2: Colormetría y Resultados por Empleado ───────────
