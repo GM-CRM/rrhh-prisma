@@ -1845,11 +1845,8 @@ async function procesarOlvidePass() {
     if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Enviando...'; }
 
     try {
-        const r = await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'solicitar_reset', payload: { email } })
-        });
-        const data = await r.json();
+        // Usar enviarPeticion para que maneje CORS/redirect de GAS igual que el resto del sistema
+        const data = await enviarPeticion('solicitar_reset', { email });
 
         if(data.status === 'success' || data.status === 'info') {
             if(frm) frm.style.display = 'none';
@@ -2285,7 +2282,7 @@ async function editarUsuario(email){
 
 // ─── API GAS ──────────────────────────────────────────────────
 async function enviarPeticion(action,payload,timeoutMs){
-    if(action !== 'login' && action !== 'validar_token' && sesionActual && sesionActual.token) {
+    if(action !== 'login' && action !== 'validar_token' && action !== 'solicitar_reset' && sesionActual && sesionActual.token) {
         payload = Object.assign({}, payload, { token: sesionActual.token });
     }
     // Timeout configurable (default 25s). Peticiones pesadas como
