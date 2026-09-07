@@ -288,8 +288,15 @@ async function iniciarEncuesta(){
   try{
     const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}})});
     const d=await r.json();
-    if(d.status==='success'||d.status==='warning'){empleadoId=d.empleado.idInterno||noemp;empleadoEmpresa=d.empleado.empresa||''}
-    else{btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d.message||'Empleado no encontrado.');return}
+    if(d.status==='success'||d.status==='warning'){
+      empleadoId=d.empleado.idInterno||noemp;empleadoEmpresa=d.empleado.empresa||'';
+    } else if(d.status==='multiple'){
+      btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';
+      mostrarSelectorEmpresaNOM035(d.candidatos, noemp, nombre);
+      return;
+    } else {
+      btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d.message||'Empleado no encontrado.');return
+    }
   }catch(e){empleadoId=noemp}
   btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
   try{
@@ -308,6 +315,53 @@ async function iniciarEncuesta(){
       'background:'+(backendNuevo?'#059669':'#b91c1c')+';color:#fff;padding:2px 8px;border-radius:4px');
     iniciarGuiaI(d2.guia1);
   }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(T.errConexion)}
+}
+
+// --- Selector de empresa cuando el numero de empleado se repite ---
+// Ocurre porque NO. EMPLEADO no es unico globalmente (se repite entre
+// empresas); el backend ya no adivina en estos casos, asi que aqui se
+// le pide al trabajador confirmar cual registro es el suyo.
+function mostrarSelectorEmpresaNOM035(candidatos, noemp, nombre){
+  var idCard = $('id-screen');
+  var html = '<div id="selector-empresa-nom035" style="text-align:left;margin-top:16px;">';
+  html += '<p style="font-size:.85rem;color:#64748b;margin-bottom:14px">Encontramos m\u00e1s de un registro con el n\u00famero <strong>'+esc(noemp)+'</strong>. Selecciona tu empresa:</p>';
+  candidatos.forEach(function(c, i){
+    html += '<button type="button" onclick="seleccionarCandidatoNOM035('+i+')" '
+      + 'style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;background:#fafafa;cursor:pointer;font-size:.88rem;font-weight:600;color:#334155">'
+      + esc(c.empresa) + '</button>';
+  });
+  html += '<button type="button" onclick="document.getElementById(\'selector-empresa-nom035\').remove()" style="margin-top:6px;background:none;border:none;color:#94a3b8;font-size:.8rem;cursor:pointer">\u2190 Cancelar</button>';
+  html += '</div>';
+  var existente = document.getElementById('selector-empresa-nom035');
+  if(existente) existente.remove();
+  var wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  idCard.appendChild(wrap.firstChild);
+  window._nom035Candidatos = candidatos;
+  window._nom035NombreTmp  = nombre;
+}
+
+function seleccionarCandidatoNOM035(idx){
+  var c = window._nom035Candidatos[idx];
+  empleadoId = c.idInterno;
+  empleadoEmpresa = c.empresa;
+  empleadoNombre = window._nom035NombreTmp;
+  var sel = document.getElementById('selector-empresa-nom035');
+  if(sel) sel.remove();
+  // Continua el flujo exactamente donde lo deja iniciarEncuesta() tras
+  // resolver empleadoId: pedir la estructura NOM-035.
+  var btn=$('btn-iniciar');
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:{idInterno:empleadoId}})})
+    .then(function(r){return r.json();})
+    .then(function(d2){
+      if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
+      nom035Data=d2;
+      var its=(d2.cuestionarioFRP&&d2.cuestionarioFRP.items)||[];
+      console.log('[NOM035] guia:',d2.tipoCuestionario,'| items:',its.length,'| activos:',d2.activosGrupo);
+      iniciarGuiaI(d2.guia1);
+    })
+    .catch(function(){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(T.errConexion)});
 }
 
 /* ============================================================

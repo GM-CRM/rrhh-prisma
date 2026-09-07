@@ -435,6 +435,10 @@ async function iniciarEncuesta(){
         empleadoId=d.empleado.idInterno||noemp;
         empleadoEmpresa=d.empleado.empresa||'';
         if(d.status==='warning') mostrarError(d.message+' Continuando de todas formas.');
+      } else if(d.status==='multiple'){
+        btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Comenzar encuesta';
+        mostrarSelectorEmpresaGenerico(d.candidatos);
+        return;
       } else {
         mostrarError(d.message||'No se encontró tu registro. Verifica tus datos.');
         return;
@@ -444,6 +448,17 @@ async function iniciarEncuesta(){
       empleadoId=noemp; // fallback
     }
   }
+
+  await continuarFlujoEncuesta();
+}
+
+// ── Continuación del flujo una vez identificado empleadoId/empleadoEmpresa ──
+// Separado de iniciarEncuesta() para poder reutilizarlo desde el selector
+// de empresa (ver mostrarSelectorEmpresaGenerico), que resuelve la
+// identidad del empleado en un segundo paso cuando el No. de Empleado
+// se repite entre varias empresas.
+async function continuarFlujoEncuesta(){
+  const btn=document.getElementById('btn-iniciar');
 
   // ── NOM-035: flujo de 2 cuestionarios (Guia I obligatoria + Guia II/III segun grupo) ──
   if (encId === 'NOM035') {
@@ -489,6 +504,54 @@ async function iniciarEncuesta(){
   renderPreguntas();
   actualizarProgreso();
   window.scrollTo(0,0);
+}
+
+// ── Selector de empresa cuando el numero de empleado se repite ──
+// NO. EMPLEADO no es unico globalmente (se repite entre empresas); el
+// backend ya no adivina en estos casos, asi que aqui se le pide al
+// trabajador confirmar cual registro es el suyo antes de continuar.
+function mostrarSelectorEmpresaGenerico(candidatos){
+  var idScreen = document.getElementById('id-screen');
+  var existente = document.getElementById('selector-empresa-generico');
+  if(existente) existente.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'selector-empresa-generico';
+  wrap.style.textAlign = 'left';
+  wrap.style.marginTop = '16px';
+
+  var p = document.createElement('p');
+  p.style.cssText = 'font-size:.85rem;color:#64748b;margin-bottom:14px';
+  p.textContent = 'Encontramos más de un registro con ese número de empleado. Selecciona tu empresa:';
+  wrap.appendChild(p);
+
+  candidatos.forEach(function(c, i){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = c.empresa;
+    b.style.cssText = 'display:block;width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;background:#fafafa;cursor:pointer;font-size:.88rem;font-weight:600;color:#334155';
+    b.onclick = function(){ seleccionarCandidatoGenerico(i); };
+    wrap.appendChild(b);
+  });
+
+  var cancelar = document.createElement('button');
+  cancelar.type = 'button';
+  cancelar.textContent = '← Cancelar';
+  cancelar.style.cssText = 'margin-top:6px;background:none;border:none;color:#94a3b8;font-size:.8rem;cursor:pointer';
+  cancelar.onclick = function(){ wrap.remove(); };
+  wrap.appendChild(cancelar);
+
+  idScreen.appendChild(wrap);
+  window._encCandidatosGenerico = candidatos;
+}
+
+async function seleccionarCandidatoGenerico(idx){
+  var c = window._encCandidatosGenerico[idx];
+  empleadoId = c.idInterno;
+  empleadoEmpresa = c.empresa;
+  var sel = document.getElementById('selector-empresa-generico');
+  if(sel) sel.remove();
+  await continuarFlujoEncuesta();
 }
 
 function renderPreguntas(){
