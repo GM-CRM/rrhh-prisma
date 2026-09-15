@@ -4678,7 +4678,16 @@ function _nom035NivelCentro(emp){
 // ── Sub-tab 1: Dashboard General ───────────────────────────────
 function renderNOM035Dashboard(data, cont){
     const total = data.total || 0;
-    const emp = data.empleados || [];
+    const empTodos = data.empleados || [];
+    // BUGFIX: los centros con menos de 16 trabajadores activos no aplican
+    // el cuestionario FRP (solo Guía I) — vienen con tipoCuestionario
+    // 'no_aplica' y nivel/puntaje vacíos. Antes se mezclaban con el resto
+    // en TODOS los cálculos de riesgo (nivel del centro, % en riesgo,
+    // gráfica apilada, heatmap por dominio), diluyendo esos porcentajes
+    // con gente que nunca fue calificada. 'emp' de aquí en adelante es
+    // solo quienes sí tienen un resultado FRP real.
+    const emp = empTodos.filter(function(e){ return e.tipoCuestionario !== 'no_aplica'; });
+    const sinFRP = empTodos.length - emp.length;
     const puntajeProm = emp.length ? (emp.reduce((s,e)=>s+e.puntajeTotal,0)/emp.length) : 0;
 
 var nivelGlobal = null;
@@ -4714,7 +4723,7 @@ var nivelGlobal = null;
       +'<div class="bg-white rounded-xl p-4 border border-slate-100 shadow-sm text-center">'
         +'<p class="text-xs font-bold text-slate-400 uppercase tracking-wide">% Participación</p>'
         +'<p class="text-3xl font-black text-slate-800 mt-1">'+pctPart+'%</p>'
-        +'<p class="text-xs text-slate-400 mt-0.5">'+total+' de '+elegibles+' elegibles</p></div>'
+        +'<p class="text-xs text-slate-400 mt-0.5">'+total+' de '+elegibles+' elegibles'+(sinFRP>0?' \u00b7 '+sinFRP+' sin FRP (solo Gu\u00eda I)':'')+'</p></div>'
       +'</div>'
       +'<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">'
       +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
@@ -5020,14 +5029,22 @@ function _renderTablaNOM035(emp){
         const col = avatarColor(e.nombre);
         const expandido = window._nom035ExpandidoId === (e.idInterno+'_'+idx);
         const rowId = e.idInterno+'_'+idx;
-        const guiaLabel = e.tipoCuestionario==='guia1' ? 'Guía I' : 'Guía II';
+        // BUGFIX: la comparación solo distinguía 'guia1' (valor que aquí
+        // nunca llega — los valores reales son 'guia2'/'guia3'/'no_aplica'),
+        // así que TODO caía en "Guía II", incluidos los centros con menos
+        // de 16 activos que no requieren FRP (tipoCuestionario:'no_aplica').
+        const noAplica = e.tipoCuestionario === 'no_aplica';
+        const guiaLabel = noAplica ? 'Solo Guía I' : (e.tipoCuestionario==='guia3' ? 'Guía III' : 'Guía II');
+        const pillHtml = noAplica
+          ? '<span class="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0 border" style="color:#475569;background:#f1f5f9;border-color:#cbd5e1">No aplica FRP</span>'
+          : '<span class="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0 border" style="color:'+e.color+';background:'+e.colorBg+';border-color:'+e.colorBorde+'">'+e.nivel+' · '+e.puntajeTotal+' pts</span>';
         return '<div class="border-b border-slate-50 last:border-0">'
           +'<div class="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer transition" onclick="toggleFilaNOM035(\''+rowId+'\')">'
           +'<div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+col+'">'+ini+'</div>'
           +'<div class="flex-1 min-w-0">'
           +'<p class="text-sm font-semibold text-slate-800 truncate">'+e.nombre+'</p>'
           +'<p class="text-xs text-slate-400 truncate">'+(e.empresa||'—')+' · <span class="italic">'+guiaLabel+'</span></p></div>'
-          +'<span class="text-xs font-bold px-2.5 py-1 rounded-full flex-shrink-0 border" style="color:'+e.color+';background:'+e.colorBg+';border-color:'+e.colorBorde+'">'+e.nivel+' · '+e.puntajeTotal+' pts</span>'
+          +pillHtml
           +'<i class="fas fa-chevron-'+(expandido?'up':'down')+' text-slate-300 text-xs flex-shrink-0"></i>'
           +'</div>'
           +(expandido ? _renderDetalleNOM035(e) : '')
@@ -6278,19 +6295,19 @@ function initAutocomplete(){
         document.getElementById('baja_empleado_badge').classList.add('hidden');
         if(q.length<2){lista.classList.add('hidden');return;}
         const hits = cacheGlobal.filter(function(e) {
-            if ((e['ESTATUS']||'').trim() !== 'Activo') return false;
-            return (e['NOMBRE DEL TRABAJADOR']||'').toLowerCase().includes(q)
+            if ((e['ESTATUS']||'').toString().trim() !== 'Activo') return false;
+            return (e['NOMBRE DEL TRABAJADOR']||'').toString().toLowerCase().includes(q)
                 || (e['NO. EMPLEADO']||'').toString().includes(q)
                 || (e['ID INTERNO']||'').toString().toLowerCase().includes(q);
         }).slice(0, 8);
         if(!hits.length){ lista.classList.add('hidden'); return; }
         lista.classList.remove('hidden');
         lista.innerHTML = hits.map(function(emp) {
-            const est   = (emp['ESTATUS']||'').trim();
+            const est   = (emp['ESTATUS']||'').toString().trim();
             const col   = est==='Activo' ? 'text-emerald-600' : 'text-red-500';
-            const nomE  = (emp['NOMBRE DEL TRABAJADOR']||'—').replace(/'/g,"\\'");
-            const emp2  = (emp['EMPRESA']||'').replace(/'/g,"\\'");
-            const pu    = (emp['PUESTO']||'').replace(/'/g,"\\'");
+            const nomE  = (emp['NOMBRE DEL TRABAJADOR']||'—').toString().replace(/'/g,"\\'");
+            const emp2  = (emp['EMPRESA']||'').toString().replace(/'/g,"\\'");
+            const pu    = (emp['PUESTO']||'').toString().replace(/'/g,"\\'");
             const idInt = (emp['ID INTERNO']||'').toString().trim().replace(/'/g,"\\'");
             const noEmp = (emp['NO. EMPLEADO']||'').toString().trim().replace(/'/g,"\\'");
             const label = idInt ? idInt : ('#'+noEmp);
@@ -6496,9 +6513,9 @@ function aplicarFiltros() {
 
     const _baseExpedientes = filtrarPorEmpresasPermitidas(cacheGlobal);
     datosFiltrados = _baseExpedientes.filter(emp => {
-        const nombre = (emp["NOMBRE DEL TRABAJADOR"] || "").toLowerCase();
+        const nombre = (emp["NOMBRE DEL TRABAJADOR"] || "").toString().toLowerCase();
         const noEmp  = (emp["NO. EMPLEADO"] || "").toString().toLowerCase();
-        const puesto = (emp["PUESTO"] || "").toLowerCase();
+        const puesto = (emp["PUESTO"] || "").toString().toLowerCase();
         const empVal = (emp["EMPRESA"] || "").toString().trim();
         // BUGFIX 07 jul 2026: el catálogo EMPRESAS es la fuente de verdad;
         // el valor guardado por empleado solo se usa si la empresa no está
@@ -6568,7 +6585,7 @@ function renderizarPagina(pag) {
                 : '<span class="text-slate-400" title="Sin expediente asignado">'
                   + '<i class="fas fa-folder text-sm"></i></span>';
             const id    = (emp["NO. EMPLEADO"] || "").toString();
-            const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").replace(/'/g, "\'");
+            const nom   = (emp["NOMBRE DEL TRABAJADOR"] || "—").toString().replace(/'/g, "\'");
             // Badge reingreso — tiene historial si ID_PERSONA existe
             const idPer = (emp["ID_PERSONA"]||"").toString().trim();
             const badgeReingreso = idPer
@@ -7731,13 +7748,40 @@ async function cargarResultadosNOM035Drawer(idInterno) {
     }
     var ultimo = resultados[resultados.length - 1];
     var colores = r.colores || _nom035DrawerColores;
-    var nivelTotal = (ultimo.nivel || 'Sin datos').toString();
-    var color = colores[nivelTotal] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
-    var puntaje = ultimo.puntajeTotal || 0;
     var tipoGuia = (ultimo.tipoCuestionario || '').toString();
     var giReq = (ultimo.giRequiere || '').toString();
     var fecha = ultimo.fecha ? new Date(ultimo.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}) : '';
     var html = '';
+
+    // BUGFIX: un centro con menos de 16 trabajadores activos NO requiere
+    // cuestionario de factores de riesgo psicosocial (numeral 2, inciso a
+    // de la NOM-035) — solo Guia I. El backend guarda eso correctamente
+    // como tipoCuestionario:'no_aplica' con nivel/puntaje vacios (no
+    // calificados). Antes esto se pintaba como "Sin datos · Puntaje: 0 ·
+    // Guia II", que parece un error o una evaluacion con riesgo nulo,
+    // cuando en realidad es que la Norma no exige aplicarla aqui.
+    if (tipoGuia === 'no_aplica') {
+      html += '<div style="background:#f1f5f9;border:2px solid #cbd5e1;border-radius:16px;padding:20px;text-align:center;margin-bottom:16px;">';
+      html += '<p style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#475569;margin-bottom:4px;">Cuestionario de riesgo psicosocial</p>';
+      html += '<p style="font-size:1.1rem;font-weight:800;color:#334155;">No aplica en este centro</p>';
+      html += '<p style="font-size:.78rem;color:#64748b;margin-top:3px;">El centro de trabajo tiene menos de 16 trabajadores activos. Solo se aplica la Guia I.</p>';
+      if (fecha) html += '<p style="font-size:.68rem;color:#94a3b8;margin-top:4px;">Aplicado: '+fecha+'</p>';
+      html += '</div>';
+      if (giReq === 'SI') {
+        html += '<div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:12px;">';
+        html += '<p style="font-size:.8rem;font-weight:700;color:#991b1b;"><i class="fas fa-exclamation-triangle" style="margin-right:5px;"></i>Guia I: REQUIERE valoracion clinica</p>';
+        html += '<p style="font-size:.72rem;color:#991b1b;margin-top:3px;">'+(ultimo.giMotivo||'')+'</p></div>';
+      } else {
+        html += '<div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin-bottom:12px;">';
+        html += '<p style="font-size:.78rem;color:#166534;"><i class="fas fa-check-circle" style="margin-right:5px;"></i>Guia I: No requiere valoracion clinica</p></div>';
+      }
+      cont.innerHTML = html;
+      return;
+    }
+
+    var nivelTotal = (ultimo.nivel || 'Sin datos').toString();
+    var color = colores[nivelTotal] || { bg:'#f1f5f9', text:'#475569', hex:'#94a3b8' };
+    var puntaje = ultimo.puntajeTotal || 0;
     html += '<div style="background:'+color.bg+';border:2px solid '+color.hex+';border-radius:16px;padding:20px;text-align:center;margin-bottom:16px;">';
     html += '<p style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:'+color.text+';margin-bottom:4px;">Nivel de riesgo psicosocial</p>';
     html += '<p style="font-size:1.5rem;font-weight:900;color:'+color.text+';">'+nivelTotal+'</p>';
