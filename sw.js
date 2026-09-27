@@ -13,11 +13,11 @@
 // termina en .html / .js, va por red.
 // ============================================================
 
-const CACHE_NAME = 'prisma-rh-v102';
+const CACHE_NAME = 'prisma-rh-v103';
 
 const ASSETS_ESTATICOS = [
   '/manifest.json',
-  '/icon.svg'
+  '/icon.png'   // FIX v103: antes '/icon.svg', archivo que no existe en el repo
 ];
 
 // -- Instalacion: solo assets que no cambian --

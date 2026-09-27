@@ -7601,8 +7601,14 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
     }
   }
 
+  // NUEVO 26 sep 2026: URBAN THINK S.A. DE C.V. usa su propia plantilla
+  // (obra determinada). El backend lo decide por la EMPRESA; aquí solo se
+  // muestran los 2 campos extra que esa plantilla necesita y se oculta
+  // "Fin de periodo" (un contrato por obra determinada no lo lleva).
+  const esUT = !!prefill.esUrbanThink;
+
   const { value: formValues, isConfirmed } = await Swal.fire({
-    title: 'Datos para el contrato',
+    title: esUT ? 'Contrato Urban Think (obra determinada)' : 'Datos para el contrato',
     // REDISEÑO + FIX: antes los campos usaban las clases nativas
     // `.swal2-input`/`.swal2-textarea` de SweetAlert2. Esas clases están
     // pensadas para el sistema `input:` propio de SweetAlert2 (que agrega
@@ -7644,8 +7650,19 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
         <div class="gc-field">
           <label for="swal-descanso">Descanso diario</label>
           <input id="swal-descanso" type="text" class="gc-input"
-            value="${_escHtml('30 minutos')}" placeholder="Ej. 30 minutos">
+            value="${_escHtml(esUT ? '60 minutos' : '30 minutos')}" placeholder="Ej. 30 minutos">
         </div>
+        ${esUT ? `
+        <div class="gc-field">
+          <label for="swal-lugar">Lugar de prestación de servicios</label>
+          <input id="swal-lugar" type="text" class="gc-input"
+            placeholder="Calle, número, colonia, CP, ciudad, municipio, estado">
+        </div>
+        <div class="gc-field">
+          <label for="swal-horario">Horario de trabajo <span class="gc-hint">(opcional)</span></label>
+          <input id="swal-horario" type="text" class="gc-input"
+            placeholder="Ej. de lunes a sábado de 8:00 a 17:00 horas">
+        </div>` : ''}
 
         <div class="gc-row">
           <div class="gc-field">
@@ -7653,7 +7670,7 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
             <input id="swal-fecha-inicio" type="date" class="gc-input"
               value="${_escHtml(prefill.fechaInicio)}">
           </div>
-          <div class="gc-field">
+          <div class="gc-field" style="${esUT ? 'display:none' : ''}">
             <label for="swal-fecha-fin">Fin de periodo <span class="gc-hint">(prueba/capacitación)</span></label>
             <input id="swal-fecha-fin" type="date" class="gc-input"
               value="${_escHtml(prefill.fechaFin)}">
@@ -7670,16 +7687,21 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
       const funciones = document.getElementById('swal-funciones').value.trim();
       const descanso  = document.getElementById('swal-descanso').value.trim();
       const fInicio   = document.getElementById('swal-fecha-inicio').value;
-      const fFin      = document.getElementById('swal-fecha-fin').value;
+      const fFin      = esUT ? '' : document.getElementById('swal-fecha-fin').value;
+      const lugar     = esUT ? document.getElementById('swal-lugar').value.trim()   : '';
+      const horario   = esUT ? document.getElementById('swal-horario').value.trim() : '';
       if (!funciones) {
         Swal.showValidationMessage('Captura las funciones del puesto.');
         return false;
       }
-      if (!fInicio || !fFin) {
+      if (esUT) {
+        if (!fInicio) { Swal.showValidationMessage('Captura la fecha de inicio.'); return false; }
+        if (!lugar)   { Swal.showValidationMessage('Captura el lugar de prestación de servicios.'); return false; }
+      } else if (!fInicio || !fFin) {
         Swal.showValidationMessage('Captura ambas fechas.');
         return false;
       }
-      return { funciones, descanso, fInicio, fFin };
+      return { funciones, descanso, fInicio, fFin, lugar, horario };
     }
   });
 
@@ -7697,7 +7719,9 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
       funcionesPuesto: formValues.funciones,
       descansoDiario: formValues.descanso,
       fechaInicioOverride: formValues.fInicio,
-      fechaFinOverride: formValues.fFin
+      fechaFinOverride: formValues.fFin,
+      lugarPrestacion: formValues.lugar,
+      horarioTrabajo: formValues.horario
     }, 90000);
 
     if (r.status === "success") {
