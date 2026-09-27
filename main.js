@@ -908,11 +908,20 @@ function actualizarVisibilidadContratos() {
     var ids456  = ['alta_fechaInicioContrato4','alta_vencimientoContrato4',
                    'alta_fechaInicioContrato5','alta_vencimientoContrato5',
                    'alta_fechaInicioContrato6','alta_vencimientoContrato6'];
+    var esObra  = _esObraDet(tipo);
     ids456.forEach(function(id) {
         var el = document.getElementById(id);
         if (!el) return;
         var wrap = el.closest('[data-campo-id]') || el.parentElement;
-        if (wrap) wrap.style.display = esAdmin ? '' : 'none';
+        if (wrap) wrap.style.display = (esAdmin && !esObra) ? '' : 'none';
+    });
+    // Obra determinada: solo queda visible "Inicio 1er Contrato"
+    ['alta_vencimientoPrimerContrato','alta_iniciSegundoContrato','alta_vencSegundoContrato',
+     'alta_iniciTercerContrato','alta_vencTercerContrato'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (!el) return;
+        var wrap = el.closest('[data-campo-id]') || el.parentElement;
+        if (wrap) wrap.style.display = esObra ? 'none' : '';
     });
     console.log('[Contratos] tipo='+tipo+' esAdmin='+esAdmin+
                 ' ids456 encontrados='+ids456.filter(function(id){return !!document.getElementById(id);}).length);
@@ -936,6 +945,18 @@ function calcularFechasContrato() {
     var tipo   = (altaData.tipoIngreso || '').toLowerCase();
     var el_ti  = document.getElementById('alta_tipoIngreso');
     if (el_ti && el_ti.value) tipo = el_ti.value.toLowerCase();
+    if (_esObraDet(tipo)) {
+        // Obra determinada: solo fecha de inicio; se limpian vencimientos
+        // (en el DOM y en altaData) para que no generen alertas.
+        var elIni = document.getElementById('alta_fechaInicioContrato');
+        if (elIni) elIni.value = ini1;
+        altaData.fechaInicioContrato = ini1;
+        ['vencimientoPrimerContrato','iniciSegundoContrato','vencSegundoContrato','iniciTercerContrato','vencTercerContrato',
+         'fechaInicioContrato4','vencimientoContrato4','fechaInicioContrato5','vencimientoContrato5','fechaInicioContrato6','vencimientoContrato6'
+        ].forEach(function(k){ var e=document.getElementById('alta_'+k); if(e) e.value=''; altaData[k]=''; });
+        mostrarToast('info','Obra determinada','Inicio: '+ini1+'. Este tipo de contrato no lleva vencimientos.',5000);
+        return;
+    }
     var numC   = tipo.indexOf('admin') !== -1 ? 6 : 3;
     var PAIRS  = [
         ['alta_fechaInicioContrato',  'alta_vencimientoPrimerContrato'],
@@ -976,6 +997,8 @@ function calcularFechasContratoExpediente() {
         return dt.toISOString().slice(0,10);
     }
     var tipo = (E['TIPO DE INGRESO']||'').toLowerCase();
+    var elTipoEd = document.getElementById('ed_tipoIngreso');
+    if (_esObraDet(tipo) || (elTipoEd && _esObraDet(elTipoEd.value))) { mostrarToast('info','Obra determinada','Este tipo de contrato no lleva vencimientos; solo captura el inicio.',5000); return; }
     var numC = tipo.indexOf('admin') !== -1 ? 6 : 3;
     var PAIRS2 = [['ed_ini1contrato','ed_ven1contrato'],['ed_ini2contrato','ed_ven2contrato'],
                   ['ed_ini3contrato','ed_ven3contrato'],['ed_ini4contrato','ed_ven4contrato'],
@@ -991,6 +1014,35 @@ function calcularFechasContratoExpediente() {
         base = addD(base, 30);
     }
     mostrarToast('success', numC+' contratos calculados', msgs.join(' | '), 8000);
+}
+
+// ── URBAN THINK: tipo de ingreso "Obra determinada" (26 sep 2026) ──
+// Solo se ofrece cuando la EMPRESA es URBAN THINK. Con ese tipo:
+//  - no se calculan vencimientos (un contrato por obra determinada no vence
+//    por fecha, termina con el contrato CNA) → tampoco hay alertas;
+//  - al generar contrato se usa la plantilla exclusiva de Urban Think.
+const TIPO_INGRESO_OBRA  = "Obra determinada";
+const TIPO_CONTRATO_OBRA = "Obra Determinada";
+function _esUrbanThinkFE(emp){ return /URBAN\s*THINK/i.test((emp||"").toString()); }
+function _esObraDet(tipo){ return /obra/i.test((tipo||"").toString()); }
+function opcionesTipoIngreso(emp){
+    var o = ["Administrativo","Operativo"];
+    if(_esUrbanThinkFE(emp)) o.push(TIPO_INGRESO_OBRA);
+    return o;
+}
+// Reconstruye las opciones de "Tipo de Ingreso" al cambiar la empresa.
+// Si se elige otra empresa y estaba "Obra determinada", se limpia (también
+// en altaData, porque guardarPasoActual no sobrescribe con valores vacíos).
+function actualizarOpcionesTipoIngreso(){
+    var el = document.getElementById('alta_tipoIngreso'); if(!el) return;
+    var emp = (document.getElementById('alta_empresa')||{}).value || altaData.empresa || '';
+    var actual = el.value;
+    var ops = opcionesTipoIngreso(emp);
+    el.innerHTML = '<option value="">Seleccione...</option>' + ops.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
+    if(ops.indexOf(actual) !== -1){ el.value = actual; return; }
+    el.value = '';
+    if(_esObraDet(altaData.tipoIngreso)) altaData.tipoIngreso = '';
+    if(actual) mostrarToast('info','Tipo de ingreso','"Obra determinada" solo aplica para URBAN THINK. Selecciona de nuevo el tipo de ingreso.',6000);
 }
 
 const PASOS=[
@@ -1190,6 +1242,8 @@ function renderizarPasoActual(){
                     altaData.grupoComercial = gc;
                     const elGC = document.getElementById("alta_grupoComercial");
                     if(elGC) elGC.value = gc;
+                    // "Obra determinada" solo para URBAN THINK
+                    actualizarOpcionesTipoIngreso();
                 }, { once: false });
             }
         }, 200); // esperar a que el DOM esté listo
@@ -1254,7 +1308,10 @@ function renderizarCampo(c){
             + opsDyn.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('')
             + '</select>';
     } else if(c.type==='select'){
-        inp=`<select id="alta_${c.id}" ${c.req?'required':''} ${c.readonly?'title="Calculado automáticamente"':''} class="${cls} ${c.readonly?'bg-slate-50 cursor-default':'cursor-pointer'}"><option value="">Seleccione...</option>${(c.options||[]).map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
+        var opsSel = c.options||[];
+        if(c.id==='tipoIngreso')  opsSel = opcionesTipoIngreso(altaData.empresa);
+        if(c.id==='tipoContrato' && _esObraDet(altaData.tipoIngreso)) opsSel = opsSel.concat([TIPO_CONTRATO_OBRA]);
+        inp=`<select id="alta_${c.id}" ${c.req?'required':''} ${c.readonly?'title="Calculado automáticamente"':''} class="${cls} ${c.readonly?'bg-slate-50 cursor-default':'cursor-pointer'}"><option value="">Seleccione...</option>${opsSel.map(o=>`<option value="${o}">${o}</option>`).join('')}</select>`;
     }else if(c.type==='textarea'){
         inp=`<textarea id="alta_${c.id}" rows="2" ${ph} class="${cls} resize-none"></textarea>`;
     }else{
@@ -1674,6 +1731,10 @@ function guardarPasoActual(){
 }
 function restaurarValoresPaso(){
     const paso=PASOS[pasoActual];
+    if(paso.id==='paso-contrato'){
+        if(_esObraDet(altaData.tipoIngreso)){ if(!altaData.tipoContrato) altaData.tipoContrato = TIPO_CONTRATO_OBRA; }
+        else if(altaData.tipoContrato === TIPO_CONTRATO_OBRA){ altaData.tipoContrato = ''; }
+    }
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
     if(paso.id==='paso-personal') calcularRangoEdadAuto();
     if(paso.id==='paso-contrato'){
@@ -5834,7 +5895,7 @@ function renderizarDrawer(emp){
         ed("ed_grupoComercial","Grupo Comercial ⟵ automático",E["GRUPO COMERCIAL"])+
         ed("ed_puesto","Puesto",E["PUESTO"])+
         ed("ed_departamento","Departamento",E["DEPARTAMENTO"])+
-        sel("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"],["","Administrativo","Operativo"])+
+        sel("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"],[""].concat(opcionesTipoIngreso(E["EMPRESA"]), (_esObraDet(E["TIPO DE INGRESO"]) && !_esUrbanThinkFE(E["EMPRESA"])) ? [E["TIPO DE INGRESO"]] : []))+
         ed("ed_sueldo","Sueldo Mensual (MXN)",E["SUELDO MENSUAL"],"number")+
         sel("ed_frecPago","Frecuencia de Pago",E["FRECUENCIA DE PAGO"],["","Quincenal","Semanal","Mensual"])+
         ed("ed_fuenteCont","Fuente de Contratación",E["FUENTE DE CONTRATACIÓN"])
@@ -5871,7 +5932,7 @@ function renderizarDrawer(emp){
     +'<button type="button" onclick="calcularFechasContratoExpediente()" class="inline-flex items-center gap-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition"><i class="fas fa-magic"></i>Calcular fechas</button>'
     +'</div>'
     +'<div class="grid grid-cols-2 md:grid-cols-4 gap-3">'
-    +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"])
+    +sel("ed_tipoContrato","Tipo de Contrato",E["TIPO DE CONTRATO"],["","Tiempo Indeterminado","Prueba","Temporal"].concat((_esObraDet(E["TIPO DE INGRESO"])||E["TIPO DE CONTRATO"]===TIPO_CONTRATO_OBRA)?[TIPO_CONTRATO_OBRA]:[]))
     +edf("ed_ini1contrato","Inicio 1er Contrato",parsearFecha(E["FECHA DE INICIO DEL PRIMER CONTRATO"]))
     +edf("ed_ven1contrato","Vence 1er Contrato",parsearFecha(E["FECHA DE VENCIMIENTO DEL PRIMER CONTRATO"]))
     +edf("ed_ini2contrato","Inicio 2do Contrato",parsearFecha(E["FECHA DE INICIO DEL SEGUNDO CONTRATO"]))
@@ -7605,7 +7666,7 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
   // (obra determinada). El backend lo decide por la EMPRESA; aquí solo se
   // muestran los 2 campos extra que esa plantilla necesita y se oculta
   // "Fin de periodo" (un contrato por obra determinada no lo lleva).
-  const esUT = !!prefill.esUrbanThink;
+  const esUT = !!prefill.esObraUrbanThink; // Urban Think + "Obra determinada"
 
   const { value: formValues, isConfirmed } = await Swal.fire({
     title: esUT ? 'Contrato Urban Think (obra determinada)' : 'Datos para el contrato',
