@@ -1,0 +1,10 @@
+# ── Datos sensibles: NUNCA al repositorio (se publicarían en Pages) ──
+CONTROL DE PERSONAL/
+*.xlsx
+db/seed/
+# ── Local / herramientas ──
+node_modules/
+.wrangler/
+.dev.vars
+.env
+rclone.conf

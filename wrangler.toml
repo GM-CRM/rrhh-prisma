@@ -1,0 +1,52 @@
+# ============================================================
+#  RRHH Prisma — Cloudflare Pages + Functions
+#  Producción  = rama main       → rrhh-prisma.pages.dev
+#  Pruebas     = rama cloudflare → cloudflare.rrhh-prisma.pages.dev
+#  Cada entorno tiene SU PROPIA base D1 y SU PROPIO bucket R2:
+#  las pruebas nunca tocan datos de producción.
+# ============================================================
+name = "rrhh-prisma"
+pages_build_output_dir = "public"   # solo esta carpeta se publica
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ── PRODUCCIÓN (main) ───────────────────────────────────────
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "rrhh-prisma"
+database_id = "PEGAR_ID_DE_rrhh-prisma"
+
+[[env.production.r2_buckets]]
+binding = "R2"
+bucket_name = "rrhh-expedientes"
+
+[env.production.ai]
+binding = "AI"
+
+[env.production.vars]
+ENTORNO = "production"
+SMTP_HOST = "PENDIENTE_XINET"
+SMTP_PORT = "465"
+SMTP_FROM_NAME = "RRHH Prisma"
+
+# ── PREVIEW (rama cloudflare y cualquier otra rama) ─────────
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "rrhh-prisma-dev"
+database_id = "PEGAR_ID_DE_rrhh-prisma-dev"
+
+[[env.preview.r2_buckets]]
+binding = "R2"
+bucket_name = "rrhh-expedientes-dev"
+
+[env.preview.ai]
+binding = "AI"
+
+[env.preview.vars]
+ENTORNO = "preview"
+SMTP_HOST = "PENDIENTE_XINET"
+SMTP_PORT = "465"
+SMTP_FROM_NAME = "RRHH Prisma (PRUEBAS)"
+
+# Secretos (NO van aquí; se cargan en el dashboard por entorno):
+#   SMTP_USER, SMTP_PASS
