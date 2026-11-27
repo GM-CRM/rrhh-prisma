@@ -113,20 +113,20 @@ html[data-tema] :is(.chart-card,.dsh-panel,.kpi-card,.org-card,.mod-wrap,.exp-wr
   background: var(--panel) !important; border: 1px solid var(--borde) !important; border-radius: 24px !important;
   box-shadow: var(--sombra) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
-html[data-tema] main .bg-white{ background-color: var(--panel) !important; }
-html[data-tema] main :is(.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-gray-100){ background-color: var(--sutil) !important; }
-html[data-tema] main .bg-slate-200{ background-color: var(--pista) !important; }
-html[data-tema] main :is(.border-slate-50,.border-slate-100,.border-slate-200,.border-slate-300,.border-gray-100,.border-gray-200){ border-color: var(--borde-suave) !important; }
-html[data-tema] main :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-800,.text-gray-700){ color: var(--tx) !important; }
-html[data-tema] main :is(.text-slate-600,.text-slate-500,.text-gray-600,.text-gray-500){ color: var(--tx2) !important; }
-html[data-tema] main :is(.text-slate-400,.text-slate-300,.text-gray-400){ color: var(--tx3) !important; }
-html[data-tema] main :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea){
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .bg-white{ background-color: var(--panel) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-gray-100){ background-color: var(--sutil) !important; }
+html[data-tema] :is(main,#drawer-editor,[id^="modal-"]) .bg-slate-200{ background-color: var(--pista) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.border-slate-50,.border-slate-100,.border-slate-200,.border-slate-300,.border-gray-100,.border-gray-200){ border-color: var(--borde-suave) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-800,.text-gray-700){ color: var(--tx) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.text-slate-600,.text-slate-500,.text-gray-600,.text-gray-500){ color: var(--tx2) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.text-slate-400,.text-slate-300,.text-gray-400){ color: var(--tx3) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea){
   background-color: var(--campo) !important; color: var(--tx) !important; border-color: var(--borde) !important;
 }
-html[data-tema] main :is(input,textarea)::placeholder{ color: var(--tx3) !important; opacity: 1; }
-html[data-tema] main table thead :is(th,tr){ background-color: var(--sutil) !important; color: var(--tx2) !important; }
-html[data-tema] main table tbody tr:hover{ background-color: var(--hover) !important; }
-html[data-tema] main :is(table,td,th){ border-color: var(--borde-suave) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(input,textarea)::placeholder{ color: var(--tx3) !important; opacity: 1; }
+html[data-tema] :is(main,#drawer-editor,[id^="modal-"]) table thead :is(th,tr){ background-color: var(--sutil) !important; color: var(--tx2) !important; }
+html[data-tema] :is(main,#drawer-editor,[id^="modal-"]) table tbody tr:hover{ background-color: var(--hover) !important; }
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(table,td,th){ border-color: var(--borde-suave) !important; }
 
 /* ── Ventanas emergentes, panel de avisos y editor ──────────── */
 html[data-tema] .swal2-popup{ background: var(--vidrio-fuerte) !important; color: var(--tx) !important; border: 1px solid var(--borde); border-radius: 24px !important;
@@ -157,3 +157,124 @@ html[data-tema] #login-screen :is(.lp-card,.lp-wrap > div){ background: var(--vi
 html[data-tema] .dsh-kpi-val.acento{ color: var(--azul) !important; }
 html[data-tema] .dsh-kpi-val.alerta{ color: var(--rosa) !important; }
 html[data-tema] .dsh-kpi-val.aviso{ color: var(--ambar) !important; }
+
+/* ============================================================
+   Fase 2 — Inicio (Indicadores) y Expedientes
+   ============================================================ */
+
+/* ── Bienvenida ─────────────────────────────────────────────── */
+.pr-hero{ position: relative; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 24px 26px; margin-bottom: 20px; border-radius: 28px; overflow: hidden;
+  background: var(--hero), var(--panel); border: 1px solid var(--borde); box-shadow: var(--sombra);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.pr-hero::after{ content: ""; position: absolute; right: -60px; top: -80px; width: 260px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.18), transparent 65%); pointer-events: none; }
+.pr-hero-foto{ width: 72px; height: 72px; }
+.pr-hero-txt{ flex: 1 1 280px; min-width: 0; }
+.pr-hero-fecha{ margin: 0 0 2px; font-size: 13.5px; color: var(--tx2); }
+.pr-hero-fecha::first-letter{ text-transform: uppercase; }
+.pr-hero-saludo{ margin: 0; font-family: 'Outfit', sans-serif; font-size: 30px; font-weight: 600; line-height: 1.15; color: var(--tx); }
+.pr-hero-resumen{ margin: 6px 0 0; font-size: 15px; color: var(--tx2); line-height: 1.5; }
+.pr-hero-acciones{ display: flex; gap: 10px; flex-wrap: wrap; position: relative; z-index: 1; }
+.pr-accion{ display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 14px;
+  font-size: 14px; font-weight: 600; color: var(--tx); background: var(--vidrio); border: 1px solid var(--borde); cursor: pointer;
+  transition: background .15s, transform .15s; }
+.pr-accion:hover{ background: var(--hover); }
+.pr-accion:active{ transform: scale(.98); }
+.pr-accion i{ font-size: 13px; color: var(--tx2); }
+.pr-accion.primaria{ color: #FFFFFF; border: 0; background: linear-gradient(120deg, #5B7CFF, #A35BFF 55%, #FF6BA6);
+  box-shadow: 0 12px 30px -12px rgba(163,91,255,.8), inset 0 1px 0 rgba(255,255,255,.3); }
+.pr-accion.primaria i{ color: #FFFFFF; }
+
+/* ── Encabezados de sección y KPI en tipo normal (sin mayúsculas) ── */
+html[data-tema] .dsh-sec{ text-transform: none !important; letter-spacing: 0 !important; font-family: 'Outfit', sans-serif;
+  font-size: 18px !important; font-weight: 600 !important; color: var(--tx) !important; margin: 28px 0 12px !important; }
+html[data-tema] .dsh-kpi-label{ text-transform: none !important; letter-spacing: 0 !important; font-size: 14px !important;
+  font-weight: 600 !important; color: var(--tx2) !important; display: flex !important; align-items: center; gap: 10px; }
+html[data-tema] .dsh-kpi-label > i, html[data-tema] .dsh-panel-tit > i{ color: var(--tx3) !important; }
+html[data-tema] .dsh-panel-tit{ font-size: 15px !important; color: var(--tx) !important; }
+
+/* ── Tarjetas KPI con ícono de color y mini-gráfica ─────────── */
+.pr-kpi{ position: relative; overflow: hidden; padding-bottom: 46px !important; }
+.pr-kpi-ico{ width: 32px; height: 32px; border-radius: 10px; display: inline-grid; place-items: center; flex-shrink: 0; font-size: 13px; }
+.pr-kpi-ico.azul{ background: rgba(91,124,255,.2); color: var(--azul); }
+.pr-kpi-ico.lila{ background: rgba(192,123,255,.2); color: var(--lila); }
+.pr-kpi-ico.rosa{ background: rgba(255,107,166,.18); color: var(--rosa); }
+.pr-kpi-ico.ambar{ background: rgba(255,170,60,.2); color: var(--ambar); }
+html[data-tema] .pr-kpi .dsh-kpi-val{ font-family: 'Outfit', sans-serif !important; font-size: 34px !important; font-weight: 600 !important; margin-top: 10px !important; }
+html[data-tema] .pr-kpi[data-color="lila"] .dsh-kpi-val{ color: var(--lila) !important; }
+.pr-spark{ position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 40px; }
+.pr-spark .linea{ fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.pr-spark .area{ stroke: none; opacity: .16; }
+.pr-spark.azul .linea{ stroke: var(--azul); } .pr-spark.azul .area{ fill: var(--azul); }
+.pr-spark.lila .linea{ stroke: var(--lila); } .pr-spark.lila .area{ fill: var(--lila); }
+.pr-spark.rosa .linea{ stroke: var(--rosa); } .pr-spark.rosa .area{ fill: var(--rosa); }
+.pr-spark.ambar .linea{ stroke: var(--ambar); } .pr-spark.ambar .area{ fill: var(--ambar); }
+
+/* ── Para hoy: pendientes y cumpleaños ──────────────────────── */
+.pr-hoy{ display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.pr-panel-cab{ display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.pr-enlace{ font-size: 13.5px; font-weight: 600; color: var(--azul); background: none; border: 0; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
+.pr-enlace:hover{ background: var(--hover); }
+.pr-pendientes, .pr-cumples{ list-style: none; margin: 0; padding: 0; }
+.pr-pendientes li, .pr-cumples li{ display: flex; align-items: center; gap: 12px; padding: 9px 8px; border-radius: 14px; }
+.pr-pendientes li + li, .pr-cumples li + li{ border-top: 1px solid var(--borde-suave); }
+.pr-clic{ cursor: pointer; }
+.pr-clic:hover{ background: var(--hover); }
+.pr-pend-ico{ width: 34px !important; height: 34px !important; border-radius: 11px !important; display: grid !important; place-items: center; flex-shrink: 0; font-size: 13px; }
+.pr-li-tit{ margin: 0; font-size: 14px; font-weight: 600; color: var(--tx); }
+.pr-li-sub{ margin: 1px 0 0; font-size: 13px; color: var(--tx3); }
+.pr-pendientes .min-w-0, .pr-cumples .min-w-0{ flex: 1; }
+.pr-li-dato{ margin-left: auto; flex-shrink: 0; font-size: 13px; color: var(--tx2); font-variant-numeric: tabular-nums; }
+.pr-hoy-tag{ color: var(--verde); font-weight: 700; }
+.pr-venc{ color: var(--rosa); font-weight: 700; }
+.pr-pasado{ color: var(--tx3); text-decoration: line-through; text-decoration-color: var(--borde); }
+.pr-vacio{ justify-content: center; color: var(--tx3); font-size: 13.5px; padding: 18px 8px !important; border-top: 0 !important; }
+
+/* Fotos con iniciales (se reemplazan por la foto cuando existe) */
+.pr-foto-ini{ display: inline-grid !important; place-items: center; color: #FFFFFF; font-weight: 700; font-family: 'Outfit', sans-serif; letter-spacing: .02em; }
+
+/* ── Expedientes ────────────────────────────────────────────── */
+.pr-colab{ display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pr-colab .pr-foto{ box-shadow: 0 0 0 2px var(--anillo, #fff); }
+.pr-colab-nom{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-estado{ display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.pr-estado::before{ content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pr-estado.activo{ background: rgba(47,224,200,.16); color: var(--verde); }
+.pr-estado.baja{ background: rgba(255,107,166,.16); color: var(--rosa); }
+.pr-acciones button, .pr-acciones a, .pr-acciones > span{ width: 32px; height: 32px; display: inline-grid; place-items: center; border-radius: 10px; color: var(--tx3) !important; transition: background .15s, color .15s; }
+.pr-acciones button:hover, .pr-acciones a:hover{ background: var(--hover); color: var(--tx) !important; }
+html[data-tema] .exp-tabla tbody td{ background: transparent !important; }
+html[data-tema] .exp-tabla thead th{ text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 600 !important; color: var(--tx2) !important; }
+html[data-tema] .exp-tabla tbody td:nth-child(1){ color: var(--tx3) !important; font-weight: 500 !important; }
+html[data-tema] .exp-wrap h3{ font-family: 'Outfit', sans-serif; font-size: 24px !important; font-weight: 600 !important; color: var(--tx) !important; }
+
+@media (max-width: 640px){
+  .pr-hero{ padding: 20px; }
+  .pr-hero-saludo{ font-size: 25px; }
+  .pr-hero-acciones{ width: 100%; }
+  .pr-accion{ flex: 1 1 auto; justify-content: center; }
+}
+.pr-hoy{ align-items: start; }
+html[data-tema="oscuro"] .ses-badge[data-estado="activa"]{ color: var(--verde) !important; background: rgba(47,224,200,.12) !important; }
+html[data-tema="oscuro"] .ses-badge[data-estado="verificando"]{ color: var(--tx2) !important; }
+html[data-tema] .exp-tabla thead th:first-child{ white-space: nowrap; }
+
+/* ── Expediente (ventana de edición): encabezado con foto ───── */
+html[data-tema] .dw-head{ background: var(--hero) !important; border-bottom: 1px solid var(--borde-suave) !important; padding: 20px 24px !important; align-items: center !important; }
+html[data-tema] #drawer-titulo{ display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.pr-dw-foto{ width: 76px !important; height: 76px !important; font-size: 26px; }
+.pr-dw-camara{ position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--vidrio-fuerte, #fff); color: var(--tx2); border: 1px solid var(--borde); font-size: 11px; cursor: pointer; box-shadow: 0 4px 10px -4px rgba(0,0,0,.4); }
+.pr-dw-camara:hover{ color: var(--tx); }
+.pr-dw-nombre{ margin: 0; font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 600; line-height: 1.2; color: var(--tx); }
+.pr-dw-sub{ margin: 2px 0 0; font-size: 13.5px; color: var(--tx2); }
+.pr-dw-chips{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.pr-dw-chip{ display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 500;
+  color: var(--tx2); background: var(--vidrio); border: 1px solid var(--borde-suave); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pr-dw-chip i{ font-size: 11px; color: var(--tx3); }
+@media (max-width: 640px){ .pr-dw-foto{ width: 56px !important; height: 56px !important; font-size: 20px; } .pr-dw-nombre{ font-size: 18px; } }
+
+/* Expediente: etiquetas en tipo normal, pestaña activa legible en oscuro */
+html[data-tema] #drawer-editor .uppercase{ text-transform: none !important; letter-spacing: 0 !important; font-size: 12.5px !important; }
+html[data-tema="oscuro"] .drawer-tab.drawer-tab-activa{ color: var(--azul) !important; border-color: var(--azul) !important; background: var(--hover) !important; }

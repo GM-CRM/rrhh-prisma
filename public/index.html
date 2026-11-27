@@ -1661,8 +1661,8 @@ if ('serviceWorker' in navigator) {
 .lp-input::-ms-clear{display:none}
 </style>
  
-<link rel="stylesheet" href="css/prisma-compat.css?v=2">
-<link rel="stylesheet" href="css/prisma-tema.css?v=1">
+<link rel="stylesheet" href="css/prisma-compat.css?v=3">
+<link rel="stylesheet" href="css/prisma-tema.css?v=2">
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
@@ -2013,9 +2013,19 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
   <!-- ══ DASHBOARD ════════════════════════════════════════════ -->
 <section id="module-dashboard" class="module-section active">
 
-  <div style="margin-bottom:20px">
-    <h1 style="font-size:1.45rem;font-weight:750;letter-spacing:-.025em;color:oklch(18% 0.02 285);margin:0 0 4px">Resumen General</h1>
-    <p style="font-size:.85rem;color:oklch(55% 0.012 285);margin:0;line-height:1.55">Plantilla, movimientos y costos de Grupo Multimedia México.</p>
+  <!-- ── Bienvenida: fecha, resumen del día y accesos directos ── -->
+  <div class="pr-hero" id="inicio-hero">
+    <span class="pr-foto pr-hero-foto" id="inicio-foto"></span>
+    <div class="pr-hero-txt">
+      <p class="pr-hero-fecha" id="inicio-fecha"></p>
+      <h1 class="pr-hero-saludo" id="inicio-saludo">Resumen general</h1>
+      <p class="pr-hero-resumen" id="inicio-resumen">Plantilla, movimientos y costos de Grupo Multimedia México.</p>
+    </div>
+    <div class="pr-hero-acciones">
+      <button type="button" class="pr-accion primaria" onclick="irAModulo('alta')"><i class="fas fa-user-plus"></i>Nueva alta</button>
+      <button type="button" class="pr-accion" onclick="irAModulo('basedatos')"><i class="fas fa-id-card"></i>Buscar expediente</button>
+      <button type="button" class="pr-accion" onclick="irAModulo('baja')"><i class="fas fa-user-minus"></i>Registrar baja</button>
+    </div>
   </div>
 
   <!-- ── Filtros: colapsados por defecto, con chips de estado ── -->
@@ -2081,28 +2091,32 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
        Antes "Total histórico" iba primero solo por orden de aparición. -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px">
 
-    <div class="dsh-kpi" style="--i:0">
-      <p class="dsh-kpi-label"><i class="fas fa-user-check"></i>Plantilla activa</p>
+    <div class="dsh-kpi pr-kpi" data-color="azul" style="--i:0">
+      <p class="dsh-kpi-label"><span class="pr-kpi-ico azul"><i class="fas fa-user-check"></i></span>Plantilla activa</p>
       <p class="dsh-kpi-val acento" id="kpi-activos">—</p>
       <p class="dsh-kpi-sub">colaboradores hoy</p>
+      <svg class="pr-spark azul" id="spark-activos" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
     </div>
 
-    <div class="dsh-kpi" style="--i:1">
-      <p class="dsh-kpi-label"><i class="fas fa-users"></i>Total histórico</p>
+    <div class="dsh-kpi pr-kpi" data-color="lila" style="--i:1">
+      <p class="dsh-kpi-label"><span class="pr-kpi-ico lila"><i class="fas fa-users"></i></span>Total histórico</p>
       <p class="dsh-kpi-val" id="kpi-total">—</p>
       <p class="dsh-kpi-sub">registrados desde el inicio</p>
+      <svg class="pr-spark lila" id="spark-total" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
     </div>
 
-    <div class="dsh-kpi" style="--i:2">
-      <p class="dsh-kpi-label"><i class="fas fa-user-minus"></i>Total bajas</p>
+    <div class="dsh-kpi pr-kpi" data-color="rosa" style="--i:2">
+      <p class="dsh-kpi-label"><span class="pr-kpi-ico rosa"><i class="fas fa-user-minus"></i></span>Total bajas</p>
       <p class="dsh-kpi-val alerta" id="kpi-bajas">—</p>
       <p class="dsh-kpi-sub">acumuladas</p>
+      <svg class="pr-spark rosa" id="spark-bajas" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
     </div>
 
-    <div class="dsh-kpi" style="--i:3">
-      <p class="dsh-kpi-label"><i class="fas fa-arrows-rotate"></i>Índice de rotación</p>
+    <div class="dsh-kpi pr-kpi" data-color="ambar" style="--i:3">
+      <p class="dsh-kpi-label"><span class="pr-kpi-ico ambar"><i class="fas fa-arrows-rotate"></i></span>Índice de rotación</p>
       <p class="dsh-kpi-val aviso" id="kpi-rotacion">—</p>
       <p class="dsh-kpi-sub">sobre total histórico</p>
+      <svg class="pr-spark ambar" id="spark-rotacion" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
     </div>
 
   </div>
@@ -2120,6 +2134,24 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
     <div>
       <p class="dsh-kpi-label" style="margin-bottom:7px"><i class="fas fa-hand-holding-dollar"></i>Finiquitos pagados</p>
       <p class="dsh-kpi-val sm" id="kpi-finiquitos">—</p>
+    </div>
+  </div>
+
+  <!-- ══ PARA HOY: pendientes y cumpleaños del mes ══ -->
+  <p class="dsh-sec">Para hoy</p>
+  <div class="pr-hoy">
+    <div class="dsh-panel">
+      <div class="pr-panel-cab">
+        <p class="dsh-panel-tit" style="margin:0"><i class="fas fa-list-check"></i>Pendientes</p>
+        <button type="button" class="pr-enlace" onclick="abrirCentroNotifs()">Ver todos</button>
+      </div>
+      <ul class="pr-pendientes" id="inicio-pendientes"><li class="pr-vacio">Cargando pendientes…</li></ul>
+    </div>
+    <div class="dsh-panel">
+      <div class="pr-panel-cab">
+        <p class="dsh-panel-tit" style="margin:0"><i class="fas fa-cake-candles"></i><span id="inicio-cumples-tit">Cumpleaños del mes</span></p>
+      </div>
+      <ul class="pr-cumples" id="inicio-cumples"><li class="pr-vacio">Cargando…</li></ul>
     </div>
   </div>
 
@@ -2562,11 +2594,11 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
       <table class="exp-tabla">
         <colgroup>
           <col style="width:7%">
-          <col style="width:22%">
-          <col style="width:28%">
-          <col style="width:22%">
-          <col style="width:9%">
-          <col style="width:12%">
+          <col style="width:29%">
+          <col style="width:20%">
+          <col style="width:20%">
+          <col style="width:11%">
+          <col style="width:13%">
         </colgroup>
         <thead>
           <tr>
@@ -2837,7 +2869,7 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.34"></script>
+<script src="main.js?v=69.35"></script>
 
  <div id="ses-aviso">
   <div class="ico"><i class="fas fa-clock-rotate-left"></i></div>

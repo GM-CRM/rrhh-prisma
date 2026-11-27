@@ -59,23 +59,76 @@ function cambiarTema(){
     document.documentElement.setAttribute('data-tema',nuevo);
     try{localStorage.setItem('prisma_tema',nuevo);}catch(e){}
     aplicarTemaUI();
+    // Las gráficas del tablero se dibujan con la paleta del tema: se vuelven a pintar
+    var secDash=document.getElementById('module-dashboard');
+    if(secDash && secDash.classList.contains('active') && typeof cargarDashboard==='function' && typeof cacheGlobal!=='undefined' && cacheGlobal.length){
+        try{ cargarDashboard(); }catch(e){}
+    }
+}
+
+// Ir a un módulo como si se hubiera elegido en el menú (marca el botón y carga sus datos)
+function irAModulo(id){
+    var btn=document.querySelector('#sidebar .nav-btn[onclick*="showModule(\''+id+'\')"]');
+    if(btn){ btn.click(); return; }
+    showModule(id);
 }
 document.addEventListener('DOMContentLoaded',aplicarTemaUI);
 
 // ── Foto con marco: la del expediente o una silueta ─────────────
+var _GRAD_FOTO=['linear-gradient(150deg,#7C95FF,#4A5BD6)','linear-gradient(150deg,#C084FC,#7B3FD0)','linear-gradient(150deg,#3DDBC6,#0E8C88)','linear-gradient(150deg,#FF9EC0,#D63C74)','linear-gradient(150deg,#FFC266,#D9821C)'];
+function gradFoto(txt){ var h=0; txt=String(txt||''); for(var i=0;i<txt.length;i++) h=(h*31+txt.charCodeAt(i))>>>0; return _GRAD_FOTO[h%_GRAD_FOTO.length]; }
+// Los nombres vienen "APELLIDOS NOMBRES": se toma la inicial del primer apellido y del primer nombre
+function inicialesNombre(nom){
+    var p=String(nom||'').trim().split(/\s+/).filter(function(w){return w && !/^(DE|DEL|LA|LAS|LOS|Y|MA\.?)$/i.test(w);});
+    if(!p.length) return '·';
+    if(p.length>=3) return (p[0][0]+p[2][0]).toUpperCase();
+    return (p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();
+}
+function htmlFotoIniciales(nom,idInterno,tam){
+    return '<span class="pr-foto pr-foto-ini" data-foto="'+String(idInterno||'').replace(/"/g,'')+'" style="width:'+tam+'px;height:'+tam+'px;background:'+gradFoto(nom)+';font-size:'+Math.round(tam*0.38)+'px">'+inicialesNombre(nom)+'</span>';
+}
+// Pinta las fotos de los marcos con data-foto cuando se vuelven visibles
+var _obsFotos=null;
+function cargarFotosVisibles(raiz){
+    var marcos=(raiz||document).querySelectorAll('.pr-foto[data-foto]:not([data-foto=""])');
+    if(!('IntersectionObserver' in window)){ marcos.forEach(function(m){ pintarFotoMarco(m,m.getAttribute('data-foto'),true); }); return; }
+    if(!_obsFotos) _obsFotos=new IntersectionObserver(function(ents){
+        ents.forEach(function(e){ if(e.isIntersecting){ _obsFotos.unobserve(e.target); pintarFotoMarco(e.target,e.target.getAttribute('data-foto'),true); } });
+    },{rootMargin:'200px'});
+    marcos.forEach(function(m){ _obsFotos.observe(m); });
+}
 var SILUETA_SVG='<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="15.5" r="7" fill="#fff" opacity=".92"/><path d="M6 38c1.6-8 7.4-12 14-12s12.4 4 14 12z" fill="#fff" opacity=".92"/></svg>';
 var _fotoMarcoCache={};
-async function pintarFotoMarco(el,idInterno){
+var _fotoCola=[], _fotoActivas=0;
+function _pedirFoto(idInterno){
+    if(idInterno in _fotoMarcoCache) return Promise.resolve(_fotoMarcoCache[idInterno]);
+    return new Promise(function(res){
+        _fotoCola.push({id:idInterno,res:res});
+        _siguienteFoto();
+    });
+}
+function _siguienteFoto(){
+    while(_fotoActivas<4 && _fotoCola.length){
+        var t=_fotoCola.shift();
+        if(t.id in _fotoMarcoCache){ t.res(_fotoMarcoCache[t.id]); continue; }
+        _fotoActivas++;
+        (function(t){
+            enviarPeticion('obtener_foto',{folderId:t.id}).then(function(r){
+                _fotoMarcoCache[t.id]=(r&&r.status==='success'&&r.url)?r.url:null;
+            }).catch(function(){ _fotoMarcoCache[t.id]=null; }).then(function(){
+                _fotoActivas--; t.res(_fotoMarcoCache[t.id]); _siguienteFoto();
+            });
+        })(t);
+    }
+}
+// conservar=true deja lo que ya tiene el marco (iniciales) hasta que llegue la foto
+async function pintarFotoMarco(el,idInterno,conservar){
     if(!el) return;
-    el.innerHTML=SILUETA_SVG;
+    if(!conservar) el.innerHTML=SILUETA_SVG;
     idInterno=String(idInterno||'').trim();
     if(!idInterno) return;
     try{
-        if(!(idInterno in _fotoMarcoCache)){
-            var r=await enviarPeticion('obtener_foto',{folderId:idInterno});
-            _fotoMarcoCache[idInterno]=(r&&r.status==='success'&&r.url)?r.url:null;
-        }
-        var url=_fotoMarcoCache[idInterno];
+        var url=await _pedirFoto(idInterno);
         if(!url) return;
         var img=new Image(); img.alt='';
         img.onload=function(){el.innerHTML='';el.appendChild(img);};
@@ -294,6 +347,7 @@ function obtenerNotifsPorCategoria(){
 
 
 function actualizarBadgeNotifs(){
+    try{ if(typeof renderPendientesInicio==='function') setTimeout(renderPendientesInicio,0); }catch(e){}
     const noLeidas = notificaciones.filter(n=>!n.leida).length;
     const badge = document.getElementById('notif-badge');
     if(!badge) return;
@@ -5821,10 +5875,8 @@ function renderizarDrawer(emp){
     const est = (emp["ESTATUS"]||"").toString().trim();
     console.log('[Drawer] ESTATUS raw:', JSON.stringify(emp["ESTATUS"]), '| est:', JSON.stringify(est), '| es Baja:', est==="Baja");
     const url = (emp["URL EXPEDIENTE"]||"").toString().trim();
-    const estColor = est==="Activo"?"bg-emerald-100 text-emerald-700":"bg-red-100 text-red-600";
-
-    const partes   = nom.split(" ").filter(function(p){return p.length>0;});
-    const iniciales= (partes[0]?partes[0][0]:"")+(partes[1]?partes[1][0]:"");
+    const estColor = est==="Activo"?"pr-estado activo":"pr-estado baja";
+    const iniciales= inicialesNombre(nom);
 
     // Construir header del drawer con DOM API (evita comillas anidadas)
     var tituloEl = document.getElementById("drawer-titulo");
@@ -5835,7 +5887,8 @@ function renderizarDrawer(emp){
     avatarOuter.className = "relative flex-shrink-0";
     var avatarDiv = document.createElement("div");
     avatarDiv.id = "avatar-circulo";
-    avatarDiv.className = "w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm cursor-pointer overflow-hidden";
+    avatarDiv.className = "pr-foto pr-foto-ini pr-dw-foto cursor-pointer";
+    avatarDiv.style.background = gradFoto(nom);
     avatarDiv.title = "Subir foto de perfil";
     avatarDiv.onclick = function(){ document.getElementById("input-foto-perfil").click(); };
     avatarDiv.innerHTML = iniciales || '<i class="fas fa-user"></i>';
@@ -5844,23 +5897,33 @@ function renderizarDrawer(emp){
     inputFoto.accept=".jpg,.jpeg,.png"; inputFoto.className="hidden";
     inputFoto.onchange = subirFotoPerfil;
     var camBtn = document.createElement("div");
-    camBtn.className = "absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow border border-slate-200 cursor-pointer";
+    camBtn.className = "pr-dw-camara";
+    camBtn.title = "Cambiar foto";
     camBtn.onclick = function(){ document.getElementById("input-foto-perfil").click(); };
-    camBtn.innerHTML = '<i class="fas fa-camera text-slate-400 text-xs"></i>';
+    camBtn.innerHTML = '<i class="fas fa-camera"></i>';
     avatarOuter.appendChild(avatarDiv);
     avatarOuter.appendChild(inputFoto);
     avatarOuter.appendChild(camBtn);
     var infoDiv = document.createElement("div");
     infoDiv.className = "min-w-0";
-    infoDiv.innerHTML = '<p class="text-sm font-bold text-slate-800 truncate">'+nom+'</p><p class="text-xs text-slate-400">#'+id+' &middot; '+(emp["EMPRESA"]||"—")+'</p>';
+    // Antigüedad e ingreso como datos rápidos debajo del nombre
+    var _fIngDw = parseFechaFlexible(emp["FECHA DE INGRESO"]);
+    var _antDw = calcAnt(emp["FECHA DE INGRESO"]);
+    var _antTxt = _antDw===null ? '' : (_antDw<1 ? Math.max(0,Math.round(_antDw*12))+' meses' : _antDw.toFixed(1).replace('.0','')+(_antDw<1.95?' año':' años'));
+    var _chips = '';
+    if(emp["PUESTO"]) _chips += '<span class="pr-dw-chip"><i class="fas fa-briefcase"></i>'+escHtmlInicio(emp["PUESTO"])+'</span>';
+    if(emp["DEPARTAMENTO"]) _chips += '<span class="pr-dw-chip"><i class="fas fa-sitemap"></i>'+escHtmlInicio(emp["DEPARTAMENTO"])+'</span>';
+    if(_fIngDw) _chips += '<span class="pr-dw-chip"><i class="fas fa-calendar-check"></i>Ingreso '+_fIngDw.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'})+(_antTxt?' · '+_antTxt:'')+'</span>';
+    infoDiv.innerHTML = '<p class="pr-dw-nombre truncate">'+nom+'</p><p class="pr-dw-sub">#'+id+' &middot; '+(emp["EMPRESA"]||"—")+(emp["ID INTERNO"]?' &middot; '+escHtmlInicio(emp["ID INTERNO"]):'')+'</p>'+(_chips?'<div class="pr-dw-chips">'+_chips+'</div>':'');
     avatarWrap.appendChild(avatarOuter);
     avatarWrap.appendChild(infoDiv);
     var badgeEl = document.createElement("span");
-    badgeEl.className = "px-2.5 py-1 rounded-full text-xs font-bold flex-shrink-0 "+estColor;
+    badgeEl.className = estColor+" flex-shrink-0";
     badgeEl.textContent = est;
     tituloEl.appendChild(avatarWrap);
     tituloEl.appendChild(badgeEl);
     if(url && url.indexOf("http")===0) cargarFotoPerfil(url);
+    else if(emp["ID INTERNO"]) pintarFotoMarco(avatarDiv, emp["ID INTERNO"], true);
 
     const ro = function(label,val){
         return '<div><p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">'+label+'</p>'
@@ -5953,10 +6016,10 @@ function renderizarDrawer(emp){
     var _p2 = sec("Datos Laborales","fa-briefcase","text-blue-500",
         ed("ed_noEmpleado","No. Empleado",E["NO. EMPLEADO"],"number")+
         ro("Fecha Ingreso",ff(E["FECHA DE INGRESO"]))+
-        ro("Estatus ⟵ fórmula Sheet",E["ESTATUS"])+
-        ro("Antigüedad ⟵ fórmula Sheet",E["ANTIGÜEDAD"])+
+        ro("Estatus · automático",E["ESTATUS"])+
+        ro("Antigüedad · automático",E["ANTIGÜEDAD"])+
         ed("ed_empresa","Empresa",E["EMPRESA"],"text")+
-        ed("ed_grupoComercial","Grupo Comercial ⟵ automático",E["GRUPO COMERCIAL"])+
+        ed("ed_grupoComercial","Grupo Comercial · automático",E["GRUPO COMERCIAL"])+
         ed("ed_puesto","Puesto",E["PUESTO"])+
         ed("ed_departamento","Departamento",E["DEPARTAMENTO"])+
         sel("ed_tipoIngreso","Tipo de Ingreso",E["TIPO DE INGRESO"],[""].concat(opcionesTipoIngreso(E["EMPRESA"]), (_esObraDet(E["TIPO DE INGRESO"]) && !_esUrbanThinkFE(E["EMPRESA"])) ? [E["TIPO DE INGRESO"]] : []))+
@@ -5968,10 +6031,10 @@ function renderizarDrawer(emp){
         ed("ed_curp","CURP",E["CURP"])+
         ed("ed_rfc","RFC",E["RFC"])+
         ed("ed_nss","NSS",E["NSS"])+
-        ro("Fecha Nacimiento ⟵ fórmula Sheet",ff(E["FECHA DE NACIMIENTO"]))+
-        ro("Edad ⟵ fórmula Sheet",E["EDAD"])+
-        ro("Género ⟵ fórmula Sheet",E["GÉNERO"])+
-        ro("Rango de Edad ⟵ fórmula Sheet",E["RANGO DE EDAD"])+
+        ro("Fecha Nacimiento · automático",ff(E["FECHA DE NACIMIENTO"]))+
+        ro("Edad · automático",E["EDAD"])+
+        ro("Género · automático",E["GÉNERO"])+
+        ro("Rango de Edad · automático",E["RANGO DE EDAD"])+
         ed("ed_lugarNac","Lugar de Nacimiento",E["LUGAR DE NACIMIENTO"])+
         ed("ed_nacionalidad","Nacionalidad",E["NACIONALIDAD"])+
         sel("ed_edoCivil","Estado Civil",E["ESTADO CIVIL"],["","Soltero","Casado","Divorciado","Viudo","Unión Libre"])+
@@ -6027,9 +6090,9 @@ function renderizarDrawer(emp){
         '<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-0.5">Evaluación 360°</label>'
         +'<input type="date" id="ed_eval360" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"></div>'
     );
-    var _p9 = secFull("Calculado por el Sheet","fa-function","text-slate-400",
-        ro("Para Ant. Promedio ⟵ fórmula",(E["PARA ANT. PROMEDIO"]||"").toString())+
-        ro("Se Toma en Cuenta ⟵ fórmula",(E["SE TOMA EN CUENTA?"]||"").toString())
+    var _p9 = secFull("Cálculos automáticos","fa-function","text-slate-400",
+        ro("Para Ant. Promedio · automático",(E["PARA ANT. PROMEDIO"]||"").toString())+
+        ro("Se Toma en Cuenta · automático",(E["SE TOMA EN CUENTA?"]||"").toString())
     );
     var _p10 = secFull("Acceso y Jerarquía","fa-network-wired","text-indigo-500",
         ed("ed_jefeDirecto","Jefe Directo (ID INTERNO)",E["JEFE DIRECTO"])+
@@ -6696,7 +6759,7 @@ function renderizarPagina(pag) {
         if (sinRes) sinRes.classList.add('hidden');
         slice.forEach(emp => {
             const est   = (emp["ESTATUS"] || "").trim();
-            const color = est === "Activo" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700";
+            const color = est === "Activo" ? "pr-estado activo" : "pr-estado baja";
             // URL del expediente en Drive — columna AX del Sheet
             const urlRaw  = emp["URL EXPEDIENTE"] || emp["URL EXPEDIENTE "] || "";
             const url     = urlRaw.toString().replace(/\s+/g,'').trim();
@@ -6730,11 +6793,11 @@ function renderizarPagina(pag) {
 
             tbody.innerHTML += '<tr class="hover:bg-slate-50 border-b border-slate-100 transition">'
                 + '<td class="px-3 py-3 font-semibold text-slate-700 text-sm whitespace-nowrap">#' + id + '</td>'
-                + '<td class="px-3 py-3 text-sm font-medium" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + alerta + badgeReingreso + '</td>'
+                + '<td class="px-3 py-2.5 text-sm font-medium" style="max-width:0;overflow:hidden"><div class="pr-colab">' + htmlFotoIniciales(emp["NOMBRE DEL TRABAJADOR"], emp["ID INTERNO"], 34) + '<span class="pr-colab-nom">' + (emp["NOMBRE DEL TRABAJADOR"] || "—") + '</span>' + alerta + badgeReingreso + '</div></td>'
                 + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["EMPRESA"] || "—") + '</td>'
                 + '<td class="px-3 py-3 text-xs text-slate-500" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (emp["PUESTO"]  || "—") + '</td>'
-                + '<td class="px-3 py-3 whitespace-nowrap"><span class="px-2 py-1 text-xs font-semibold rounded-full ' + color + '">' + (est || "—") + '</span></td>'
-                + '<td class="px-3 py-3"><div class="flex items-center justify-center gap-2">'
+                + '<td class="px-3 py-3 whitespace-nowrap"><span class="' + color + '">' + (est || "—") + '</span></td>'
+                + '<td class="px-3 py-3"><div class="pr-acciones flex items-center justify-center gap-1">'
                 + '<button onclick="abrirEditor(\'' + (emp['ID INTERNO']||id) + '\',\'' + (emp['EMPRESA']||'').replace(/'/g,'') + '\')" class="text-slate-400 hover:text-blue-600 transition" title="Editar"><i class="fas fa-pen-to-square text-sm"></i></button>'
                 + '<button onclick="abrirModalGenerarContrato(\'' + (emp['ID INTERNO']||'') + '\')" class="text-slate-400 hover:text-indigo-600 transition" title="Generar contrato"><i class="fas fa-file-contract text-sm"></i></button>'
                 + '<button onclick="abrirModalDocs(\'' + id + '\',\'' + nom + '\',\'' + (emp['ID INTERNO']||'') + '\')" class="text-slate-400 hover:text-emerald-600 transition" title="Subir documentos"><i class="fas fa-file-arrow-up text-sm"></i></button>'
@@ -6743,6 +6806,7 @@ function renderizarPagina(pag) {
         });
     }
 
+    cargarFotosVisibles(tbody);
     const pg = document.getElementById('paginacion-directorio');
     if (!pg) return;
     const ini2 = ini + 1, fin2 = Math.min(ini + FILAS_PAG, datos.length);
@@ -6890,29 +6954,33 @@ let charts={};
 // ámbar = SOLO dinero. Las escalas ordinales (edad, motivos) usan
 // degradado de un tono, no colores distintos: cuatro azules sugieren
 // cuatro categorías sin relación cuando en realidad son un rango.
-const PAL = {
-  primario:  '#6d3ee8',   // violeta: plantilla activa, estructura
-  primario2: '#8b6df0',
-  primario3: '#a99bf5',
-  primario4: '#c9c1f9',
-  baja:      '#e0524d',   // rojo: bajas, y solo bajas
-  baja2:     '#eb7d78',
-  baja3:     '#f2a5a1',
-  baja4:     '#f7c9c6',
-  dinero:    '#dd9127',   // ámbar: finiquitos
-  activos:   '#3f9d78',   // verde: línea acumulada
-  grid:      '#eeecf5',   // rejilla tintada hacia violeta, no gris puro
-  texto:     '#6b6880'
+// Paleta de gráficas: cambia con el tema claro/oscuro (se lee al dibujar).
+// Mismo significado de siempre: azul = plantilla, rosa = bajas,
+// ámbar = dinero, verde = acumulado de activos.
+const _PAL_TEMA = {
+  oscuro:{ primario:'#8EA2FF', primario2:'#A9B8FF', primario3:'#C4CEFF', primario4:'#DFE5FF',
+           baja:'#FF7BA9', baja2:'#FF9CBE', baja3:'#FFBDD3', baja4:'#FFDCE8',
+           dinero:'#FFC266', activos:'#5FF0DA', grid:'rgba(255,255,255,.08)', texto:'#C9D0F2' },
+  claro: { primario:'#4F6BF0', primario2:'#7A8FF4', primario3:'#A5B3F8', primario4:'#CDD5FB',
+           baja:'#D63C74', baja2:'#E26C96', baja3:'#EC9CB8', baja4:'#F6CCDB',
+           dinero:'#D98A1C', activos:'#0E9C88', grid:'rgba(40,50,110,.08)', texto:'#474F75' }
 };
+const PAL = {};
+Object.keys(_PAL_TEMA.oscuro).forEach(function(k){
+  Object.defineProperty(PAL, k, { enumerable:true, get:function(){
+    var tema = document.documentElement.getAttribute('data-tema')==='claro' ? 'claro' : 'oscuro';
+    return _PAL_TEMA[tema][k];
+  }});
+});
 const CD={
   responsive:true,
   maintainAspectRatio:false,
   plugins:{
-    legend:{labels:{font:{family:"'Inter',sans-serif",size:11},padding:10,boxWidth:10,boxHeight:10,color:PAL.texto}},
+    legend:{labels:{font:{family:"'Figtree',sans-serif",size:11},padding:10,boxWidth:10,boxHeight:10,get color(){return PAL.texto;}}},
     tooltip:{
       backgroundColor:'#241f35',
-      titleFont:{family:"'Inter',sans-serif",size:12,weight:'600'},
-      bodyFont:{family:"'Inter',sans-serif",size:12},
+      titleFont:{family:"'Figtree',sans-serif",size:12,weight:'600'},
+      bodyFont:{family:"'Figtree',sans-serif",size:12},
       padding:10,cornerRadius:8,displayColors:true,boxPadding:4
     }
   }
@@ -6953,6 +7021,85 @@ function safeChart(id, config){
 function fmtMXN(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(n||0);}
 function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a>=15&&a<=85?a:null;}
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
+
+// ── Inicio: bienvenida, mini-gráficas de los KPI, pendientes y cumpleaños ──
+function _sparkSVG(svg,valores){
+    if(!svg) return;
+    valores=(valores||[]).map(function(v){return +v||0;});
+    if(valores.length<2){ svg.innerHTML=''; return; }
+    var mx=Math.max.apply(null,valores), mn=Math.min.apply(null,valores), r=(mx-mn)||1, n=valores.length;
+    var pts=valores.map(function(v,i){ return [(i/(n-1))*120, 29-((v-mn)/r)*25]; });
+    var d=pts.map(function(p,i){return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+    svg.innerHTML='<path d="'+d+' L120 32 L0 32 Z" class="area"/><path d="'+d+'" class="linea"/>';
+}
+function actualizarInicio(D,cTend,meses,activos){
+    var hoy=new Date(), MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    var h=hoy.getHours();
+    var el=function(id){return document.getElementById(id);};
+    if(el('inicio-saludo')) el('inicio-saludo').textContent = h<12?'Buenos días':(h<19?'Buenas tardes':'Buenas noches');
+    if(el('inicio-fecha')) el('inicio-fecha').textContent = hoy.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    // Altas y bajas del mes en curso (no dependen de los filtros de mes/año)
+    var kMes=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0'), altasMes=0, bajasMes=0;
+    D.forEach(function(r){
+        var fi=parseFechaFlexible(r["FECHA DE INGRESO"]), fb=parseFechaFlexible(r["FECHA DE BAJA"]);
+        if(fi && fi.getUTCFullYear()+'-'+String(fi.getUTCMonth()+1).padStart(2,'0')===kMes) altasMes++;
+        if(fb && (r["ESTATUS"]||'').toString().trim()==='Baja' && fb.getUTCFullYear()+'-'+String(fb.getUTCMonth()+1).padStart(2,'0')===kMes) bajasMes++;
+    });
+    if(el('inicio-resumen')) el('inicio-resumen').textContent =
+        activos.toLocaleString('es-MX')+' colaboradores activos · '+altasMes+(altasMes===1?' alta':' altas')+' y '+bajasMes+(bajasMes===1?' baja':' bajas')+' en '+MES[hoy.getMonth()]+'.';
+    if(el('inicio-foto') && sesionActual && sesionActual.usuario && !el('inicio-foto').dataset.listo){
+        el('inicio-foto').dataset.listo='1';
+        pintarFotoMarco(el('inicio-foto'),sesionActual.usuario.idInterno);
+    }
+    // Mini-gráficas: últimos 12 meses con movimiento
+    var ult=meses.slice(-12);
+    _sparkSVG(el('spark-activos'), ult.map(function(k){return cTend[k].activos;}));
+    _sparkSVG(el('spark-total'),   ult.map(function(k){return cTend[k].altas;}));
+    _sparkSVG(el('spark-bajas'),   ult.map(function(k){return cTend[k].bajas;}));
+    _sparkSVG(el('spark-rotacion'),ult.map(function(k){var a=cTend[k].activos; return a?cTend[k].bajas/a*100:0;}));
+    // Cumpleaños del mes (plantilla activa)
+    var mesHoy=hoy.getMonth(), diaHoy=hoy.getDate(), cumples=[];
+    D.forEach(function(r){
+        if((r["ESTATUS"]||'').toString().trim()!=='Activo') return;
+        var f=parseFechaFlexible(r["FECHA DE NACIMIENTO"]);
+        if(f && f.getUTCMonth()===mesHoy) cumples.push({r:r,dia:f.getUTCDate()});
+    });
+    cumples.sort(function(a,b){return a.dia-b.dia;});
+    if(el('inicio-cumples-tit')) el('inicio-cumples-tit').textContent='Cumpleaños de '+MES[mesHoy]+(cumples.length?' · '+cumples.length:'');
+    var ul=el('inicio-cumples');
+    if(ul){
+        if(!cumples.length){ ul.innerHTML='<li class="pr-vacio">Nadie cumple años este mes.</li>'; }
+        else{
+            // Primero los que faltan (incluido hoy), luego los que ya pasaron
+            var orden=cumples.filter(function(c){return c.dia>=diaHoy;}).concat(cumples.filter(function(c){return c.dia<diaHoy;}));
+            ul.innerHTML=orden.slice(0,8).map(function(c){
+                var nom=(c.r["NOMBRE DEL TRABAJADOR"]||'').toString();
+                var cuando=c.dia===diaHoy?'<b class="pr-hoy-tag">Hoy</b>':(c.dia<diaHoy?'<span class="pr-pasado">'+c.dia+' '+MES[mesHoy].slice(0,3)+'</span>':c.dia+' '+MES[mesHoy].slice(0,3));
+                return '<li>'+htmlFotoIniciales(nom,c.r["ID INTERNO"],34)
+                    +'<div class="min-w-0"><p class="pr-li-tit truncate">'+escHtmlInicio(nom)+'</p><p class="pr-li-sub truncate">'+escHtmlInicio((c.r["EMPRESA"]||'')+(c.r["PUESTO"]?' · '+c.r["PUESTO"]:''))+'</p></div>'
+                    +'<span class="pr-li-dato">'+cuando+'</span></li>';
+            }).join('')+(orden.length>8?'<li class="pr-vacio">y '+(orden.length-8)+' más</li>':'');
+            cargarFotosVisibles(ul);
+        }
+    }
+    renderPendientesInicio();
+}
+function escHtmlInicio(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+// Pendientes = avisos del centro de notificaciones, sin cumpleaños ni aniversarios
+function renderPendientesInicio(){
+    var ul=document.getElementById('inicio-pendientes');
+    if(!ul || typeof obtenerNotifsPorCategoria!=='function') return;
+    var g=obtenerNotifsPorCategoria();
+    var lista=g.todas.filter(function(n){return n.tipo!=='cumple' && n.tipo!=='aniversario';});
+    if(!lista.length){ ul.innerHTML='<li class="pr-vacio">Sin pendientes por ahora.</li>'; return; }
+    ul.innerHTML=lista.slice(0,6).map(function(n){
+        var est=NOTIF_ESTILOS[n.tipo]||NOTIF_ESTILOS.info, d=_notifDiasRestantes(n);
+        var dato=d===null?'':(d<0?'<b class="pr-venc">Vencido</b>':(d===0?'<b class="pr-hoy-tag">Hoy</b>':(d===1?'Mañana':'En '+d+' días')));
+        return '<li class="pr-clic" onclick="abrirCentroNotifs()"><span class="nt-icono '+est.iconBg+' pr-pend-ico"><i class="fas '+est.icon+'"></i></span>'
+            +'<div class="min-w-0"><p class="pr-li-tit truncate">'+escHtmlInicio(n.titulo)+'</p><p class="pr-li-sub truncate">'+escHtmlInicio(n.mensaje)+'</p></div>'
+            +'<span class="pr-li-dato">'+dato+'</span></li>';
+    }).join('')+(lista.length>6?'<li class="pr-vacio pr-clic" onclick="abrirCentroNotifs()">y '+(lista.length-6)+' pendientes más</li>':'');
+}
 
 async function cargarDashboard(){
     const _todosDash = await obtenerDatos(false);
@@ -7117,6 +7264,7 @@ async function cargarDashboard(){
     document.getElementById('kpi-genero-m').innerText=cGen["Mujer"];
     document.getElementById('kpi-genero-bar-h').style.width=pctH+'%';
     document.getElementById('kpi-genero-bar-m').style.width=(100-pctH)+'%';
+    try{ actualizarInicio(D,cTend,mesesOrdenados,activos); }catch(e){ console.warn('[Inicio]',e); }
 
     // Tabla resumen de finiquitos por año
     const tablaFin=document.getElementById('tabla-finiquitos-anio');
@@ -7166,9 +7314,9 @@ async function cargarDashboard(){
         data:{
             labels:mesesTend.map(fmtM),
             datasets:[
-                {label:'Activos', data:mesesTend.map(k=>cTend[k].activos), borderColor:PAL.activos,backgroundColor:'rgba(63,157,120,0.07)',tension:0.4,fill:true,pointRadius:2,pointBackgroundColor:PAL.activos,borderWidth:2},
-                {label:'Altas', data:mesesTend.map(k=>cTend[k].altas), borderColor:PAL.primario,backgroundColor:'rgba(109,62,232,0.07)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.primario,borderWidth:1.5},
-                {label:'Bajas', data:mesesTend.map(k=>cTend[k].bajas), borderColor:PAL.baja,backgroundColor:'rgba(224,82,77,0.07)',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.baja,borderWidth:1.5},
+                {label:'Activos', data:mesesTend.map(k=>cTend[k].activos), borderColor:PAL.activos,backgroundColor:PAL.activos+'1A',tension:0.4,fill:true,pointRadius:2,pointBackgroundColor:PAL.activos,borderWidth:2},
+                {label:'Altas', data:mesesTend.map(k=>cTend[k].altas), borderColor:PAL.primario,backgroundColor:PAL.primario+'12',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.primario,borderWidth:1.5},
+                {label:'Bajas', data:mesesTend.map(k=>cTend[k].bajas), borderColor:PAL.baja,backgroundColor:PAL.baja+'12',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.baja,borderWidth:1.5},
             ]
         },
         options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:PAL.grid}}}}

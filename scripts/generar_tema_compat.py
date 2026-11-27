@@ -37,11 +37,32 @@ out=[]
 css='\n'.join(re.findall(r'<style[^>]*>(.*?)</style>',html,re.S))
 css=re.sub(r'/\*.*?\*/','',css,flags=re.S)
 def reglas(css):
-    i=0; depth=0
-    # quitar @keyframes/@media anidados simple: procesar top level y dentro de @media sin condición de tema
-    for m in re.finditer(r'([^{}@]+)\{([^{}]*)\}',css):
-        yield m.group(1).strip(), m.group(2)
-for sel,body in reglas(css):
+    """Devuelve (media, selector, cuerpo). Respeta los @media (antes se aplanaban
+    y las reglas de celular terminaban aplicándose en escritorio) y omite @keyframes."""
+    pos=0; n=len(css)
+    def bloque(ini):
+        # devuelve índice del '}' que cierra el '{' en ini
+        d=0
+        for k in range(ini,n):
+            if css[k]=='{': d+=1
+            elif css[k]=='}':
+                d-=1
+                if d==0: return k
+        return n-1
+    while pos<n:
+        a=css.find('{',pos)
+        if a<0: break
+        cab=css[pos:a].strip(); fin=bloque(a)
+        if cab.startswith('@media'):
+            for m in re.finditer(r'([^{}]+)\{([^{}]*)\}',css[a+1:fin]):
+                yield cab, m.group(1).strip(), m.group(2)
+        elif cab.startswith('@'):
+            pass
+        else:
+            # cabecera puede traer basura previa (cierres); tomar desde el último ';' o '}'
+            yield None, cab, css[a+1:fin]
+        pos=fin+1
+for media,sel,body in reglas(css):
     if not sel or sel.startswith(('from','to')) or re.match(r'^[\d.]+%',sel): continue
     if sel.strip() in ('body','html','*,*::before,*::after'): continue
     if any(x in sel for x in ('#sidebar','nav-btn','nav-group','#login-screen','lp-','#app-loader','#global-loader','.spinner','::-webkit-scrollbar')): continue
@@ -66,7 +87,8 @@ for sel,body in reglas(css):
         if nv: decl.append(f'{"background-color" if prop.startswith("background") else prop}:{nv}!important')
     if decl:
         sels=','.join('html[data-tema] '+s.strip() for s in sel.split(',') if s.strip())
-        out.append(sels+'{'+';'.join(decl)+'}')
+        r=sels+'{'+';'.join(decl)+'}'
+        out.append(media+'{'+r+'}' if media else r)
 # 2) clases arbitrarias de Tailwind (bg-[oklch(..)], text-[..], border-[..]) en html y js
 def esc(c): return re.sub(r'([\[\]\(\)%.\/:#,])',r'\\\1',c)
 clases=set(re.findall(r'(?<![\w-])((?:hover:)?(?:bg|text|border)-\[(?:oklch\([^\]]*\)|#[0-9a-fA-F]{3,6})\](?:\/\d+)?)',html+js))
@@ -79,7 +101,7 @@ for c in sorted(clases):
     if not nv: continue
     if nv=='BORDE': nv='var(--borde-suave)'
     if hov and kind=='bg': nv='var(--hover)'
-    out.append(f'html[data-tema] main .{esc(c)}{":hover" if hov else ""}{{{prop}:{nv}!important}}')
+    out.append(f'html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .{esc(c)}{":hover" if hov else ""}{{{prop}:{nv}!important}}')
 # 3) estilos en línea frecuentes que arma main.js
 for v in ['#fff','#ffffff','white','#f8fafc','#fafafa','#f1f5f9','#f8f7ff','#f5f3ff','#eeecf5']:
     for sep in ['',' ']:

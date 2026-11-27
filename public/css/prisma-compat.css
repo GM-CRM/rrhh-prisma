@@ -24,7 +24,7 @@ html[data-tema] .dsh-kpi-val .unidad{color:var(--tx2)!important}
 html[data-tema] .dsh-kpi-sub{color:oklch(62% 0.01 285)!important}
 html[data-tema] .dsh-strip{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-strip > div + div{border-left-color:var(--borde-suave)!important}
-html[data-tema] .dsh-strip > div + div{border-top-color:var(--borde-suave)!important}
+@media(max-width:640px){html[data-tema] .dsh-strip > div + div{border-top-color:var(--borde-suave)!important}}
 html[data-tema] .dsh-filtros{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-filtros-bar:hover{background-color:var(--hover)!important}
 html[data-tema] .dsh-filtros-bar > i:first-child{color:oklch(60% 0.15 285)!important}
@@ -70,13 +70,13 @@ html[data-tema] .exp-tabla tbody td:nth-child(2){color:var(--tx)!important}
 html[data-tema] .exp-vacio i{color:oklch(85% 0.01 285)!important}
 html[data-tema] .exp-vacio .t{color:var(--tx2)!important}
 html[data-tema] .exp-vacio .s{color:oklch(62% 0.01 285)!important}
-html[data-tema] .exp-tabla tbody tr{border-color:var(--borde-suave)!important;background-color:var(--panel)!important}
-html[data-tema] .exp-tabla tbody tr:hover{background-color:var(--hover)!important}
-html[data-tema] .exp-tabla tbody td:nth-child(1){color:oklch(50% 0.14 285)!important;background-color:var(--sutil)!important}
-html[data-tema] .exp-tabla tbody td:nth-child(2){color:var(--tx)!important}
-html[data-tema] .exp-tabla tbody td:nth-child(3),html[data-tema] .exp-tabla tbody td:nth-child(4){color:var(--tx2)!important}
-html[data-tema] .exp-tabla tbody td:nth-child(3)::before,html[data-tema] .exp-tabla tbody td:nth-child(4)::before{color:oklch(62% 0.012 285)!important}
-html[data-tema] .exp-tabla tbody td:nth-child(6){border-top-color:var(--borde-suave)!important}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody tr{border-color:var(--borde-suave)!important;background-color:var(--panel)!important}}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody tr:hover{background-color:var(--hover)!important}}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody td:nth-child(1){color:oklch(50% 0.14 285)!important;background-color:var(--sutil)!important}}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody td:nth-child(2){color:var(--tx)!important}}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody td:nth-child(3),html[data-tema] .exp-tabla tbody td:nth-child(4){color:var(--tx2)!important}}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody td:nth-child(3)::before,html[data-tema] .exp-tabla tbody td:nth-child(4)::before{color:oklch(62% 0.012 285)!important}}
+@media (max-width:768px){html[data-tema] .exp-tabla tbody td:nth-child(6){border-top-color:var(--borde-suave)!important}}
 html[data-tema] .ab-wrap{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .ab-head{border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .ab-head h3{color:var(--tx)!important}
@@ -191,15 +191,15 @@ html[data-tema] .nt-bdg-rojo{background-color:var(--sutil)!important;color:oklch
 html[data-tema] .nt-bdg-ambar{background-color:var(--sutil)!important;color:oklch(43% 0.13 70)!important}
 html[data-tema] .nt-bdg-violeta{background-color:var(--sutil)!important;color:oklch(42% 0.17 285)!important}
 html[data-tema] .nt-bdg-verde{background-color:var(--sutil)!important;color:oklch(40% 0.13 155)!important}
-html[data-tema] main .bg-\[oklch\(96\%_0\.005_285\)\]{background-color:var(--sutil)!important}
-html[data-tema] main .border-\[oklch\(90\%_0\.008_285\)\]{border-color:var(--borde-suave)!important}
-html[data-tema] main .hover\:bg-\[oklch\(95\%_0\.006_285\)\]:hover{background-color:var(--hover)!important}
-html[data-tema] main .hover\:bg-\[oklch\(96\%_0\.03_25\)\]:hover{background-color:var(--hover)!important}
-html[data-tema] main .hover\:text-\[oklch\(20\%_0\.015_285\)\]:hover{color:var(--tx)!important}
-html[data-tema] main .text-\[oklch\(20\%_0\.015_285\)\]{color:var(--tx)!important}
-html[data-tema] main .text-\[oklch\(45\%_0\.01_285\)\]{color:var(--tx2)!important}
-html[data-tema] main .text-\[oklch\(45\%_0\.02_285\)\]{color:var(--tx2)!important}
-html[data-tema] main .text-\[oklch\(50\%_0\.01_285\)\]{color:var(--tx2)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .bg-\[oklch\(96\%_0\.005_285\)\]{background-color:var(--sutil)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .border-\[oklch\(90\%_0\.008_285\)\]{border-color:var(--borde-suave)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .hover\:bg-\[oklch\(95\%_0\.006_285\)\]:hover{background-color:var(--hover)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .hover\:bg-\[oklch\(96\%_0\.03_25\)\]:hover{background-color:var(--hover)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .hover\:text-\[oklch\(20\%_0\.015_285\)\]:hover{color:var(--tx)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(20\%_0\.015_285\)\]{color:var(--tx)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(45\%_0\.01_285\)\]{color:var(--tx2)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(45\%_0\.02_285\)\]{color:var(--tx2)!important}
+html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(50\%_0\.01_285\)\]{color:var(--tx2)!important}
 html[data-tema] [style*="background:#fff;"],html[data-tema] [style*="background:#fff\""],html[data-tema] [style$="background:#fff"]{background:var(--panel)!important}
 html[data-tema] [style*="background:#f8fafc;"],html[data-tema] [style*="background:#f8fafc\""],html[data-tema] [style$="background:#f8fafc"]{background:var(--sutil)!important}
 html[data-tema] [style*="background:#fafafa;"],html[data-tema] [style*="background:#fafafa\""],html[data-tema] [style$="background:#fafafa"]{background:var(--sutil)!important}
@@ -335,8 +335,6 @@ html[data-tema] [style*="color:oklch(20% 0.015 285)"]{color:var(--tx)!important}
 html[data-tema] [style*="color: oklch(20% 0.015 285)"]{color:var(--tx)!important}
 html[data-tema] [style*="background:oklch(94% 0.03 25)"]{background:var(--sutil)!important}
 html[data-tema] [style*="background: oklch(94% 0.03 25)"]{background:var(--sutil)!important}
-html[data-tema] [style*="color:oklch(18% 0.02 285)"]{color:var(--tx)!important}
-html[data-tema] [style*="color: oklch(18% 0.02 285)"]{color:var(--tx)!important}
 html[data-tema] [style*="background:oklch(96% 0.03 285)"]{background:var(--sutil)!important}
 html[data-tema] [style*="background: oklch(96% 0.03 285)"]{background:var(--sutil)!important}
 html[data-tema] [style*="background:oklch(96% 0.04 70)"]{background:var(--sutil)!important}
