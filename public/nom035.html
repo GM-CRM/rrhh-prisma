@@ -286,10 +286,13 @@ async function iniciarEncuesta(){
   const btn=$('btn-iniciar');
   btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
   try{
-    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}})});
+    const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre,tipo:'NOM035'}})});
     const d=await r.json();
-    if(d.status==='success'||d.status==='warning'){
-      empleadoId=d.empleado.idInterno||noemp;empleadoEmpresa=d.empleado.empresa||'';
+    // F21: solo se continua si el backend confirmo numero + nombre. Antes un
+    // "warning" (nombre que no coincide) o un error de red seguian adelante y
+    // la respuesta quedaba a nombre de otra persona con el mismo numero.
+    if(d.status==='success'&&d.empleado&&d.empleado.idInterno){
+      empleadoId=d.empleado.idInterno;empleadoEmpresa=d.empleado.empresa||'';
     } else if(d.status==='multiple'){
       btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';
       mostrarSelectorEmpresaNOM035(d.candidatos, noemp, nombre);
@@ -297,7 +300,7 @@ async function iniciarEncuesta(){
     } else {
       btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d.message||'Empleado no encontrado.');return
     }
-  }catch(e){empleadoId=noemp}
+  }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(T.errConexion);return}
   btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
   try{
     const r2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:{idInterno:empleadoId}})});
@@ -782,6 +785,8 @@ async function enviarTodoNOM035(){
       action:'guardar_respuesta_nom035',
       payload:{
         idInterno:empleadoId,
+        noEmpleado:($('inp-noemp').value||'').trim(),   // el servidor vuelve a verificar
+        nombre:empleadoNombre,                          // numero + nombre antes de guardar
         tipoCuestionario:nom035Data.tipoCuestionario,
         activosGrupo:nom035Data.activosGrupo,
         respuestasGI:gi_resp,

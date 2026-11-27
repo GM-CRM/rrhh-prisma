@@ -427,14 +427,15 @@ async function iniciarEncuesta(){
     btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Verificando...';
     try{
       const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({
-        action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre}
+        action:'buscar_empleado_encuesta',payload:{noEmpleado:noemp,nombre:nombre,tipo:encId}
       })});
       const d=await r.json();
       btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Comenzar encuesta';
-      if(d.status==='success'||d.status==='warning'){
-        empleadoId=d.empleado.idInterno||noemp;
+      // F21: solo se continua si el backend confirmo numero + nombre (antes un
+      // "warning" seguia "de todas formas" con otra persona del mismo numero).
+      if(d.status==='success'&&d.empleado&&d.empleado.idInterno){
+        empleadoId=d.empleado.idInterno;
         empleadoEmpresa=d.empleado.empresa||'';
-        if(d.status==='warning') mostrarError(d.message+' Continuando de todas formas.');
       } else if(d.status==='multiple'){
         btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Comenzar encuesta';
         mostrarSelectorEmpresaGenerico(d.candidatos);
@@ -445,7 +446,8 @@ async function iniciarEncuesta(){
       }
     }catch(e){
       btn.disabled=false; btn.innerHTML='<i class="fas fa-play"></i> Comenzar encuesta';
-      empleadoId=noemp; // fallback
+      mostrarError('No se pudo verificar tu registro. Revisa tu conexión e intenta de nuevo.');
+      return;
     }
   }
 
