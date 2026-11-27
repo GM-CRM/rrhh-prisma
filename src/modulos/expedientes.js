@@ -22,6 +22,9 @@ async function guardarArchivo(env, emp, { nombre, mime, bytes, categoria, usuari
     key = prefijo + nombreFinal;
   }
   await env.R2.put(key, bytes, { httpMetadata: { contentType: mime || "application/octet-stream" } });
+  // Confirmar que el archivo quedó guardado antes de registrarlo
+  const chk = await env.R2.head(key);
+  if (!chk || chk.size !== bytes.length) throw new Error("El archivo no se guardó completo en el almacenamiento. Intenta de nuevo.");
   const r = await env.DB.prepare(
     `INSERT INTO archivos (id_interno, categoria, r2_key, nombre_original, mime, bytes, subido_por, subido_en)
      VALUES (?,?,?,?,?,?,?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -82,12 +85,14 @@ async function obtenerFoto(p, env) {
   if (!folderId) return error("No se proporcionó folderId.");
   const emp = await empleadoPorFolder(env, folderId);
   if (!emp) return error("Este empleado no tiene foto de perfil asignada.");
-  const f = await env.DB.prepare(
+  const fotos = await env.DB.prepare(
     `SELECT r2_key, nombre_original FROM archivos WHERE id_interno = ? AND LOWER(nombre_original) LIKE '${PREFIJO_FOTO}%'
-       AND LOWER(COALESCE(mime,'')) IN ('image/jpeg','image/png','image/jpg') ORDER BY subido_en DESC, id DESC LIMIT 1`
-  ).bind(emp.id_interno).first();
-  if (!f) return error("Este empleado no tiene foto de perfil asignada.");
-  return ok({ url: await urlFirmada(env, f.r2_key), nombre: f.nombre_original });
+       AND LOWER(COALESCE(mime,'')) IN ('image/jpeg','image/png','image/jpg') ORDER BY subido_en DESC, id DESC LIMIT 5`
+  ).bind(emp.id_interno).all();
+  for (const f of fotos.results) {                       // la más reciente que exista de verdad en R2
+    if (await env.R2.head(f.r2_key)) return ok({ url: await urlFirmada(env, f.r2_key), nombre: f.nombre_original });
+  }
+  return error("Este empleado no tiene foto de perfil asignada.");
 }
 
 // ── listar_archivos_expediente ────────────────────────────────
@@ -97,9 +102,39 @@ async function listarArchivosExpediente(p, env) {
   if (!folderId) return error("No se proporcionó folderId.");
   const emp = await empleadoPorFolder(env, folderId);
   if (!emp) return ok({ archivos: [] });
-  const { results } = await env.DB.prepare(
+  const { results: filas } = await env.DB.prepare(
     "SELECT id, r2_key, nombre_original, mime, bytes, subido_en FROM archivos WHERE id_interno = ? ORDER BY subido_en DESC, id DESC"
   ).bind(emp.id_interno).all();
+
+  // Cruce con lo que REALMENTE hay en R2 (una sola consulta por carpeta):
+  //  · registro sin archivo (borrado desde el panel de Cloudflare) → no se muestra
+  //  · archivo sin registro (subido arrastrándolo al panel de R2) → se muestra y se registra
+  let results = filas;
+  const c = s(emp.carpeta);
+  if (c.startsWith("r2:")) {
+    const prefijo = c.slice(3);
+    const enR2 = new Map();
+    let cursor;
+    do {
+      const l = await env.R2.list({ prefix: prefijo, cursor, include: ["httpMetadata"] });
+      for (const o of l.objects) enR2.set(o.key, o);
+      cursor = l.truncated ? l.cursor : undefined;
+    } while (cursor);
+    results = filas.filter(a => enR2.has(a.r2_key));
+    const conocidos = new Set(filas.map(a => a.r2_key));
+    const nuevos = [...enR2.values()].filter(o => !conocidos.has(o.key) && !o.key.endsWith("/"));
+    for (const o of nuevos) {
+      const nombre = o.key.slice(prefijo.length);
+      const mime = (o.httpMetadata && o.httpMetadata.contentType) || "";
+      const subido = o.uploaded ? new Date(o.uploaded).toISOString() : new Date().toISOString();
+      const cat = nombre.toLowerCase().startsWith(PREFIJO_FOTO) ? "foto" : "expediente";
+      const ins = await env.DB.prepare(
+        "INSERT OR IGNORE INTO archivos (id_interno, categoria, r2_key, nombre_original, mime, bytes, subido_por, subido_en) VALUES (?,?,?,?,?,?,?,?) RETURNING id"
+      ).bind(emp.id_interno, cat, o.key, nombre, mime, o.size, "panel R2", subido).first();
+      results.push({ id: ins ? ins.id : "", r2_key: o.key, nombre_original: nombre, mime, bytes: o.size, subido_en: subido });
+    }
+    results.sort((a, b) => String(b.subido_en).localeCompare(String(a.subido_en)));
+  }
   const archivos = [];
   for (const a of results) {
     const mime = s(a.mime);
