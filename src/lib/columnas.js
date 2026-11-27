@@ -114,9 +114,13 @@ export function literal(v) {
 // ── Expresiones SQL para exportar_datos con la MISMA forma que GAS ──
 const SERIAL = c => `CASE WHEN v.${c} GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*' THEN CAST(round(julianday(substr(v.${c},1,10)) - 2415018.5) AS INTEGER) ELSE COALESCE(v.${c},'') END`;
 
+export const URL_EXPEDIENTE_SQL = `CASE WHEN v.carpeta LIKE 'r2:%' THEN '/expediente/folders/' || v.id_interno ELSE TRIM(COALESCE(v.carpeta,'')) END`;
+
 export function expresionExport(h, col, tipo) {
   if (tipo === "f" || tipo === "ft") return SERIAL(col);
   if (col === "fecha_nacimiento") return `COALESCE(strftime('%d/%m/%Y', v.fecha_nacimiento),'')`;
   if (col === "edad" || col === "para_ant_promedio") return `COALESCE(CAST(v.${col} AS TEXT),'')`;
+  // Expediente en R2 → URL "de carpeta" que el frontend ya sabe leer (/folders/<id>)
+  if (col === "carpeta") return URL_EXPEDIENTE_SQL;
   return `COALESCE(v.${col},'')`;
 }

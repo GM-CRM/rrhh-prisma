@@ -7,7 +7,8 @@
 import { s, ahoraISO, ok, error } from "../lib/util.js";
 import { requiereSesionValida, autenticarRequest, registrarEvento } from "../lib/sesion.js";
 import { activarAccesoInterno } from "./acceso_empleados.js";
-import { COLUMNAS, POR_ENCABEZADO, PROTEGIDOS, aValorD1, literal, expresionExport } from "../lib/columnas.js";
+import { COLUMNAS, POR_ENCABEZADO, PROTEGIDOS, aValorD1, literal, expresionExport, URL_EXPEDIENTE_SQL } from "../lib/columnas.js";
+import { urlCarpeta } from "../lib/archivos.js";
 
 const SESION_INVALIDA = { status: "error", message: "Sesión inválida o expirada." };
 const BLOQUE_EXPORT = 300;          // filas por consulta (cada bloque < 2 MB)
@@ -74,6 +75,8 @@ function nuevoIdPersona() {
   return "P" + Date.now().toString(36).toUpperCase().slice(-5) + (b[0] % 36).toString(36).toUpperCase() + (b[1] % 36).toString(36).toUpperCase();
 }
 
+// La URL que se exporta para expedientes en R2; si vuelve en un Excel no debe pisar la ubicación real
+const esUrlR2 = v => typeof v === "string" && v.trim().startsWith("/expediente/folders/");
 const esUrbanThink = e => /URBAN\s*THINK/i.test(s(e));
 const esObra = t => /obra/i.test(s(t));
 
@@ -84,7 +87,7 @@ async function exportarDatos(p, env) {
   if (!(await requiereSesionValida(env, p))) return SESION_INVALIDA;
   const pares = [];
   for (const [h, col, tipo] of COLUMNAS) pares.push(`'${h.replace(/'/g, "''")}', ${expresionExport(h, col, tipo)}`);
-  pares.push(`'URL EXPEDIENTE', TRIM(COALESCE(v.carpeta,''))`);          // GAS copiaba CARPETA a URL EXPEDIENTE
+  pares.push(`'URL EXPEDIENTE', ${URL_EXPEDIENTE_SQL}`);          // GAS copiaba CARPETA a URL EXPEDIENTE
   const sql = `SELECT json_group_array(json(o)) AS j FROM (
       SELECT json_object(${pares.join(", ")}) AS o
       FROM v_empleados v JOIN empleados e ON e.id_interno = v.id_interno
@@ -229,7 +232,7 @@ async function alta(p, env, ctx) {
 
   const esOperativo = /^operativ/i.test(s(p.tipoIngreso));
   return {
-    status: "success", message: "Alta registrada.", urlExpediente: carpeta, noEmpleado: noEmp, idInterno,
+    status: "success", message: "Alta registrada.", urlExpediente: urlCarpeta(idInterno), noEmpleado: noEmp, idInterno,
     esReingreso, idPersonaAnterior,
     contratoPrefill: {
       empresa, esUrbanThink: esUrbanThink(empresa), esObraUrbanThink: esUrbanThink(empresa) && esObra(p.tipoIngreso),
@@ -291,6 +294,7 @@ async function actualizarEmpleado(p, env, ctx) {
     if (PROTEGIDOS.has(nombre)) continue;
     const def = POR_ENCABEZADO[nombre];
     if (!def || def.tipo === "calc" || def.col === "id_interno") continue;
+    if (def.col === "carpeta" && esUrlR2(valor)) continue;          // no sobrescribir la ubicación real en R2
     sets.push(def.col + " = ?");
     vals.push(aValorD1(def.tipo, valor));
     nombres.push(nombre);
@@ -307,7 +311,7 @@ async function actualizarEmpleado(p, env, ctx) {
     catch (e) { console.log("[Update] Error activando portal: " + e); }
   }
   if (nombres.length) await registrarEvento(env, usuario.email, usuario.rol, "EDITAR_EMPLEADO", `${fila.id_interno}: ${nombres.join(", ")}`, empBuscar, "");
-  return ok({ message: "Actualizado: " + nombres.length + " campo(s) modificado(s) para el empleado #" + idBuscar + "." });
+  return ok({ message: "Actualizado: " + nombres.length + " campo(s) modificado(s) para el empleado #" + fila.id_interno + "." });
 }
 
 // ── importar_masivo ───────────────────────────────────────────
@@ -374,7 +378,7 @@ async function importarMasivo(p, env) {
   // con las mismas columnas. Solo se tocan columnas que vienen en el archivo.
   const grupos = new Map();
   for (const [id, emp] of actualizar) {
-    const cols = editables.filter(([h]) => (h in emp) && !PROTEGIDOS.has(h));
+    const cols = editables.filter(([h, c]) => (h in emp) && !PROTEGIDOS.has(h) && !(c === "carpeta" && esUrlR2(emp[h])));
     if (!cols.length) continue;
     const firma = cols.map(([h]) => h).join("\u0001");
     if (!grupos.has(firma)) grupos.set(firma, { cols, filas: [] });
@@ -402,6 +406,7 @@ async function importarMasivo(p, env) {
       let v = aValorD1(tipo, emp[h]);
       if (col === "nombre" && v === null) v = "";
       if (col === "id_persona" && !v) v = nuevoIdPersona();
+      if (col === "carpeta" && esUrlR2(v)) v = null;
       vals.push(literal(v));
     }
     const fila = "(" + vals.join(",") + ")";

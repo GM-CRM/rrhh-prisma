@@ -1,5 +1,6 @@
 # ── Datos sensibles: NUNCA al repositorio (se publicarían en Pages) ──
 CONTROL DE PERSONAL/
+Claude outputs/
 *.xlsx
 db/seed/
 # ── Local / herramientas ──

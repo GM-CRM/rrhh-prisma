@@ -191,6 +191,8 @@ AJUSTE_V11 = [
   accion TEXT, detalle TEXT, empresa TEXT, ip_device TEXT);""",
     "CREATE INDEX IF NOT EXISTS ix_eventos_fecha ON eventos(fecha_hora);",
     "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.2');",
+    "CREATE TABLE IF NOT EXISTS _config (clave TEXT PRIMARY KEY, valor TEXT NOT NULL);",
+    "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.3');",
 ]
 
 

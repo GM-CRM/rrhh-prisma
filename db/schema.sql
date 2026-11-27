@@ -1,9 +1,10 @@
 -- ============================================================
---  RRHH Prisma — Esquema D1 (SQLite)  v1.2  26-nov-2026
+--  RRHH Prisma — Esquema D1 (SQLite)  v1.3  26-nov-2026
 --  v1.1: no_empleado puede repetirse en la misma empresa (33 casos reales);
 --        evaluaciones con id propio (GAS generó id_eval duplicados).
 --  v1.2: eventos.empresa (GAS escribe 7 columnas aunque el encabezado tenga 6).
 --        Fechas-hora en UTC con 'Z' (el Sheet las guardaba en hora de México).
+--  v1.3: _config (clave de firma de enlaces a archivos; se genera sola).
 --  Fuente: BD_PWA_Multimedia (13 hojas)
 --
 --  Convenciones:
@@ -321,6 +322,12 @@ CREATE TABLE IF NOT EXISTS archivos (
 CREATE INDEX IF NOT EXISTS ix_archivos_emp       ON archivos(id_interno);
 CREATE INDEX IF NOT EXISTS ix_archivos_categoria ON archivos(categoria);
 
+-- ── CONFIGURACIÓN INTERNA ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS _config (
+  clave  TEXT PRIMARY KEY,
+  valor  TEXT NOT NULL
+);
+
 -- ── CONTROL DE MIGRACIONES DEL ESQUEMA ──────────────────────
 CREATE TABLE IF NOT EXISTS _schema_version (
   version     TEXT PRIMARY KEY,
@@ -329,3 +336,4 @@ CREATE TABLE IF NOT EXISTS _schema_version (
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.0');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.1');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.2');
+INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.3');
