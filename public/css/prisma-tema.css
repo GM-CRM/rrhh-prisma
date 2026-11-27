@@ -1,0 +1,159 @@
+/* ============================================================
+   RRHH Prisma — Tema visual "Vidrio y tablero" (rediseño 2026)
+   Claro y oscuro. Se carga AL FINAL del <head>: solo cambia la
+   apariencia; ningún ID, onclick ni función depende de este archivo.
+   ============================================================ */
+
+/* ── Tokens ─────────────────────────────────────────────────── */
+html[data-tema="oscuro"]{
+  color-scheme: dark;
+  --fondo: radial-gradient(900px 600px at 8% -10%, #3A3FD9 0%, transparent 60%), radial-gradient(800px 600px at 100% 10%, #7A2FC9 0%, transparent 55%), radial-gradient(900px 700px at 60% 110%, #0E8C88 0%, transparent 60%), #0A0E24;
+  --fondo-solido: #0A0E24;
+  --punto: rgba(255,255,255,.06);
+  --tx: #FFFFFF; --tx2: #C9D0F2; --tx3: #AEB6DD; --nav: #D5DAF5;
+  --vidrio: rgba(255,255,255,.08); --vidrio-fuerte: rgba(22,26,60,.86); --panel: rgba(255,255,255,.07);
+  --sutil: rgba(255,255,255,.06); --campo: rgba(255,255,255,.07);
+  --borde: rgba(255,255,255,.15); --borde-suave: rgba(255,255,255,.09);
+  --hover: rgba(255,255,255,.07); --seg: rgba(255,255,255,.18);
+  --sombra: inset 0 1px 0 rgba(255,255,255,.18), 0 30px 60px -30px rgba(0,0,0,.6);
+  --hero: linear-gradient(120deg, rgba(91,124,255,.35), rgba(163,91,255,.22) 50%, rgba(47,224,200,.18));
+  --activo: linear-gradient(120deg, rgba(125,162,255,.35), rgba(192,123,255,.25));
+  --azul: #9FB4FF; --ambar: #FFC266; --verde: #5FF0DA; --lila: #E2A8FF; --rosa: #FF9EC0;
+  --pista: rgba(255,255,255,.14); --anillo: rgba(255,255,255,.55);
+}
+html[data-tema="claro"]{
+  color-scheme: light;
+  --fondo: radial-gradient(900px 600px at 8% -10%, #C7D2FF 0%, transparent 60%), radial-gradient(800px 600px at 100% 10%, #EBD5FF 0%, transparent 55%), radial-gradient(900px 700px at 60% 110%, #C2F0E8 0%, transparent 60%), #F2F4FB;
+  --fondo-solido: #F2F4FB;
+  --punto: rgba(30,40,100,.07);
+  --tx: #161B3A; --tx2: #474F75; --tx3: #5F6790; --nav: #2C335A;
+  --vidrio: rgba(255,255,255,.62); --vidrio-fuerte: rgba(255,255,255,.92); --panel: rgba(255,255,255,.72);
+  --sutil: rgba(90,100,170,.07); --campo: rgba(255,255,255,.85);
+  --borde: rgba(90,100,170,.18); --borde-suave: rgba(90,100,170,.11);
+  --hover: rgba(255,255,255,.75); --seg: #FFFFFF;
+  --sombra: inset 0 1px 0 rgba(255,255,255,.9), 0 24px 50px -30px rgba(40,50,120,.35);
+  --hero: linear-gradient(120deg, rgba(91,124,255,.24), rgba(163,91,255,.16) 50%, rgba(47,224,200,.18));
+  --activo: linear-gradient(120deg, rgba(91,124,255,.22), rgba(163,91,255,.16));
+  --azul: #3550C8; --ambar: #A85F00; --verde: #08776A; --lila: #7B34C2; --rosa: #B8215A;
+  --pista: rgba(40,50,110,.12); --anillo: #FFFFFF;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+html[data-tema] body{
+  font-family: 'Figtree', system-ui, sans-serif !important;
+  color: var(--tx);
+  background: var(--fondo) !important;
+  background-attachment: fixed !important;
+  transition: background-color .3s ease;
+}
+html[data-tema] body::before{
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(var(--punto) 1px, transparent 1px); background-size: 22px 22px;
+}
+html[data-tema] :is(h1,h2,h3,.dsh-kpi-val,.dsh-num,#header-title){ font-family: 'Outfit', 'Figtree', sans-serif !important; letter-spacing: -0.015em; }
+html[data-tema] :focus-visible{ outline: 2px solid var(--azul); outline-offset: 2px; }
+html[data-tema] ::selection{ background: rgba(124,149,255,.35); }
+html[data-tema] main{ position: relative; z-index: 1; background: transparent !important; }
+
+/* ── Menú lateral (vidrio) ──────────────────────────────────── */
+html[data-tema] #sidebar{
+  background: var(--vidrio-fuerte) !important; color: var(--nav) !important;
+  border: 1px solid var(--borde); box-shadow: var(--sombra) !important;
+  backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+}
+@media (min-width: 768px){
+  html[data-tema] #sidebar{ margin: 14px 0 14px 14px; height: calc(100vh - 28px); border-radius: 24px; }
+  html[data-tema="oscuro"] #sidebar{ background: var(--vidrio) !important; }
+  html[data-tema="claro"] #sidebar{ background: rgba(255,255,255,.6) !important; }
+}
+html[data-tema] #sidebar .pr-marca{ border-bottom: 1px solid var(--borde-suave) !important; }
+html[data-tema] #sidebar .pr-marca-nombre{ font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 19px; color: var(--tx); line-height: 1.1; }
+html[data-tema] #sidebar .pr-marca-sub{ font-size: 12.5px; color: var(--tx3); }
+html[data-tema] .nav-btn{ color: var(--nav) !important; border: 1px solid transparent; border-radius: 14px !important; font-weight: 500; transition: background .15s, border-color .15s; }
+html[data-tema] .nav-btn:hover{ background: var(--hover) !important; color: var(--tx) !important; }
+html[data-tema] .nav-btn.is-active{ background: var(--activo) !important; border-color: var(--borde); color: var(--tx) !important; font-weight: 600; box-shadow: none !important; }
+html[data-tema] .nav-btn .pr-ico{ width: 28px; height: 28px; border-radius: 9px; display: inline-grid; place-items: center; flex-shrink: 0; font-size: 13px; }
+html[data-tema] .pr-ico.azul{ background: rgba(91,124,255,.2); color: var(--azul); }
+html[data-tema] .pr-ico.ambar{ background: rgba(255,170,60,.2); color: var(--ambar); }
+html[data-tema] .pr-ico.verde{ background: rgba(47,224,200,.18); color: var(--verde); }
+html[data-tema] .pr-ico.lila{ background: rgba(192,123,255,.2); color: var(--lila); }
+html[data-tema] .nav-btn.is-active .pr-ico{ background: linear-gradient(135deg, #5B7CFF, #9B5BFF); color: #FFFFFF; }
+html[data-tema] .nav-group-toggle{ text-transform: none !important; letter-spacing: 0 !important; font-size: 12.5px !important; font-weight: 600 !important; }
+html[data-tema] .nav-group-toggle[data-group="personal"]{ color: var(--ambar) !important; }
+html[data-tema] .nav-group-toggle[data-group="org"]{ color: var(--verde) !important; }
+html[data-tema] .nav-group-toggle[data-group="admin"]{ color: var(--lila) !important; }
+html[data-tema] #sidebar .pr-usuario{ margin: 10px 12px 14px; padding: 10px 12px; border-radius: 16px; background: var(--vidrio); border: 1px solid var(--borde); display: flex; align-items: center; gap: 10px; }
+html[data-tema] #sidebar .pr-usuario-nombre{ font-weight: 600; color: var(--tx); font-size: 14px; line-height: 1.2; }
+html[data-tema] #sidebar .pr-usuario-rol{ font-size: 12.5px; color: var(--tx3); }
+
+/* ── Fotos (marco con silueta si no hay foto) ───────────────── */
+.pr-foto{ position: relative; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: inline-block;
+  background: linear-gradient(160deg, #B7A1C9, #6F5A8E); box-shadow: 0 0 0 2px var(--anillo, #fff), 0 6px 14px -6px rgba(0,0,0,.45); }
+.pr-foto img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.pr-foto svg{ position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ── Barra superior (vidrio) ────────────────────────────────── */
+html[data-tema] main > header{
+  background: var(--vidrio) !important; border: 1px solid var(--borde) !important;
+  backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important;
+  margin: 14px 14px 0; border-radius: 20px; box-shadow: var(--sombra); top: 14px !important;
+}
+html[data-tema] #header-title{ color: var(--tx) !important; font-weight: 600 !important; font-size: 22px !important; }
+html[data-tema] main > header button, html[data-tema] main > header #header-usuario{ color: var(--tx2) !important; }
+html[data-tema] main > header button:hover{ background: var(--hover) !important; color: var(--tx) !important; }
+html[data-tema] #header-usuario{ background: var(--sutil) !important; }
+.pr-btn-tema{ display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border-radius: 12px;
+  border: 1px solid var(--borde); background: var(--vidrio); color: var(--tx) !important; font-weight: 600; font-size: 13px; cursor: pointer; }
+.pr-btn-tema i{ font-size: 14px; }
+html[data-tema="oscuro"] .pr-btn-tema i{ color: var(--ambar); }
+html[data-tema="claro"] .pr-btn-tema i{ color: var(--lila); }
+
+/* ── Paneles de vidrio ──────────────────────────────────────── */
+html[data-tema] :is(.chart-card,.dsh-panel,.kpi-card,.org-card,.mod-wrap,.exp-wrap,.ab-wrap){
+  background: var(--panel) !important; border: 1px solid var(--borde) !important; border-radius: 24px !important;
+  box-shadow: var(--sombra) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+html[data-tema] main .bg-white{ background-color: var(--panel) !important; }
+html[data-tema] main :is(.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-gray-100){ background-color: var(--sutil) !important; }
+html[data-tema] main .bg-slate-200{ background-color: var(--pista) !important; }
+html[data-tema] main :is(.border-slate-50,.border-slate-100,.border-slate-200,.border-slate-300,.border-gray-100,.border-gray-200){ border-color: var(--borde-suave) !important; }
+html[data-tema] main :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-800,.text-gray-700){ color: var(--tx) !important; }
+html[data-tema] main :is(.text-slate-600,.text-slate-500,.text-gray-600,.text-gray-500){ color: var(--tx2) !important; }
+html[data-tema] main :is(.text-slate-400,.text-slate-300,.text-gray-400){ color: var(--tx3) !important; }
+html[data-tema] main :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea){
+  background-color: var(--campo) !important; color: var(--tx) !important; border-color: var(--borde) !important;
+}
+html[data-tema] main :is(input,textarea)::placeholder{ color: var(--tx3) !important; opacity: 1; }
+html[data-tema] main table thead :is(th,tr){ background-color: var(--sutil) !important; color: var(--tx2) !important; }
+html[data-tema] main table tbody tr:hover{ background-color: var(--hover) !important; }
+html[data-tema] main :is(table,td,th){ border-color: var(--borde-suave) !important; }
+
+/* ── Ventanas emergentes, panel de avisos y editor ──────────── */
+html[data-tema] .swal2-popup{ background: var(--vidrio-fuerte) !important; color: var(--tx) !important; border: 1px solid var(--borde); border-radius: 24px !important;
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); box-shadow: 0 40px 80px -30px rgba(0,0,0,.6) !important; }
+html[data-tema] :is(.swal2-title,.swal2-html-container){ color: var(--tx) !important; }
+html[data-tema] .swal2-popup :is(input,select,textarea){ background: var(--campo) !important; color: var(--tx) !important; border-color: var(--borde) !important; }
+html[data-tema] .swal2-styled.swal2-confirm{ background: linear-gradient(120deg, #5B7CFF, #A35BFF 55%, #FF6BA6) !important; border: 0 !important; border-radius: 14px !important; box-shadow: 0 12px 30px -12px rgba(163,91,255,.8) !important; }
+html[data-tema] .swal2-styled.swal2-cancel{ background: var(--vidrio) !important; color: var(--tx) !important; border: 1px solid var(--borde) !important; border-radius: 14px !important; }
+html[data-tema] :is(#notif-panel,.notif-drawer,#drawer-editor,.dw-panel){ background: var(--vidrio-fuerte) !important; color: var(--tx); border-color: var(--borde) !important;
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+html[data-tema] #global-loader{ background: color-mix(in srgb, var(--fondo-solido) 80%, transparent) !important; }
+html[data-tema] .spinner{ border-color: var(--pista); border-left-color: #A35BFF; }
+
+/* Botón principal en degradado (las clases de botón primario existentes) */
+html[data-tema] :is(.exp-btn-primario,.ab-btn-primario,.dw-btn-guardar,.mod-btn.primario){
+  background: linear-gradient(120deg, #5B7CFF, #A35BFF 55%, #FF6BA6) !important; color: #FFFFFF !important; border: 0 !important;
+  box-shadow: 0 12px 30px -12px rgba(163,91,255,.8), inset 0 1px 0 rgba(255,255,255,.3) !important;
+}
+
+/* ── Inicio de sesión ───────────────────────────────────────── */
+html[data-tema] #login-screen{ background: var(--fondo) !important; }
+html[data-tema] #login-screen :is(.lp-card,.lp-wrap > div){ background: var(--vidrio-fuerte) !important; border: 1px solid var(--borde) !important; color: var(--tx); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
+
+/* ── Menos movimiento si el equipo lo pide ──────────────────── */
+@media (prefers-reduced-motion: reduce){ html[data-tema] body{ transition: none; } }
+
+/* ── Cifras con color del tablero (se conservan en ambos temas) ── */
+html[data-tema] .dsh-kpi-val.acento{ color: var(--azul) !important; }
+html[data-tema] .dsh-kpi-val.alerta{ color: var(--rosa) !important; }
+html[data-tema] .dsh-kpi-val.aviso{ color: var(--ambar) !important; }

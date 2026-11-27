@@ -4,8 +4,8 @@
   "description": "Sistema de Gestión de Recursos Humanos — RRHH Prisma",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e1b4b",
-  "theme_color": "#7c3aed",
+  "background_color": "#0A0E24",
+  "theme_color": "#0A0E24",
   "orientation": "any",
   "icons": [
     {
@@ -20,4 +20,4 @@
     "productivity"
   ],
   "lang": "es-MX"
-}
+}

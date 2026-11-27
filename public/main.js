@@ -31,6 +31,58 @@ const API_URL    = "/api";
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}
 function activarNav(btn){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('is-active'));btn.classList.add('is-active');}
 
+// ── Tema claro / oscuro (rediseño 2026) ─────────────────────────
+// El tema se fija en <html data-tema> desde index.html antes de pintar;
+// aquí solo se cambia, se recuerda en este navegador y se ajustan las gráficas.
+function temaActual(){return document.documentElement.getAttribute('data-tema')==='claro'?'claro':'oscuro';}
+function aplicarTemaUI(){
+    var tema=temaActual();
+    var ic=document.querySelector('#btn-tema i'), tx=document.getElementById('btn-tema-txt');
+    if(ic) ic.className='fas '+(tema==='claro'?'fa-sun':'fa-moon');
+    if(tx) tx.textContent=tema==='claro'?'Claro':'Oscuro';
+    var m=document.querySelector('meta[name="theme-color"]');
+    if(m) m.setAttribute('content',tema==='claro'?'#F2F4FB':'#0A0E24');
+    if(window.Chart&&Chart.defaults){
+        var cs=getComputedStyle(document.documentElement);
+        Chart.defaults.color=(cs.getPropertyValue('--tx2')||'#666').trim();
+        Chart.defaults.borderColor=(cs.getPropertyValue('--borde-suave')||'rgba(0,0,0,.1)').trim();
+        Chart.defaults.font.family="'Figtree', system-ui, sans-serif";
+        try{Object.values(Chart.instances||{}).forEach(function(c){
+            ['x','y','r'].forEach(function(k){var s=c.options.scales&&c.options.scales[k];if(s){if(s.ticks)s.ticks.color=Chart.defaults.color;if(s.grid)s.grid.color=Chart.defaults.borderColor;if(s.pointLabels)s.pointLabels.color=Chart.defaults.color;}});
+            if(c.options.plugins&&c.options.plugins.legend&&c.options.plugins.legend.labels)c.options.plugins.legend.labels.color=Chart.defaults.color;
+            c.update('none');
+        });}catch(e){}
+    }
+}
+function cambiarTema(){
+    var nuevo=temaActual()==='claro'?'oscuro':'claro';
+    document.documentElement.setAttribute('data-tema',nuevo);
+    try{localStorage.setItem('prisma_tema',nuevo);}catch(e){}
+    aplicarTemaUI();
+}
+document.addEventListener('DOMContentLoaded',aplicarTemaUI);
+
+// ── Foto con marco: la del expediente o una silueta ─────────────
+var SILUETA_SVG='<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="15.5" r="7" fill="#fff" opacity=".92"/><path d="M6 38c1.6-8 7.4-12 14-12s12.4 4 14 12z" fill="#fff" opacity=".92"/></svg>';
+var _fotoMarcoCache={};
+async function pintarFotoMarco(el,idInterno){
+    if(!el) return;
+    el.innerHTML=SILUETA_SVG;
+    idInterno=String(idInterno||'').trim();
+    if(!idInterno) return;
+    try{
+        if(!(idInterno in _fotoMarcoCache)){
+            var r=await enviarPeticion('obtener_foto',{folderId:idInterno});
+            _fotoMarcoCache[idInterno]=(r&&r.status==='success'&&r.url)?r.url:null;
+        }
+        var url=_fotoMarcoCache[idInterno];
+        if(!url) return;
+        var img=new Image(); img.alt='';
+        img.onload=function(){el.innerHTML='';el.appendChild(img);};
+        img.src=url;
+    }catch(e){}
+}
+
 // ── REDISEÑO: grupos colapsables del sidebar ("Gestión de Personal",
 // "Mi Organización", "Administración"). Solo pliega/despliega visualmente
 // y recuerda la preferencia en localStorage; no toca showModule/activarNav
@@ -2020,6 +2072,11 @@ function aplicarSesion(usuario){
     if(labelNav) labelNav.textContent=usuario.rol==='Administrador'?'Usuarios':'Mi Perfil';
     const headerUser=document.getElementById('header-usuario');
     if(headerUser) headerUser.textContent=usuario.nombre||'';
+    const sbNom=document.getElementById('sb-usuario-nombre');
+    if(sbNom) sbNom.textContent=usuario.nombre||'';
+    const sbRol=document.getElementById('sb-usuario-rol');
+    if(sbRol) sbRol.textContent=usuario.rol||'';
+    pintarFotoMarco(document.getElementById('sb-usuario-foto'),usuario.idInterno);
     window._empresasPermitidas=(usuario.rol!=='Administrador'&&usuario.empresas&&usuario.empresas.length)?usuario.empresas:null;
 }
 

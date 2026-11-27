@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prisma — RRHH</title>
-<meta name="theme-color" content="#0f172a">
+<meta name="theme-color" content="#0A0E24">
 <meta name="description" content="Prisma — Sistema de Gestión de Recursos Humanos">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,7 +17,10 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>/* Tema guardado (claro/oscuro) antes de pintar, para que no parpadee */
+(function(){var t="oscuro";try{t=localStorage.getItem("prisma_tema")||(window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches?"claro":"oscuro");}catch(e){}
+document.documentElement.setAttribute("data-tema",t==="claro"?"claro":"oscuro");})();</script>
 <style>
   *,*::before,*::after{box-sizing:border-box}
   body{font-family:'Inter',sans-serif;background:#f1f5f9;margin:0}
@@ -1658,6 +1661,8 @@ if ('serviceWorker' in navigator) {
 .lp-input::-ms-clear{display:none}
 </style>
  
+<link rel="stylesheet" href="css/prisma-compat.css?v=1">
+<link rel="stylesheet" href="css/prisma-tema.css?v=1">
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
@@ -1874,12 +1879,12 @@ if ('serviceWorker' in navigator) {
 class="fixed inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0
 bg-[oklch(16%_0.03_285)] text-[oklch(72%_0.012_285)] flex flex-col shadow-2xl z-40 transition-transform duration-300">
 
-<div class="p-5 border-b border-white/[0.06] flex justify-between items-center">
+<div class="pr-marca p-5 border-b border-white/[0.06] flex justify-between items-center">
 <div class="flex items-center gap-3">
-<img src="icon.png" alt="Prisma" class="w-10 h-10 rounded-xl shadow-[0_0_20px_oklch(55%_0.2_285/.3)]">
+<img src="icon.png" alt="Prisma" class="w-10 h-10 rounded-xl">
 <div>
-<p class="text-base font-extrabold text-white leading-tight tracking-tight">Prisma</p>
-<p class="text-[10px] text-[oklch(72%_0.15_285)] font-semibold tracking-widest uppercase mt-0.5">Recursos Humanos</p>
+<p class="pr-marca-nombre">Prisma</p>
+<p class="pr-marca-sub">Recursos Humanos</p>
 </div>
 </div>
 <button onclick="toggleMenu()" class="md:hidden text-[oklch(60%_0.01_285)] hover:text-white p-1 transition">
@@ -1891,7 +1896,7 @@ bg-[oklch(16%_0.03_285)] text-[oklch(72%_0.012_285)] flex flex-col shadow-2xl z-
 
 <button onclick="activarNav(this);showModule('dashboard')"
 class="nav-btn is-active w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm">
-<i class="fas fa-chart-pie w-4 text-[oklch(80%_0.13_285)]"></i><span class="font-medium">Indicadores</span>
+<span class="pr-ico azul"><i class="fas fa-chart-pie"></i></span><span class="font-medium">Indicadores</span>
 </button>
 
 <div class="nav-group pt-3">
@@ -1903,15 +1908,15 @@ class="nav-group-toggle w-full flex items-center justify-between px-3 mb-1 py-1 
 <div class="nav-group-items space-y-0.5" data-group-items="personal">
 <button onclick="activarNav(this);showModule('alta')"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-user-plus w-4 text-[oklch(55%_0.012_285)]"></i><span class="font-medium">Alta de Personal</span>
+<span class="pr-ico ambar"><i class="fas fa-user-plus"></i></span><span class="font-medium">Alta de Personal</span>
 </button>
 <button onclick="activarNav(this);showModule('baja')"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-user-minus w-4 text-[oklch(55%_0.012_285)]"></i><span class="font-medium">Baja de Personal</span>
+<span class="pr-ico ambar"><i class="fas fa-user-minus"></i></span><span class="font-medium">Baja de Personal</span>
 </button>
 <button onclick="activarNav(this);showModule('basedatos');cargarDatosTabla();"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-id-card w-4 text-[oklch(55%_0.012_285)]"></i><span class="font-medium">Expedientes</span>
+<span class="pr-ico ambar"><i class="fas fa-id-card"></i></span><span class="font-medium">Expedientes</span>
 </button>
 </div>
 </div>
@@ -1925,17 +1930,17 @@ class="nav-group-toggle w-full flex items-center justify-between px-3 mb-1 py-1 
 <div class="nav-group-items space-y-0.5" data-group-items="org">
 <button onclick="activarNav(this);showModule('personas');cargarModuloPersonas();"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-people-group w-4 text-[oklch(55%_0.012_285)]"></i>
+<span class="pr-ico verde"><i class="fas fa-people-group"></i></span>
 <span class="font-medium">Personas</span>
 </button>
 <button onclick="activarNav(this);showModule('evaluaciones');cargarModuloEvaluaciones();"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-star w-4 text-[oklch(55%_0.012_285)]"></i>
+<span class="pr-ico verde"><i class="fas fa-star"></i></span>
 <span class="font-medium">Evaluaciones</span>
 </button>
 <button onclick="activarNav(this);showModule('encuestas');cargarModuloEncuestas();"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-clipboard-list w-4 text-[oklch(55%_0.012_285)]"></i>
+<span class="pr-ico verde"><i class="fas fa-clipboard-list"></i></span>
 <span class="font-medium">Encuestas</span>
 </button>
 </div>
@@ -1950,12 +1955,20 @@ class="nav-group-toggle w-full flex items-center justify-between px-3 mb-1 py-1 
 <div class="nav-group-items space-y-0.5" data-group-items="admin">
 <button id="nav-btn-usuarios" onclick="activarNav(this);showModule('usuarios');cargarModuloUsuarios();"
 class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-sm group">
-<i class="fas fa-users-cog w-4 text-[oklch(55%_0.012_285)]"></i>
+<span class="pr-ico lila"><i class="fas fa-users-cog"></i></span>
 <span class="font-medium" id="nav-label-usuarios">Usuarios</span>
 </button>
 </div>
 </div>
 </nav>
+
+<div class="pr-usuario" id="sb-usuario" title="Usuario con sesión">
+<span class="pr-foto" id="sb-usuario-foto" style="width:40px;height:40px"></span>
+<div class="min-w-0">
+<p class="pr-usuario-nombre truncate" id="sb-usuario-nombre"></p>
+<p class="pr-usuario-rol truncate" id="sb-usuario-rol"></p>
+</div>
+</div>
 
 </aside>
 
@@ -1972,6 +1985,9 @@ class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left t
 <h2 class="text-base md:text-lg font-extrabold text-[oklch(20%_0.015_285)] tracking-tight" id="header-title">Indicadores</h2>
 </div>
 <div class="flex items-center gap-3">
+<button type="button" id="btn-tema" class="pr-btn-tema" onclick="cambiarTema()" title="Cambiar entre tema claro y oscuro" aria-label="Cambiar entre tema claro y oscuro">
+<i class="fas fa-moon"></i><span class="hidden md:inline" id="btn-tema-txt">Oscuro</span>
+</button>
 <button onclick="procesarLogout()" title="Cerrar sesión"
 class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] hover:text-[oklch(55%_0.18_25)] transition px-3 py-2 rounded-lg hover:bg-[oklch(96%_0.03_25)]">
 <i class="fas fa-sign-out-alt"></i>
@@ -2821,7 +2837,7 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.33"></script>
+<script src="main.js?v=69.34"></script>
 
  <div id="ses-aviso">
   <div class="ico"><i class="fas fa-clock-rotate-left"></i></div>
