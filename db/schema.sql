@@ -277,7 +277,11 @@ CREATE TABLE IF NOT EXISTS nom035_datos_trabajador (
   rotacion_turnos         TEXT,
   tiempo_puesto           TEXT,
   tiempo_experiencia      TEXT,
-  prellenados_corregidos  TEXT
+  prellenados_corregidos  TEXT,
+  anulada                 INTEGER NOT NULL DEFAULT 0,   -- 1 = no cuenta en resultados, informe 7.7 ni expediente
+  motivo_anulacion        TEXT,
+  anulada_por             TEXT,
+  anulada_en              TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_nom035dt_emp ON nom035_datos_trabajador(id_interno);
 
@@ -300,7 +304,11 @@ CREATE TABLE IF NOT EXISTS nom035_respuestas (
   filtro_jefe              TEXT,
   items_aplicables         INTEGER,
   items_totales            INTEGER,
-  ajuste_rango             TEXT
+  ajuste_rango             TEXT,
+  anulada                 INTEGER NOT NULL DEFAULT 0,   -- 1 = no cuenta en resultados, informe 7.7 ni expediente
+  motivo_anulacion        TEXT,
+  anulada_por             TEXT,
+  anulada_en              TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_nom035r_emp   ON nom035_respuestas(id_interno);
 CREATE INDEX IF NOT EXISTS ix_nom035r_fecha ON nom035_respuestas(fecha);
@@ -347,3 +355,4 @@ INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.1');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.2');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.3');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.4');
+INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.5');   -- anulación de respuestas NOM-035 (F21)

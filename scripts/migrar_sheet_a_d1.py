@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 RRHH Prisma — Migración Google Sheet (.xlsx) → Cloudflare D1
-v1.4  26-nov-2026
+v1.5  27-nov-2026
 
 Uso (desde la raíz del repo):
     pip install openpyxl
@@ -21,6 +21,8 @@ Reglas:
     porcentaje '50-50') se conservan tal cual: cero omisiones.
   * USUARIOS se lee por POSICIÓN (encabezados J-L desfasados en el Sheet).
   * El script es re-ejecutable: primero vacía las tablas.
+  * Al final agrega db/correcciones/*.sql (en orden): correcciones de datos
+    autorizadas que se aplican en cada carga (ej. F21, respuestas NOM-035 anuladas).
 """
 import sys, os, re, json, datetime, collections
 
@@ -195,6 +197,63 @@ AJUSTE_V11 = [
     "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.3');",
     "CREATE TABLE IF NOT EXISTS carpetas_drive (drive_id TEXT PRIMARY KEY, id_interno TEXT NOT NULL);",
     "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.4');",
+    # v1.5: NOM-035 con columnas de anulación (F21). Se recrean: el seed las vuelve a llenar completas.
+    "DROP TABLE IF EXISTS nom035_datos_trabajador;",
+    """CREATE TABLE nom035_datos_trabajador (
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha                   TEXT,
+  id_interno              TEXT NOT NULL,
+  grupo_comercial         TEXT,
+  sexo                    TEXT,
+  rango_edad              TEXT,
+  estado_civil            TEXT,
+  nivel_estudios          TEXT,
+  estudios_estatus        TEXT,
+  puesto                  TEXT,
+  departamento            TEXT,
+  tipo_puesto             TEXT,
+  tipo_contratacion       TEXT,
+  tipo_personal           TEXT,
+  tipo_jornada            TEXT,
+  rotacion_turnos         TEXT,
+  tiempo_puesto           TEXT,
+  tiempo_experiencia      TEXT,
+  prellenados_corregidos  TEXT,
+  anulada                 INTEGER NOT NULL DEFAULT 0,
+  motivo_anulacion        TEXT,
+  anulada_por             TEXT,
+  anulada_en              TEXT
+);""",
+    "DROP TABLE IF EXISTS nom035_respuestas;",
+    """CREATE TABLE nom035_respuestas (
+  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha                    TEXT,
+  id_interno               TEXT NOT NULL,
+  tipo_guia                TEXT,
+  activos_grupo            INTEGER,
+  gi_requiere_valoracion   TEXT,
+  gi_motivo                TEXT,
+  gi_respuestas_json       TEXT,
+  frp_puntaje_total        REAL,
+  frp_nivel_total          TEXT,
+  frp_dominios_json        TEXT,
+  frp_categorias_json      TEXT,
+  frp_respuestas_json      TEXT,
+  plan_accion              TEXT,
+  filtro_clientes          TEXT,
+  filtro_jefe              TEXT,
+  items_aplicables         INTEGER,
+  items_totales            INTEGER,
+  ajuste_rango             TEXT,
+  anulada                 INTEGER NOT NULL DEFAULT 0,
+  motivo_anulacion        TEXT,
+  anulada_por             TEXT,
+  anulada_en              TEXT
+);""",
+    "CREATE INDEX IF NOT EXISTS ix_nom035dt_emp ON nom035_datos_trabajador(id_interno);",
+    "CREATE INDEX IF NOT EXISTS ix_nom035r_emp   ON nom035_respuestas(id_interno);",
+    "CREATE INDEX IF NOT EXISTS ix_nom035r_fecha ON nom035_respuestas(fecha);",
+    "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.5');",
 ]
 
 
@@ -418,6 +477,15 @@ def main(xlsx):
                                          "ajuste_rango"], nr)
     conteo["nom035_respuestas"] = len(nr)
 
+    # ── Correcciones autorizadas (db/correcciones/*.sql, en orden) ──
+    raiz_c = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "correcciones")
+    correcciones = sorted(f for f in os.listdir(raiz_c) if f.endswith(".sql")) if os.path.isdir(raiz_c) else []
+    for nombre in correcciones:
+        with open(os.path.join(raiz_c, nombre), encoding="utf-8") as fc:
+            out.append(f"-- ═══ corrección: {nombre} ═══")
+            out += [l for l in fc.read().replace("\r\n", "\n").split("\n") if l.strip()]
+    conteo["nom035_respuestas_anuladas"] = sum(1 for l in out if l.startswith("UPDATE nom035_respuestas SET anulada = 1"))
+
     # ── Escribir ─────────────────────────────────────────────
     raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     destino = os.path.join(raiz, "db", "seed")
@@ -434,6 +502,7 @@ def main(xlsx):
            f"Generado: {datetime.datetime.now():%Y-%m-%d %H:%M}  ·  Fuente: `{os.path.basename(xlsx)}`", "",
            "## Conteos que deben cuadrar en D1", ""]
     rep += [f"- **{k}**: {v}" for k, v in conteo.items()]
+    rep += ["", "## Correcciones aplicadas al final del seed", ""] + ([f"- `{c}`" for c in correcciones] or ["Ninguna."])
     rep += ["", "## Avisos (revisar; ninguno detiene la carga)", ""]
     if not avisos:
         rep.append("Sin avisos.")
