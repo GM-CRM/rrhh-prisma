@@ -16,10 +16,11 @@ import personas from "./modulos/personas.js";
 import encuestas from "./modulos/encuestas.js";
 import evaluaciones from "./modulos/evaluaciones.js";
 import nom035 from "./modulos/nom035.js";
+import contratos from "./modulos/contratos.js";
 
-export const VERSION_API = "cf-1.7.0";
+export const VERSION_API = "cf-1.8.0";
 
-const MODULOS = [auth, accesoEmpleados, empleados, expedientes, ocr, personas, encuestas, evaluaciones, nom035];
+const MODULOS = [auth, accesoEmpleados, empleados, expedientes, ocr, personas, encuestas, evaluaciones, nom035, contratos];
 
 // Las 66 acciones del doPost() de GAS (Código.gs). Sirve como checklist de avance.
 export const ACCIONES_GAS = [

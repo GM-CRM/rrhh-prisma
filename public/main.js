@@ -7811,7 +7811,12 @@ async function abrirModalGenerarContrato(idInterno, prefillDirecto) {
       Swal.fire({
         icon: 'success',
         title: '¡Contrato generado!',
-        html: `<a href="${r.urlDoc}" target="_blank">Abrir Google Doc</a><br><a href="${r.urlPdf}" target="_blank">Abrir PDF</a>`,
+        // Cloudflare: el contrato se genera en Word (formato idéntico a la plantilla) y queda en el expediente.
+        html: r.urlPdf
+          ? `<a href="${r.urlDoc}" target="_blank">Abrir documento</a><br><a href="${r.urlPdf}" target="_blank">Abrir PDF</a>`
+          : `<a href="${r.urlDoc}" target="_blank" style="font-weight:700">Descargar contrato (Word)</a>
+             <p style="font-size:.78rem;color:#64748b;margin-top:10px;line-height:1.5">Quedó guardado en el expediente.
+             Para imprimirlo o enviarlo en PDF: ábrelo en Word → Archivo → Guardar como PDF.</p>`,
         confirmButtonText: 'Cerrar'
       });
     } else {

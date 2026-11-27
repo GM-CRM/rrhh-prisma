@@ -22,24 +22,29 @@ function crc32(b) {
   for (let i = 0; i < b.length; i++) c = TABLA_CRC[(c ^ b[i]) & 0xFF] ^ (c >>> 8);
   return (c ^ 0xFFFFFFFF) >>> 0;
 }
-function zip(archivos) {
+// archivos: [{ nombre, datos }]              → se guarda sin compresión (store)
+//           [{ nombre, crudo: {metodo, crc, comprimido, tam} }] → se copia tal cual
+//           (imágenes y demás partes de una plantilla: no se descomprimen)
+export function zip(archivos) {
   const partes = [], central = [];
   let offset = 0;
   const fecha = new Date(), dosT = (fecha.getHours() << 11) | (fecha.getMinutes() << 5) | (fecha.getSeconds() >> 1);
   const dosD = ((fecha.getFullYear() - 1980) << 9) | ((fecha.getMonth() + 1) << 5) | fecha.getDate();
   for (const a of archivos) {
-    const nombre = enc.encode(a.nombre), datos = typeof a.datos === "string" ? enc.encode(a.datos) : a.datos;
-    const crc = crc32(datos);
+    const nombre = enc.encode(a.nombre);
+    let metodo = 0, crc, datos, tam;
+    if (a.crudo) { metodo = a.crudo.metodo; crc = a.crudo.crc; datos = a.crudo.comprimido; tam = a.crudo.tam; }
+    else { datos = typeof a.datos === "string" ? enc.encode(a.datos) : a.datos; crc = crc32(datos); tam = datos.length; }
     const lh = new DataView(new ArrayBuffer(30));
     lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
-    lh.setUint16(8, 0, true); lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true);
-    lh.setUint32(14, crc, true); lh.setUint32(18, datos.length, true); lh.setUint32(22, datos.length, true);
+    lh.setUint16(8, metodo, true); lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, datos.length, true); lh.setUint32(22, tam, true);
     lh.setUint16(26, nombre.length, true); lh.setUint16(28, 0, true);
     partes.push(new Uint8Array(lh.buffer), nombre, datos);
     const ch = new DataView(new ArrayBuffer(46));
     ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
-    ch.setUint16(10, 0, true); ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true);
-    ch.setUint32(16, crc, true); ch.setUint32(20, datos.length, true); ch.setUint32(24, datos.length, true);
+    ch.setUint16(10, metodo, true); ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, datos.length, true); ch.setUint32(24, tam, true);
     ch.setUint16(28, nombre.length, true); ch.setUint32(42, offset, true);
     central.push(new Uint8Array(ch.buffer), nombre);
     offset += 30 + nombre.length + datos.length;
@@ -53,6 +58,48 @@ function zip(archivos) {
   let p = 0;
   for (const x of todo) { out.set(x, p); p += x.length; }
   return out;
+}
+
+// Lee un ZIP (.docx): [{ nombre, metodo, crc, comprimido, tam }] — sin descomprimir
+export function leerZip(bytes) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let fin = -1;
+  for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
+    if (v.getUint32(i, true) === 0x06054b50) { fin = i; break; }
+  }
+  if (fin < 0) throw new Error("El archivo no es un .docx válido (no es un ZIP).");
+  const total = v.getUint16(fin + 10, true);
+  let p = v.getUint32(fin + 16, true);
+  const dec = new TextDecoder();
+  const out = [];
+  for (let k = 0; k < total; k++) {
+    if (v.getUint32(p, true) !== 0x02014b50) throw new Error("ZIP dañado (directorio central).");
+    const metodo = v.getUint16(p + 10, true), crc = v.getUint32(p + 16, true);
+    const comp = v.getUint32(p + 20, true), tam = v.getUint32(p + 24, true);
+    const nLen = v.getUint16(p + 28, true), xLen = v.getUint16(p + 30, true), cLen = v.getUint16(p + 32, true);
+    const local = v.getUint32(p + 42, true);
+    const nombre = dec.decode(bytes.subarray(p + 46, p + 46 + nLen));
+    const ini = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
+    out.push({ nombre, metodo, crc, comprimido: bytes.subarray(ini, ini + comp), tam });
+    p += 46 + nLen + xLen + cLen;
+  }
+  return out;
+}
+
+// Contenido descomprimido de una entrada (método 0 = store, 8 = deflate)
+export async function contenidoZip(e) {
+  if (e.metodo === 0) return e.comprimido;
+  if (e.metodo !== 8) throw new Error("Compresión no soportada en " + e.nombre);
+  const s = new Blob([e.comprimido]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
+// Entrada nueva comprimida (deflate, nativo del Worker) para meter en zip()
+export async function entradaComprimida(nombre, datos) {
+  const raw = typeof datos === "string" ? enc.encode(datos) : datos;
+  const s = new Blob([raw]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const comprimido = new Uint8Array(await new Response(s).arrayBuffer());
+  return { nombre, crudo: { metodo: 8, crc: crc32(raw), comprimido, tam: raw.length } };
 }
 
 // ── XML de Word ───────────────────────────────────────────────
