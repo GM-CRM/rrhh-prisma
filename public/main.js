@@ -377,6 +377,7 @@ function abrirCentroNotifs(){
     panel.classList.remove('hidden');
     backdrop.classList.remove('hidden');
     renderizarNotificaciones();
+    setTimeout(function(){ try{actualizarFlechasNotif();}catch(e){} },380);
     // Doble rAF: deja que el navegador pinte el estado inicial (fuera de
     // pantalla) antes de agregar la clase que dispara la transición de
     // entrada — si se agrega en el mismo frame, el navegador colapsa
@@ -402,6 +403,20 @@ function toggleCentroNotifs(){
     else abrirCentroNotifs();
 }
 
+// Flechas para recorrer las categorías del centro de notificaciones
+function moverTabsNotif(dir){
+    var c=document.getElementById('notif-tabs'); if(!c) return;
+    c.scrollBy({left:dir*Math.max(140,c.clientWidth*0.6),behavior:'smooth'});
+    if(window.event) window.event.stopPropagation();
+}
+function actualizarFlechasNotif(){
+    var c=document.getElementById('notif-tabs'), iz=document.getElementById('nt-flecha-izq'), de=document.getElementById('nt-flecha-der');
+    if(!c||!iz||!de) return;
+    iz.hidden = c.scrollLeft<=4;
+    de.hidden = c.scrollLeft+c.clientWidth >= c.scrollWidth-4;
+}
+window.addEventListener('resize',function(){ try{actualizarFlechasNotif();}catch(e){} });
+
 function renderizarNotificaciones(){
     renderizarPestanasNotifs();
     renderizarListaNotifs();
@@ -422,6 +437,13 @@ function renderizarPestanasNotifs(){
             + (cuenta>0 ? '<span class="notif-tab-count '+(activa?'bg-white/25 text-white':'bg-white text-slate-500')+'">'+(cuenta>99?'99+':cuenta)+'</span>' : '')
             + '</button>';
     }).join('');
+    // La pestaña elegida siempre queda a la vista, y las flechas aparecen si hay más categorías
+    var _act=tabsCont.querySelector('[data-tab="'+notifTabActiva+'"]');
+    if(_act){ var _rc=tabsCont.getBoundingClientRect(), _ra=_act.getBoundingClientRect();
+        if(_act===tabsCont.firstElementChild) tabsCont.scrollLeft=0;
+        else if(_ra.left<_rc.left) tabsCont.scrollLeft-= (_rc.left-_ra.left)+24;
+        else if(_ra.right>_rc.right) tabsCont.scrollLeft+= (_ra.right-_rc.right)+24; }
+    requestAnimationFrame(actualizarFlechasNotif);
 
     // onclick= (no addEventListener): se reemplaza en cada render, nunca
     // se acumula. e.stopPropagation() asegura que el clic en una pestaña
@@ -6960,10 +6982,12 @@ let charts={};
 const _PAL_TEMA = {
   oscuro:{ primario:'#8EA2FF', primario2:'#A9B8FF', primario3:'#C4CEFF', primario4:'#DFE5FF',
            baja:'#FF7BA9', baja2:'#FF9CBE', baja3:'#FFBDD3', baja4:'#FFDCE8',
-           dinero:'#FFC266', activos:'#5FF0DA', grid:'rgba(255,255,255,.08)', texto:'#C9D0F2' },
+           dinero:'#FFC266', activos:'#5FF0DA', grid:'rgba(255,255,255,.08)', texto:'#C9D0F2',
+           azul:'#7DA2FF', lila:'#C07BFF', rosa:'#FF6BA6', verde:'#2FE0C8', ambar:'#FFC266', gris:'#8C93B8' },
   claro: { primario:'#4F6BF0', primario2:'#7A8FF4', primario3:'#A5B3F8', primario4:'#CDD5FB',
            baja:'#D63C74', baja2:'#E26C96', baja3:'#EC9CB8', baja4:'#F6CCDB',
-           dinero:'#D98A1C', activos:'#0E9C88', grid:'rgba(40,50,110,.08)', texto:'#474F75' }
+           dinero:'#D98A1C', activos:'#0E9C88', grid:'rgba(40,50,110,.08)', texto:'#474F75',
+           azul:'#4F6BF0', lila:'#8B4FE0', rosa:'#D63C74', verde:'#0E9C88', ambar:'#D98A1C', gris:'#9AA0C0' }
 };
 const PAL = {};
 Object.keys(_PAL_TEMA.oscuro).forEach(function(k){
@@ -7021,6 +7045,83 @@ function safeChart(id, config){
 function fmtMXN(n){return new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(n||0);}
 function calcEdad(val){const d=parseFechaFlexible(val);if(!d)return null;const h=new Date();let a=h.getFullYear()-d.getFullYear();if(h.getMonth()<d.getMonth()||(h.getMonth()===d.getMonth()&&h.getDate()<d.getDate()))a--;return a>=15&&a<=85?a:null;}
 function calcAnt(val){const d=parseFechaFlexible(val);if(!d)return null;const ms=new Date()-d;return ms<0?null:ms/(1000*60*60*24*365.25);}
+
+// ── Estilo de gráficas (diseño 2026): ejes discretos, degradados, tooltip de vidrio ──
+function ejeGrafica(){
+    return {border:{display:false},grid:{color:PAL.grid,drawTicks:false},ticks:{color:PAL.texto,padding:8,font:{family:"'Figtree',sans-serif",size:11}}};
+}
+function opcGrafica(){
+    var oscuro=document.documentElement.getAttribute('data-tema')!=='claro';
+    return {responsive:true,maintainAspectRatio:false,animation:{duration:700,easing:'easeOutQuart'},
+        interaction:{mode:'index',intersect:false},layout:{padding:{top:6,right:6}},
+        plugins:{legend:{display:false},
+            tooltip:{backgroundColor:oscuro?'rgba(22,26,60,.94)':'rgba(255,255,255,.97)',titleColor:oscuro?'#FFFFFF':'#161B3A',bodyColor:oscuro?'#C9D0F2':'#474F75',
+                borderColor:oscuro?'rgba(255,255,255,.15)':'rgba(90,100,170,.2)',borderWidth:1,padding:12,cornerRadius:12,boxPadding:5,usePointStyle:true,
+                titleFont:{family:"'Outfit',sans-serif",size:13,weight:'600'},bodyFont:{family:"'Figtree',sans-serif",size:12.5}}}};
+}
+function opcBarrasH(){
+    var o=opcGrafica(); o.interaction={mode:'nearest',axis:'y',intersect:false}; o.indexAxis='y';
+    o.scales={x:{...ejeGrafica(),beginAtZero:true},y:{...ejeGrafica(),grid:{display:false}}};
+    return o;
+}
+// Degradado para barras: 'h' de izquierda a derecha, 'v' de abajo hacia arriba
+function gradBarra(c1,c2,dir){
+    return function(ctx){
+        var ch=ctx.chart, a=ch.chartArea; if(!a) return c1;
+        var g=dir==='v'?ch.ctx.createLinearGradient(0,a.bottom,0,a.top):ch.ctx.createLinearGradient(a.left,0,a.right,0);
+        g.addColorStop(0,c1); g.addColorStop(1,c2); return g;
+    };
+}
+function textoCentroDona(valor,etiqueta){
+    return {id:'centroDona',afterDraw:function(ch){
+        var m=ch.getDatasetMeta(0); if(!m||!m.data.length) return;
+        var x=m.data[0].x, y=m.data[0].y, c=ch.ctx; c.save(); c.textAlign='center'; c.textBaseline='middle';
+        c.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--tx').trim()||'#fff';
+        c.font="600 28px 'Outfit',sans-serif"; c.fillText(Number(valor).toLocaleString('es-MX'),x,y-7);
+        c.fillStyle=PAL.texto; c.font="13px 'Figtree',sans-serif"; c.fillText(etiqueta,x,y+16); c.restore();
+    }};
+}
+window._tendMeses=12;
+function cambiarMesesTendencia(n){
+    window._tendMeses=n;
+    document.querySelectorAll('.pr-seg [data-meses]').forEach(function(b){ b.classList.toggle('on', +b.dataset.meses===n); });
+    dibujarTendencia();
+}
+function dibujarTendencia(){
+    var d=window._tendDatos; if(!d) return;
+    var meses=d.meses.slice(-(window._tendMeses||12)), cT=d.cTend;
+    var act=meses.map(function(k){return cT[k].activos;}), alt=meses.map(function(k){return cT[k].altas;}), baj=meses.map(function(k){return cT[k].bajas;});
+    var MESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    var dato=document.getElementById('tend-ultimo');
+    if(dato){
+        if(meses.length){ var k=meses[meses.length-1], p=k.split('-'), ini=act[0], fin=act[act.length-1], dif=fin-ini;
+            dato.innerHTML='<b>'+fin.toLocaleString('es-MX')+'</b> personas activas en '+MESL[+p[1]-1]+' '+p[0]
+                +(meses.length>1?' <span class="'+(dif>=0?'sube':'baja')+'">'+(dif>=0?'+':'')+dif+' en '+meses.length+' meses</span>':'');
+        } else dato.textContent='';
+    }
+    var maxMov=Math.max(1,Math.max.apply(null,alt.concat(baj)));
+    var n=act.length;
+    charts.tend=dc(charts.tend);
+    charts.tend=safeChart('chartTendencia',{
+        data:{
+            labels:meses.map(d.fmtM),
+            datasets:[
+                {type:'line',label:'Personas activas',data:act,yAxisID:'y',order:0,tension:0.4,borderWidth:3.5,
+                 borderColor:function(c){var ch=c.chart,a=ch.chartArea;if(!a)return PAL.azul;var g=ch.ctx.createLinearGradient(a.left,0,a.right,0);g.addColorStop(0,PAL.azul);g.addColorStop(.6,PAL.lila);g.addColorStop(1,PAL.rosa);return g;},
+                 backgroundColor:function(c){var ch=c.chart,a=ch.chartArea;if(!a)return 'transparent';var g=ch.ctx.createLinearGradient(0,a.top,0,a.bottom);g.addColorStop(0,PAL.azul+'73');g.addColorStop(1,PAL.azul+'00');return g;},
+                 fill:true,pointRadius:act.map(function(v,i){return i===n-1?6:0;}),pointHoverRadius:6,
+                 pointBackgroundColor:PAL.rosa,pointBorderColor:'#FFFFFF',pointBorderWidth:2.5},
+                {type:'bar',label:'Altas',data:alt,yAxisID:'y1',order:1,backgroundColor:PAL.verde+'99',borderRadius:5,borderSkipped:false,barPercentage:.5,categoryPercentage:.7},
+                {type:'bar',label:'Bajas',data:baj,yAxisID:'y1',order:1,backgroundColor:PAL.rosa+'8C',borderRadius:5,borderSkipped:false,barPercentage:.5,categoryPercentage:.7}
+            ]
+        },
+        options:{...opcGrafica(),scales:{
+            x:{...ejeGrafica(),grid:{display:false},ticks:{...ejeGrafica().ticks,maxRotation:0,autoSkip:true,autoSkipPadding:10}},
+            y:{...ejeGrafica(),grace:'12%'},
+            y1:{display:false,beginAtZero:true,max:maxMov*3.2}
+        }}
+    });
+}
 
 // ── Inicio: bienvenida, mini-gráficas de los KPI, pendientes y cumpleaños ──
 function _sparkSVG(svg,valores){
@@ -7282,20 +7383,36 @@ async function cargarDashboard(){
 
     const fmtM=k=>{const[y,m]=k.split('-');return['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][parseInt(m)-1]+' '+y.slice(2);};
 
-    // ── Gráfica: Empresas ──────────────────────────────────────
-    const empL=Object.keys(cEmp).map(e=>e.length>14?e.substring(0,14)+'…':e);
+    // ── Gráfica: Plantilla por empresa (dona + lista con activos y bajas) ──
+    const empOrden=Object.entries(cEmp).filter(([,v])=>v.act>0||v.baj>0).sort((a,b)=>b[1].act-a[1].act||b[1].baj-a[1].baj);
+    const empTop=empOrden.slice(0,5), empResto=empOrden.slice(5);
+    const empFilas=empTop.map(([k,v])=>({nom:k,act:v.act,baj:v.baj}));
+    if(empResto.length) empFilas.push({nom:'Otras '+empResto.length,act:empResto.reduce((s,[,v])=>s+v.act,0),baj:empResto.reduce((s,[,v])=>s+v.baj,0),otros:empResto.map(([k])=>k)});
+    const coloresDona=[PAL.azul,PAL.lila,PAL.verde,PAL.ambar,PAL.rosa,PAL.gris];
     charts.emp=dc(charts.emp);
-    charts.emp=safeChart('chartEmpresas',{type:'bar',data:{labels:empL,datasets:[{label:'Activos',data:Object.values(cEmp).map(v=>v.act),backgroundColor:PAL.primario,borderRadius:4},{label:'Bajas',data:Object.values(cEmp).map(v=>v.baj),backgroundColor:PAL.baja,borderRadius:4}]},options:{...CD,scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:PAL.grid}}}}});
+    charts.emp=safeChart('chartEmpresas',{
+        type:'doughnut',
+        data:{labels:empFilas.map(f=>f.nom),datasets:[{label:'Activos',data:empFilas.map(f=>f.act),backgroundColor:coloresDona,borderWidth:0,hoverOffset:6,spacing:2,borderRadius:4}]},
+        options:{...opcGrafica(),cutout:'72%',plugins:{...opcGrafica().plugins,tooltip:{...opcGrafica().plugins.tooltip,callbacks:{label:c=>' '+c.raw+' activos'}}}},
+        plugins:[textoCentroDona(activos,'activos')]
+    });
+    const listaEmp=document.getElementById('lista-empresas');
+    if(listaEmp){
+        listaEmp.innerHTML=empFilas.length?empFilas.map((f,ix)=>'<li'+(f.otros?' title="'+escHtmlInicio(f.otros.join(', '))+'"':'')+'><span class="sw" style="background:'+coloresDona[ix]+'"></span>'
+            +'<span class="nom">'+escHtmlInicio(f.nom)+'</span><b>'+f.act+'</b>'
+            +(f.baj?'<span class="baj">'+f.baj+(f.baj===1?' baja':' bajas')+'</span>':'<span class="baj"></span>')+'</li>').join('')
+            :'<li class="pr-vacio">Sin datos</li>';
+    }
 
     // ── Gráfica: Rango de edad ─────────────────────────────────
     charts.rango=dc(charts.rango);
-    charts.rango=safeChart('chartRangoEdad',{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:[PAL.primario,PAL.primario2,PAL.primario3,PAL.primario4],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:PAL.grid}},y:{grid:{display:false}}}}});
+    charts.rango=safeChart('chartRangoEdad',{type:'bar',data:{labels:['< 31 años','31–50 años','51–65 años','> 65 años'],datasets:[{label:'Colaboradores',data:Object.values(cRango),backgroundColor:gradBarra(PAL.azul,PAL.lila,'h'),borderRadius:8,borderSkipped:false,barThickness:18}]},options:opcBarrasH()});
 
     // ── Gráfica: Motivos de baja ───────────────────────────────
     const mot=Object.entries(cMotivo).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.mot=dc(charts.mot);
     if(mot.length){
-        charts.mot=safeChart('chartMotivoBaja',{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:[PAL.baja,PAL.baja,PAL.baja2,PAL.baja2,PAL.baja3,PAL.baja3,PAL.baja4,PAL.baja4],borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:PAL.grid}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+        charts.mot=safeChart('chartMotivoBaja',{type:'bar',data:{labels:mot.map(([k])=>k.length>22?k.substring(0,22)+'…':k),datasets:[{label:'Bajas',data:mot.map(([,v])=>v),backgroundColor:gradBarra(PAL.rosa,PAL.ambar,'h'),borderRadius:8,borderSkipped:false,barThickness:14}]},options:opcBarrasH()});
     } else {
         chartSinDatos('chartMotivoBaja','Sin bajas registradas aún');
     }
@@ -7303,24 +7420,11 @@ async function cargarDashboard(){
     // ── Gráfica: Top departamentos ─────────────────────────────
     const dep=Object.entries(cDepto).sort((a,b)=>b[1]-a[1]).slice(0,8);
     charts.dep=dc(charts.dep);
-    charts.dep=safeChart('chartDeptos',{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:PAL.primario,borderRadius:6}]},options:{...CD,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:PAL.grid}},y:{grid:{display:false},ticks:{font:{size:10}}}}}});
+    charts.dep=safeChart('chartDeptos',{type:'bar',data:{labels:dep.map(([k])=>k.length>20?k.substring(0,20)+'…':k),datasets:[{label:'Activos',data:dep.map(([,v])=>v),backgroundColor:gradBarra(PAL.verde,PAL.azul,'h'),borderRadius:8,borderSkipped:false,barThickness:14}]},options:opcBarrasH()});
 
-    // ── Gráfica: Tendencia mensual — Altas, Bajas y Activos ───
-    // Muestra los últimos 24 meses con 3 líneas
-    const mesesTend=mesesOrdenados.slice(-24);
-    charts.tend=dc(charts.tend);
-    charts.tend=safeChart('chartTendencia',{
-        type:'line',
-        data:{
-            labels:mesesTend.map(fmtM),
-            datasets:[
-                {label:'Activos', data:mesesTend.map(k=>cTend[k].activos), borderColor:PAL.activos,backgroundColor:PAL.activos+'1A',tension:0.4,fill:true,pointRadius:2,pointBackgroundColor:PAL.activos,borderWidth:2},
-                {label:'Altas', data:mesesTend.map(k=>cTend[k].altas), borderColor:PAL.primario,backgroundColor:PAL.primario+'12',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.primario,borderWidth:1.5},
-                {label:'Bajas', data:mesesTend.map(k=>cTend[k].bajas), borderColor:PAL.baja,backgroundColor:PAL.baja+'12',tension:0.4,fill:false,pointRadius:2,pointBackgroundColor:PAL.baja,borderWidth:1.5},
-            ]
-        },
-        options:{...CD,scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{beginAtZero:true,grid:{color:PAL.grid}}}}
-    });
+    // ── Gráfica: Tendencia mensual — personas activas, altas y bajas ───
+    window._tendDatos={meses:mesesOrdenados,cTend:cTend,fmtM:fmtM};
+    dibujarTendencia();
 
     // ── Gráfica: Finiquitos pagados por MES ────────────────────
     // BUG FIX: era por año, ahora por mes. BUG FIX: "schools" → "scales"
@@ -7335,19 +7439,19 @@ async function cargarDashboard(){
                 datasets:[{
                     label:'Finiquitos',
                     data:mesesFin.map(m=>finPorMes[m]),
-                    backgroundColor:PAL.dinero,
-                    borderRadius:4
+                    backgroundColor:gradBarra(PAL.ambar,PAL.rosa,'v'),
+                    borderRadius:8,borderSkipped:false,maxBarThickness:22
                 }]
             },
             options:{
-                ...CD,
+                ...opcGrafica(),
                 plugins:{
-                    legend:{display:false},
-                    tooltip:{callbacks:{label:ctx=>' '+fmtMXN(ctx.raw)}}
+                    ...opcGrafica().plugins,
+                    tooltip:{...opcGrafica().plugins.tooltip,callbacks:{label:ctx=>' '+fmtMXN(ctx.raw)}}
                 },
-                scales:{   // ← BUG FIX: era "schools"
-                    x:{grid:{display:false},ticks:{font:{size:10}}},
-                    y:{beginAtZero:true,grid:{color:PAL.grid},ticks:{callback:v=>fmtMXN(v),font:{size:10}}}
+                scales:{
+                    x:{...ejeGrafica(),grid:{display:false}},
+                    y:{...ejeGrafica(),beginAtZero:true,ticks:{...ejeGrafica().ticks,callback:v=>fmtMXN(v)}}
                 }
             }
         });

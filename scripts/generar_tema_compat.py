@@ -101,7 +101,7 @@ for c in sorted(clases):
     if not nv: continue
     if nv=='BORDE': nv='var(--borde-suave)'
     if hov and kind=='bg': nv='var(--hover)'
-    out.append(f'html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .{esc(c)}{":hover" if hov else ""}{{{prop}:{nv}!important}}')
+    out.append(f'html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .{esc(c)}{":hover" if hov else ""}{{{prop}:{nv}!important}}')
 # 3) estilos en línea frecuentes que arma main.js
 for v in ['#fff','#ffffff','white','#f8fafc','#fafafa','#f1f5f9','#f8f7ff','#f5f3ff','#eeecf5']:
     for sep in ['',' ']:

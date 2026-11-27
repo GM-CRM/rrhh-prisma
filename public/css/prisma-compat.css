@@ -191,15 +191,15 @@ html[data-tema] .nt-bdg-rojo{background-color:var(--sutil)!important;color:oklch
 html[data-tema] .nt-bdg-ambar{background-color:var(--sutil)!important;color:oklch(43% 0.13 70)!important}
 html[data-tema] .nt-bdg-violeta{background-color:var(--sutil)!important;color:oklch(42% 0.17 285)!important}
 html[data-tema] .nt-bdg-verde{background-color:var(--sutil)!important;color:oklch(40% 0.13 155)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .bg-\[oklch\(96\%_0\.005_285\)\]{background-color:var(--sutil)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .border-\[oklch\(90\%_0\.008_285\)\]{border-color:var(--borde-suave)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .hover\:bg-\[oklch\(95\%_0\.006_285\)\]:hover{background-color:var(--hover)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .hover\:bg-\[oklch\(96\%_0\.03_25\)\]:hover{background-color:var(--hover)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .hover\:text-\[oklch\(20\%_0\.015_285\)\]:hover{color:var(--tx)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(20\%_0\.015_285\)\]{color:var(--tx)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(45\%_0\.01_285\)\]{color:var(--tx2)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(45\%_0\.02_285\)\]{color:var(--tx2)!important}
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .text-\[oklch\(50\%_0\.01_285\)\]{color:var(--tx2)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .bg-\[oklch\(96\%_0\.005_285\)\]{background-color:var(--sutil)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .border-\[oklch\(90\%_0\.008_285\)\]{border-color:var(--borde-suave)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .hover\:bg-\[oklch\(95\%_0\.006_285\)\]:hover{background-color:var(--hover)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .hover\:bg-\[oklch\(96\%_0\.03_25\)\]:hover{background-color:var(--hover)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .hover\:text-\[oklch\(20\%_0\.015_285\)\]:hover{color:var(--tx)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .text-\[oklch\(20\%_0\.015_285\)\]{color:var(--tx)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .text-\[oklch\(45\%_0\.01_285\)\]{color:var(--tx2)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .text-\[oklch\(45\%_0\.02_285\)\]{color:var(--tx2)!important}
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .text-\[oklch\(50\%_0\.01_285\)\]{color:var(--tx2)!important}
 html[data-tema] [style*="background:#fff;"],html[data-tema] [style*="background:#fff\""],html[data-tema] [style$="background:#fff"]{background:var(--panel)!important}
 html[data-tema] [style*="background:#f8fafc;"],html[data-tema] [style*="background:#f8fafc\""],html[data-tema] [style$="background:#f8fafc"]{background:var(--sutil)!important}
 html[data-tema] [style*="background:#fafafa;"],html[data-tema] [style*="background:#fafafa\""],html[data-tema] [style$="background:#fafafa"]{background:var(--sutil)!important}

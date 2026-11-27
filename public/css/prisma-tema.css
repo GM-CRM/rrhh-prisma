@@ -113,20 +113,20 @@ html[data-tema] :is(.chart-card,.dsh-panel,.kpi-card,.org-card,.mod-wrap,.exp-wr
   background: var(--panel) !important; border: 1px solid var(--borde) !important; border-radius: 24px !important;
   box-shadow: var(--sombra) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) .bg-white{ background-color: var(--panel) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-gray-100){ background-color: var(--sutil) !important; }
-html[data-tema] :is(main,#drawer-editor,[id^="modal-"]) .bg-slate-200{ background-color: var(--pista) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.border-slate-50,.border-slate-100,.border-slate-200,.border-slate-300,.border-gray-100,.border-gray-200){ border-color: var(--borde-suave) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-800,.text-gray-700){ color: var(--tx) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.text-slate-600,.text-slate-500,.text-gray-600,.text-gray-500){ color: var(--tx2) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(.text-slate-400,.text-slate-300,.text-gray-400){ color: var(--tx3) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea){
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) .bg-white{ background-color: var(--panel) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-gray-100){ background-color: var(--sutil) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,[id^="modal-"]) .bg-slate-200{ background-color: var(--pista) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(.border-slate-50,.border-slate-100,.border-slate-200,.border-slate-300,.border-gray-100,.border-gray-200){ border-color: var(--borde-suave) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-gray-800,.text-gray-700){ color: var(--tx) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(.text-slate-600,.text-slate-500,.text-gray-600,.text-gray-500){ color: var(--tx2) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(.text-slate-400,.text-slate-300,.text-gray-400){ color: var(--tx3) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea){
   background-color: var(--campo) !important; color: var(--tx) !important; border-color: var(--borde) !important;
 }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(input,textarea)::placeholder{ color: var(--tx3) !important; opacity: 1; }
-html[data-tema] :is(main,#drawer-editor,[id^="modal-"]) table thead :is(th,tr){ background-color: var(--sutil) !important; color: var(--tx2) !important; }
-html[data-tema] :is(main,#drawer-editor,[id^="modal-"]) table tbody tr:hover{ background-color: var(--hover) !important; }
-html[data-tema] :is(main,#drawer-editor,.swal2-popup,[id^="modal-"]) :is(table,td,th){ border-color: var(--borde-suave) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(input,textarea)::placeholder{ color: var(--tx3) !important; opacity: 1; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,[id^="modal-"]) table thead :is(th,tr){ background-color: var(--sutil) !important; color: var(--tx2) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,[id^="modal-"]) table tbody tr:hover{ background-color: var(--hover) !important; }
+html[data-tema] :is(main,#drawer-editor,#notif-panel,.swal2-popup,[id^="modal-"]) :is(table,td,th){ border-color: var(--borde-suave) !important; }
 
 /* ── Ventanas emergentes, panel de avisos y editor ──────────── */
 html[data-tema] .swal2-popup{ background: var(--vidrio-fuerte) !important; color: var(--tx) !important; border: 1px solid var(--borde); border-radius: 24px !important;
@@ -278,3 +278,50 @@ html[data-tema] #drawer-titulo{ display: flex; align-items: center; gap: 14px; f
 /* Expediente: etiquetas en tipo normal, pestaña activa legible en oscuro */
 html[data-tema] #drawer-editor .uppercase{ text-transform: none !important; letter-spacing: 0 !important; font-size: 12.5px !important; }
 html[data-tema="oscuro"] .drawer-tab.drawer-tab-activa{ color: var(--azul) !important; border-color: var(--azul) !important; background: var(--hover) !important; }
+
+/* ── Centro de notificaciones ───────────────────────────────── */
+html[data-tema] #notif-panel{ border-left: 1px solid var(--borde) !important; }
+html[data-tema] .nt-card{ background: var(--panel) !important; border-color: var(--borde-suave) !important; }
+html[data-tema] .nt-card.nt-leida{ opacity: .72; }
+html[data-tema] .nt-card .text-slate-300{ color: var(--tx3) !important; }
+html[data-tema="oscuro"] :is(.nt-ico-rojo,.nt-bdg-rojo){ background: rgba(255,107,166,.16) !important; color: var(--rosa) !important; }
+html[data-tema="oscuro"] :is(.nt-ico-ambar,.nt-bdg-ambar){ background: rgba(255,170,60,.16) !important; color: var(--ambar) !important; }
+html[data-tema="oscuro"] :is(.nt-ico-violeta,.nt-bdg-violeta){ background: rgba(192,123,255,.18) !important; color: var(--lila) !important; }
+html[data-tema="oscuro"] :is(.nt-ico-verde,.nt-bdg-verde){ background: rgba(47,224,200,.16) !important; color: var(--verde) !important; }
+html[data-tema] .notif-emp-btn{ color: var(--azul) !important; }
+/* Pestañas con flechas para recorrer las categorías */
+.nt-tabs-nav{ position: relative; display: flex; align-items: center; }
+.nt-tabs-nav > #notif-tabs{ flex: 1; min-width: 0; scroll-behavior: smooth; }
+.nt-flecha{ flex-shrink: 0; width: 30px; height: 30px; margin: 0 4px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px; cursor: pointer; color: var(--tx, #1e1b3a);
+  background: var(--vidrio, #fff); border: 1px solid var(--borde, #ddd); box-shadow: 0 6px 16px -8px rgba(0,0,0,.45); }
+.nt-flecha:hover{ background: var(--hover, #f4f4fa); }
+.nt-tabs-nav{ padding: 0 6px; }
+.nt-flecha[hidden]{ display: none; }
+html[data-tema] .nt-card [class*="nt-ico-"] i{ color: inherit !important; }
+
+/* ── Gráficas del tablero ───────────────────────────────────── */
+.pr-tend-dato{ margin: 6px 0 0; font-size: 14px; color: var(--tx2); }
+.pr-tend-dato b{ font-family: 'Outfit', sans-serif; font-size: 22px; font-weight: 600; color: var(--tx); margin-right: 4px; }
+.pr-tend-dato .sube{ color: var(--verde); font-weight: 600; margin-left: 6px; }
+.pr-tend-dato .baja{ color: var(--rosa); font-weight: 600; margin-left: 6px; }
+.pr-seg{ display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--sutil); border: 1px solid var(--borde-suave); flex-shrink: 0; }
+.pr-seg button{ border: 0; background: transparent; color: var(--tx2); font-size: 13px; font-weight: 500; padding: 5px 11px; border-radius: 9px; cursor: pointer; }
+.pr-seg button.on{ background: var(--seg); color: var(--tx); font-weight: 600; box-shadow: 0 2px 8px -4px rgba(0,0,0,.35); }
+.pr-panel-tend .pr-panel-cab{ align-items: flex-start; flex-wrap: wrap; }
+.pr-leyenda{ display: flex; flex-wrap: wrap; gap: 18px; margin-top: 10px; font-size: 13px; color: var(--tx2); }
+.pr-leyenda span{ display: inline-flex; align-items: center; gap: 7px; }
+.pr-leyenda .sw{ width: 10px; height: 10px; border-radius: 3px; opacity: .8; }
+.pr-leyenda .sw.linea{ width: 18px; height: 4px; border-radius: 2px; opacity: 1; background: linear-gradient(90deg, var(--azul), var(--lila), var(--rosa)); }
+.pr-dona{ display: flex; align-items: center; gap: 22px; flex-wrap: wrap; min-height: 15rem; }
+.pr-dona-graf{ position: relative; width: 200px; height: 200px; flex-shrink: 0; margin: 0 auto; }
+.pr-dona-lista{ list-style: none; margin: 0; padding: 0; flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pr-dona-lista li{ display: grid; grid-template-columns: 12px 1fr auto 70px; align-items: center; gap: 10px; padding: 7px 6px; font-size: 14px; color: var(--tx); border-radius: 10px; }
+.pr-dona-lista li + li{ border-top: 1px solid var(--borde-suave); }
+.pr-dona-lista .sw{ width: 12px; height: 12px; border-radius: 4px; }
+.pr-dona-lista .nom{ min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
+.pr-dona-lista b{ font-family: 'Outfit', sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pr-dona-lista .baj{ font-size: 12.5px; color: var(--rosa); text-align: right; white-space: nowrap; }
+html[data-tema] .dsh-tabla th{ text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; color: var(--tx2) !important; background: transparent !important; }
+html[data-tema] .dsh-tabla td{ color: var(--tx) !important; }
+#notif-tabs{ scroll-padding-inline: 16px; }
