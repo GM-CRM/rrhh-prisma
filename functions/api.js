@@ -28,6 +28,12 @@ export async function onRequestPost(context) {
   }
   try {
     const r = await despachar(body, env, context);
+    // Respuestas grandes ya serializadas por la base (exportar_datos): se envían tal cual
+    if (r && typeof r.__rawJson === "string") {
+      return new Response(r.__rawJson, {
+        headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", ...CORS },
+      });
+    }
     return json(r);
   } catch (err) {
     console.log("[API] " + (body && body.action) + " → " + (err && err.stack || err));

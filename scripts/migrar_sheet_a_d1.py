@@ -270,7 +270,7 @@ def main(xlsx):
     dup = collections.Counter((x[3], x[2]) for x in regs)
     for (eid, no), c in dup.items():
         if c > 1 and no is not None:
-            avisos["NO. EMPLEADO repetido dentro de la misma empresa (se migran todos; manda ID INTERNO)"].append(
+            avisos["Informativo: NO. EMPLEADO repetido en la misma empresa (normal en reingresos, cambios de puesto o registros anteriores en baja; manda ID INTERNO)"].append(
                 f"{nombre_emp.get(eid, eid)} · No. {no} ×{c}: " + ", ".join(x[0] for x in regs if x[3] == eid and x[2] == no))
 
     # empresas (con abreviatura deducida de los ID INTERNO)
