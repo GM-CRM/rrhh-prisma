@@ -1,5 +1,9 @@
 -- ============================================================
---  RRHH Prisma — Esquema D1 (SQLite)  v1.0  26-nov-2026
+--  RRHH Prisma — Esquema D1 (SQLite)  v1.2  26-nov-2026
+--  v1.1: no_empleado puede repetirse en la misma empresa (33 casos reales);
+--        evaluaciones con id propio (GAS generó id_eval duplicados).
+--  v1.2: eventos.empresa (GAS escribe 7 columnas aunque el encabezado tenga 6).
+--        Fechas-hora en UTC con 'Z' (el Sheet las guardaba en hora de México).
 --  Fuente: BD_PWA_Multimedia (13 hojas)
 --
 --  Convenciones:
@@ -64,8 +68,8 @@ CREATE TABLE IF NOT EXISTS empleados (
   tipo_ingreso                  TEXT,              -- AK (37) Operativo / Administrativo
   tipo_contrato                 TEXT,              -- AL (38)
   contrato1_inicio              TEXT,              -- AM (39)
-  entrevista_15_dias            TEXT,              -- AN (40)
-  entrevista_45_dias            TEXT,              -- AO (41)
+  entrevista_15_dias            TEXT,              -- AN (40) fecha ISO o 'Sí'/'No' (registros recientes)
+  entrevista_45_dias            TEXT,              -- AO (41) fecha ISO o 'Sí'/'No'
   contrato1_vencimiento         TEXT,              -- AP (42)
   contrato2_inicio              TEXT,              -- AQ (43)
   contrato2_vencimiento         TEXT,              -- AR (44)
@@ -85,7 +89,7 @@ CREATE TABLE IF NOT EXISTS empleados (
   creado_en                     TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   actualizado_en                TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
-CREATE UNIQUE INDEX IF NOT EXISTS ux_empleados_empresa_no ON empleados(empresa_id, no_empleado);
+CREATE INDEX IF NOT EXISTS ix_empleados_empresa_no ON empleados(empresa_id, no_empleado);
 CREATE INDEX IF NOT EXISTS ix_empleados_persona  ON empleados(id_persona);
 CREATE INDEX IF NOT EXISTS ix_empleados_curp     ON empleados(curp);
 CREATE INDEX IF NOT EXISTS ix_empleados_nombre   ON empleados(nombre);
@@ -145,7 +149,8 @@ CREATE TABLE IF NOT EXISTS eventos (
   rol         TEXT,
   accion      TEXT,
   detalle     TEXT,
-  ip_device   TEXT
+  empresa     TEXT,                              -- col F real (encabezado decía IP / DEVICE)
+  ip_device   TEXT                               -- col G: dispositivo / user agent
 );
 CREATE INDEX IF NOT EXISTS ix_eventos_fecha ON eventos(fecha_hora);
 
@@ -223,7 +228,8 @@ CREATE TABLE IF NOT EXISTS procesos_eval (
 );
 
 CREATE TABLE IF NOT EXISTS evaluaciones (
-  id_eval           TEXT PRIMARY KEY,
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  id_eval           TEXT NOT NULL,                 -- ID de GAS (EV00005…); puede repetirse en datos históricos
   id_proceso        TEXT REFERENCES procesos_eval(id_proceso),
   id_evaluado       TEXT,
   nombre_evaluado   TEXT,
@@ -233,6 +239,7 @@ CREATE TABLE IF NOT EXISTS evaluaciones (
   fecha_completada  TEXT,
   respuestas_json   TEXT CHECK (respuestas_json IS NULL OR json_valid(respuestas_json))
 );
+CREATE INDEX IF NOT EXISTS ix_eval_id_eval   ON evaluaciones(id_eval);
 CREATE INDEX IF NOT EXISTS ix_eval_proceso   ON evaluaciones(id_proceso);
 CREATE INDEX IF NOT EXISTS ix_eval_evaluador ON evaluaciones(id_evaluador);
 CREATE INDEX IF NOT EXISTS ix_eval_evaluado  ON evaluaciones(id_evaluado);
@@ -320,3 +327,5 @@ CREATE TABLE IF NOT EXISTS _schema_version (
   aplicado_en TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.0');
+INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.1');
+INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.2');

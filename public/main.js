@@ -25,7 +25,7 @@ function ocultarLoader_app() {
 //    - Módulo de edición/renovación de contratos (drawer)
 //    - Alertas automáticas: vencimientos y entrevistas pendientes
 // ============================================================
-const API_URL    = "https://script.google.com/macros/s/AKfycbzZ1izlOXEasq80AVLH6BiYhXSvTVwDytEFqLJ-TWfFlXlnw2Kf6zNqy0Us2jFEHo4YcQ/exec";
+const API_URL    = "/api";
 
 // ─── UI BÁSICA ───────────────────────────────────────────────
 function toggleMenu(){document.getElementById('sidebar').classList.toggle('-translate-x-full');document.getElementById('sidebar-overlay').classList.toggle('hidden');}

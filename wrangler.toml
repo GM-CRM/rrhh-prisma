@@ -10,11 +10,30 @@ pages_build_output_dir = "public"   # solo esta carpeta se publica
 compatibility_date = "2026-11-01"
 compatibility_flags = ["nodejs_compat"]
 
+# ── LOCAL (wrangler pages dev en tu PC) → usa la base y bucket de PRUEBAS ─
+[[d1_databases]]
+binding = "DB"
+database_name = "rrhh-prisma-dev"
+database_id = "ea48d1d6-a338-481e-82e4-8ef2dbc4dabc"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "rrhh-expedientes-dev"
+
+[ai]
+binding = "AI"
+
+[vars]
+ENTORNO = "local"
+SMTP_HOST = "PENDIENTE_XINET"
+SMTP_PORT = "465"
+SMTP_FROM_NAME = "RRHH Prisma (LOCAL)"
+
 # ── PRODUCCIÓN (main) ───────────────────────────────────────
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "rrhh-prisma"
-database_id = "PEGAR_ID_DE_rrhh-prisma"
+database_id = "3b6cbaa2-9ea6-4013-94b7-a6cbad4c2311"
 
 [[env.production.r2_buckets]]
 binding = "R2"
@@ -33,7 +52,7 @@ SMTP_FROM_NAME = "RRHH Prisma"
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "rrhh-prisma-dev"
-database_id = "PEGAR_ID_DE_rrhh-prisma-dev"
+database_id = "ea48d1d6-a338-481e-82e4-8ef2dbc4dabc"
 
 [[env.preview.r2_buckets]]
 binding = "R2"
