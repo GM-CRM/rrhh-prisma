@@ -2035,6 +2035,9 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
       <span class="dsh-chip vacio" id="chip-empresa">Todas las empresas</span>
       <span class="dsh-chip vacio" id="chip-grupo">Todos los grupos</span>
       <span class="dsh-chip vacio" id="chip-periodo">Todo el periodo</span>
+      <button type="button" class="pr-btn-exportar" onclick="event.stopPropagation();exportarTableroExcel()" title="Descargar todos los datos del tablero en un archivo de Excel">
+        <i class="fas fa-file-excel"></i><span>Exportar tablero</span>
+      </button>
       <i class="fas fa-chevron-down dsh-caret"></i>
     </div>
     <div class="dsh-filtros-body">

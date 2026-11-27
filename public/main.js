@@ -7099,6 +7099,8 @@ function dibujarTendencia(){
                 +(meses.length>1?' <span class="'+(dif>=0?'sube':'baja')+'">'+(dif>=0?'+':'')+dif+' en '+meses.length+' meses</span>':'');
         } else dato.textContent='';
     }
+    // Para descargar se usa todo el historial, no solo los meses que se ven
+    window._exportTendencia={columnas:['Mes','Personas activas','Altas','Bajas'],filas:d.meses.map(function(k){return [d.fmtM(k),cT[k].activos,cT[k].altas,cT[k].bajas];})};
     var maxMov=Math.max(1,Math.max.apply(null,alt.concat(baj)));
     var n=act.length;
     charts.tend=dc(charts.tend);
@@ -7121,6 +7123,179 @@ function dibujarTendencia(){
             y1:{display:false,beginAtZero:true,max:maxMov*3.2}
         }}
     });
+}
+
+
+// ══ Descargar gráficas y tablas del tablero (clic derecho) ══════════════
+// Imagen PNG con su título y fondo del tema, CSV o Excel con los datos de la
+// gráfica, y un Excel con todo el tablero en hojas separadas.
+function _tituloPanel(el){
+    var p=el.closest('.dsh-panel'); var t=p&&p.querySelector('.dsh-panel-tit');
+    return t?t.textContent.trim():'Gráfica';
+}
+function _nombreArchivo(txt){
+    var f=new Date(), fecha=f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0');
+    return (String(txt).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w]+/g,'_').replace(/^_|_$/g,'').slice(0,60)||'datos')+'_'+fecha;
+}
+// Filas de una gráfica: usa los datos completos cuando la gráfica muestra un resumen
+function datosDeGrafica(canvasId){
+    if(canvasId==='chartEmpresas' && window._exportEmpresas) return window._exportEmpresas;
+    if(canvasId==='chartTendencia' && window._exportTendencia) return window._exportTendencia;
+    var ch=null; Object.values(Chart.instances||{}).forEach(function(c){ if(c.canvas&&c.canvas.id===canvasId) ch=c; });
+    if(!ch) return null;
+    var ds=ch.data.datasets||[], et=ch.data.labels||[];
+    var primera={chartRangoEdad:'Rango de edad',chartDeptos:'Departamento',chartMotivoBaja:'Motivo de baja',chartFiniquitos:'Mes'}[canvasId]||'Concepto';
+    return {columnas:[primera].concat(ds.map(function(d){return d.label||'Valor';})),
+            filas:et.map(function(l,i){ return [Array.isArray(l)?l.join(' '):l].concat(ds.map(function(d){var v=d.data[i]; return (v&&typeof v==='object')?v.y:v;})); })};
+}
+function datosDeTabla(tabla){
+    var columnas=[].map.call(tabla.querySelectorAll('thead th'),function(th){return th.textContent.trim();});
+    var filas=[].map.call(tabla.querySelectorAll('tbody tr'),function(tr){
+        return [].map.call(tr.querySelectorAll('td'),function(td){ var s=td.textContent.trim(); var n=s.replace(/[$,%\s]/g,''); return (n!==''&&!isNaN(n)&&/^[\d$.,%\s-]+$/.test(s))?+n:s; });
+    }).filter(function(f){return f.length>1;});
+    return {columnas:columnas,filas:filas};
+}
+function descargarCSV(datos,nombre){
+    var esc=function(v){ v=(v==null?'':String(v)); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    var txt=[datos.columnas].concat(datos.filas).map(function(f){return f.map(esc).join(',');}).join('\r\n');
+    var blob=new Blob(['﻿'+txt],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nombre+'.csv'; document.body.appendChild(a); a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},500);
+}
+function _hojaExcel(datos){
+    var ws=XLSX.utils.aoa_to_sheet([datos.columnas].concat(datos.filas));
+    ws['!cols']=datos.columnas.map(function(c,i){
+        var m=String(c).length; datos.filas.forEach(function(f){ m=Math.max(m,String(f[i]==null?'':f[i]).length); });
+        return {wch:Math.min(48,m+2)};
+    });
+    return ws;
+}
+function _nombreHoja(txt,usados){
+    var n=String(txt).replace(/[\\\/\?\*\[\]:]/g,'').slice(0,28)||'Hoja', b=n, k=2;
+    while(usados[n]) n=b.slice(0,25)+' '+(k++);
+    usados[n]=1; return n;
+}
+function descargarExcel(datos,titulo,nombre){
+    if(typeof XLSX==='undefined'||!XLSX.utils){ mostrarToast('error','Excel no disponible','No se cargó la librería de Excel. Recarga la página.'); return; }
+    var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,_hojaExcel(datos),_nombreHoja(titulo,{}));
+    XLSX.writeFile(wb,nombre+'.xlsx');
+}
+function descargarImagenGrafica(canvas,titulo,nombre){
+    var canvasOriginal=canvas;
+    var ch=null; Object.values(Chart.instances||{}).forEach(function(c){ if(c.canvas===canvas) ch=c; });
+    // Sin el recuadro del mouse en la imagen
+    // Se dibuja una copia limpia (sin el recuadro del mouse ni animación) y de ahí se toma la imagen
+    var copia=null, cont=null;
+    if(ch){ try{
+        cont=document.createElement('div'); cont.style.cssText='position:fixed;left:-10000px;top:0;width:'+canvas.clientWidth+'px;height:'+canvas.clientHeight+'px';
+        var cv=document.createElement('canvas'); cont.appendChild(cv); document.body.appendChild(cont);
+        var opc=Object.assign({},ch.config.options,{animation:false,responsive:false,maintainAspectRatio:false,devicePixelRatio:Math.max(2,window.devicePixelRatio||1)});
+        opc.plugins=Object.assign({},opc.plugins,{tooltip:{enabled:false}});
+        cv.width=canvas.clientWidth; cv.height=canvas.clientHeight; cv.style.width=canvas.clientWidth+'px'; cv.style.height=canvas.clientHeight+'px';
+        copia=new Chart(cv.getContext('2d'),{type:ch.config.type,data:ch.config.data,options:opc,plugins:ch.config.plugins||[]});
+        canvas=cv;
+    }catch(e){ console.warn('[imagen]',e); if(cont) cont.remove(); copia=null; } }
+    var cs=getComputedStyle(document.documentElement), oscuro=document.documentElement.getAttribute('data-tema')!=='claro';
+    var tx=(cs.getPropertyValue('--tx')||'#000').trim(), tx2=(cs.getPropertyValue('--tx2')||'#555').trim();
+    var esc=Math.max(1,canvas.width/(canvas.clientWidth||canvas.width)), w=canvas.width, h=canvas.height;
+    var pad=28*esc, cab=48*esc;
+    // La dona lleva su lista de empresas a un lado
+    var leyenda=null;
+    if(ch && ch.config.type==='doughnut'){
+        var ds=ch.data.datasets[0];
+        leyenda=ch.data.labels.map(function(l,i){ return {txt:String(l),val:ds.data[i],col:Array.isArray(ds.backgroundColor)?ds.backgroundColor[i]:ds.backgroundColor}; });
+    }
+    var anchoLey=leyenda?320*esc:0;
+    // Leyenda escrita debajo de la gráfica (p. ej. tendencia)
+    var leyAbajo=[], panelLey=canvasOriginal.closest('.dsh-panel'), pl=panelLey&&panelLey.querySelector('.pr-leyenda');
+    if(pl) pl.querySelectorAll('span').forEach(function(s){ var sw=s.querySelector('.sw'); var cs2=sw?getComputedStyle(sw):null;
+        leyAbajo.push({txt:s.textContent.trim(),col:sw&&sw.classList.contains('linea')?PAL.lila:(cs2?cs2.backgroundColor:PAL.azul),linea:sw&&sw.classList.contains('linea')}); });
+    var altoAbajo=leyAbajo.length?40*esc:0;
+    var x0=document.createElement('canvas').getContext('2d'); x0.font='600 '+(19*esc)+"px 'Outfit',sans-serif";
+    var anchoTit=x0.measureText(titulo).width;
+    var c=document.createElement('canvas');
+    c.width=Math.max(w+anchoLey+pad*2, anchoTit+pad*2); c.height=Math.max(h, leyenda?leyenda.length*34*esc:0)+pad*2+cab+altoAbajo;
+    var x=c.getContext('2d');
+    x.fillStyle=oscuro?'#151A3D':'#FFFFFF'; x.fillRect(0,0,c.width,c.height);
+    x.textBaseline='top'; x.fillStyle=tx; x.font='600 '+(19*esc)+"px 'Outfit',sans-serif"; x.fillText(titulo,pad,pad);
+    x.drawImage(canvas,pad,pad+cab,w,h);
+    if(leyAbajo.length){
+        var ax=pad, ay=pad+cab+h+14*esc;
+        leyAbajo.forEach(function(it){
+            x.fillStyle=it.col; x.beginPath();
+            if(it.linea){ if(x.roundRect) x.roundRect(ax,ay+6*esc,20*esc,4*esc,2*esc); else x.rect(ax,ay+6*esc,20*esc,4*esc); }
+            else { if(x.roundRect) x.roundRect(ax,ay+2*esc,11*esc,11*esc,3*esc); else x.rect(ax,ay+2*esc,11*esc,11*esc); }
+            x.fill(); ax+=(it.linea?28:19)*esc;
+            x.fillStyle=tx2; x.font=(14*esc)+"px 'Figtree',sans-serif"; x.textBaseline='top'; x.fillText(it.txt,ax,ay);
+            ax+=x.measureText(it.txt).width+26*esc;
+        });
+    }
+    if(leyenda){
+        var lx=pad+w+24*esc, ly=pad+cab+Math.max(0,(h-leyenda.length*34*esc)/2);
+        leyenda.forEach(function(it,i){
+            var y=ly+i*34*esc;
+            x.fillStyle=it.col; x.beginPath(); if(x.roundRect) x.roundRect(lx,y+3*esc,12*esc,12*esc,3*esc); else x.rect(lx,y+3*esc,12*esc,12*esc); x.fill();
+            x.fillStyle=tx2; x.font=(15*esc)+"px 'Figtree',sans-serif"; x.textBaseline='top';
+            var t2=it.txt.length>26?it.txt.slice(0,25)+'…':it.txt; x.fillText(t2,lx+22*esc,y);
+            x.fillStyle=tx; x.font='600 '+(15*esc)+"px 'Outfit',sans-serif"; x.textAlign='right'; x.fillText(String(it.val),lx+anchoLey-30*esc,y); x.textAlign='left';
+        });
+    }
+    if(copia){ try{ copia.destroy(); }catch(e){} }
+    if(cont) cont.remove();
+    var a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download=nombre+'.png'; document.body.appendChild(a); a.click(); a.remove();
+}
+function cerrarMenuGrafica(){ var m=document.getElementById('pr-menu-graf'); if(m) m.remove(); }
+function abrirMenuGrafica(ev,el){
+    ev.preventDefault(); cerrarMenuGrafica();
+    var esTabla=el.tagName==='TABLE', titulo=_tituloPanel(el), nombre=_nombreArchivo(titulo);
+    var obtener=function(){ return esTabla?datosDeTabla(el):datosDeGrafica(el.id); };
+    var m=document.createElement('div'); m.id='pr-menu-graf'; m.className='pr-menu'; m.setAttribute('role','menu');
+    m.innerHTML='<p class="pr-menu-tit">'+escHtmlInicio(titulo)+'</p>'
+        +(esTabla?'':'<button role="menuitem" data-acc="png"><i class="fas fa-image"></i>Descargar como imagen</button>')
+        +'<button role="menuitem" data-acc="xlsx"><i class="fas fa-file-excel"></i>Descargar como Excel</button>'
+        +'<button role="menuitem" data-acc="csv"><i class="fas fa-file-csv"></i>Descargar como CSV</button>'
+        +'<div class="pr-menu-sep"></div><button role="menuitem" data-acc="todo"><i class="fas fa-table-list"></i>Exportar todo el tablero</button>';
+    document.body.appendChild(m);
+    var x=ev.clientX, y=ev.clientY, r=m.getBoundingClientRect();
+    m.style.left=Math.min(x,window.innerWidth-r.width-8)+'px'; m.style.top=Math.min(y,window.innerHeight-r.height-8)+'px';
+    m.onclick=function(e){
+        var b=e.target.closest('button'); if(!b) return;
+        var acc=b.dataset.acc; cerrarMenuGrafica();
+        if(acc==='todo'){ exportarTableroExcel(); return; }
+        if(acc==='png'){ descargarImagenGrafica(el,titulo,nombre); return; }
+        var d=obtener(); if(!d||!d.filas.length){ mostrarToast('warning','Sin datos','Esta gráfica no tiene datos para descargar con los filtros actuales.'); return; }
+        if(acc==='csv') descargarCSV(d,nombre); else descargarExcel(d,titulo,nombre);
+    };
+    var b0=m.querySelector('button'); if(b0) b0.focus();
+}
+document.addEventListener('contextmenu',function(e){
+    var el=e.target.closest('#module-dashboard .dsh-panel canvas, #module-dashboard .dsh-tabla');
+    if(el) abrirMenuGrafica(e,el);
+});
+document.addEventListener('click',function(e){ if(!e.target.closest('#pr-menu-graf')) cerrarMenuGrafica(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') cerrarMenuGrafica(); });
+window.addEventListener('scroll',cerrarMenuGrafica,true);
+
+// Todo el tablero en un Excel: resumen con los indicadores y una hoja por gráfica o tabla
+function exportarTableroExcel(){
+    if(typeof XLSX==='undefined'||!XLSX.utils){ mostrarToast('error','Excel no disponible','No se cargó la librería de Excel. Recarga la página.'); return; }
+    var sec=document.getElementById('module-dashboard'); if(!sec) return;
+    var txt=function(id){var e=document.getElementById(id);return e?e.textContent.trim():'';};
+    var resumen={columnas:['Indicador','Valor'],filas:[
+        ['Fecha de descarga',new Date().toLocaleString('es-MX')],
+        ['Empresa',txt('chip-empresa')],['Grupo',txt('chip-grupo')],['Periodo',txt('chip-periodo')],
+        ['Plantilla activa',txt('kpi-activos')],['Total histórico',txt('kpi-total')],['Total bajas',txt('kpi-bajas')],
+        ['Índice de rotación',txt('kpi-rotacion')],['Edad promedio',txt('kpi-edad-prom')],['Antigüedad promedio',txt('kpi-ant-prom')],
+        ['Finiquitos pagados',txt('kpi-finiquitos')],['Hombres (activos)',txt('kpi-genero-h')],['Mujeres (activas)',txt('kpi-genero-m')]
+    ].map(function(f){ var n=String(f[1]).replace(/[$,%\s]|años/g,''); return [f[0],(n!==''&&!isNaN(n)&&f[0]!=='Fecha de descarga')?+n:f[1]]; })};
+    var wb=XLSX.utils.book_new(), usados={};
+    XLSX.utils.book_append_sheet(wb,_hojaExcel(resumen),_nombreHoja('Resumen',usados));
+    sec.querySelectorAll('.dsh-panel canvas, .dsh-panel .dsh-tabla').forEach(function(el){
+        var d=el.tagName==='TABLE'?datosDeTabla(el):datosDeGrafica(el.id);
+        if(d&&d.filas.length) XLSX.utils.book_append_sheet(wb,_hojaExcel(d),_nombreHoja(_tituloPanel(el),usados));
+    });
+    XLSX.writeFile(wb,_nombreArchivo('Tablero RRHH')+'.xlsx');
+    mostrarToast('success','Tablero exportado','Se descargó un Excel con el resumen y una hoja por gráfica.');
 }
 
 // ── Inicio: bienvenida, mini-gráficas de los KPI, pendientes y cumpleaños ──
@@ -7390,6 +7565,7 @@ async function cargarDashboard(){
     if(empResto.length) empFilas.push({nom:'Otras '+empResto.length,act:empResto.reduce((s,[,v])=>s+v.act,0),baj:empResto.reduce((s,[,v])=>s+v.baj,0),otros:empResto.map(([k])=>k)});
     const coloresDona=[PAL.azul,PAL.lila,PAL.verde,PAL.ambar,PAL.rosa,PAL.gris];
     charts.emp=dc(charts.emp);
+    window._exportEmpresas={columnas:['Empresa','Activos','Bajas'],filas:empOrden.map(([k,v])=>[k,v.act,v.baj])};
     charts.emp=safeChart('chartEmpresas',{
         type:'doughnut',
         data:{labels:empFilas.map(f=>f.nom),datasets:[{label:'Activos',data:empFilas.map(f=>f.act),backgroundColor:coloresDona,borderWidth:0,hoverOffset:6,spacing:2,borderRadius:4}]},

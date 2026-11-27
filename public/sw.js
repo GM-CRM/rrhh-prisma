@@ -13,7 +13,7 @@
 // termina en .html / .js, va por red.
 // ============================================================
 
-const CACHE_NAME = 'prisma-rh-v114'; // rediseño fase 2: gráficas y avisos
+const CACHE_NAME = 'prisma-rh-v115'; // descargas de gráficas (imagen, CSV, Excel)
 
 const ASSETS_ESTATICOS = [
   '/manifest.json',

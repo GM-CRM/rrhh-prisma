@@ -325,3 +325,24 @@ html[data-tema] .nt-card [class*="nt-ico-"] i{ color: inherit !important; }
 html[data-tema] .dsh-tabla th{ text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; color: var(--tx2) !important; background: transparent !important; }
 html[data-tema] .dsh-tabla td{ color: var(--tx) !important; }
 #notif-tabs{ scroll-padding-inline: 16px; }
+html[data-tema] .dsh-tabla thead :is(tr,th){ background: transparent !important; border-bottom: 1px solid var(--borde-suave) !important; }
+
+/* ── Menú de descarga de gráficas (clic derecho) ────────────── */
+.pr-menu{ position: fixed; z-index: 300; min-width: 230px; padding: 6px; border-radius: 16px;
+  background: var(--vidrio-fuerte, #fff); border: 1px solid var(--borde, #ddd); color: var(--tx, #161B3A);
+  backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); box-shadow: 0 24px 50px -20px rgba(0,0,0,.55);
+  animation: prMenu .12s ease-out; }
+@keyframes prMenu{ from{ opacity: 0; transform: scale(.97); } to{ opacity: 1; transform: none; } }
+.pr-menu-tit{ margin: 4px 10px 6px; font-size: 12.5px; color: var(--tx3, #666); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.pr-menu button{ display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 10px;
+  background: transparent; color: inherit; font-size: 14px; font-weight: 500; text-align: left; cursor: pointer; }
+.pr-menu button:hover, .pr-menu button:focus-visible{ background: var(--hover, #f2f2f8); outline: none; }
+.pr-menu button i{ width: 16px; text-align: center; color: var(--tx2, #555); }
+.pr-menu-sep{ height: 1px; margin: 5px 6px; background: var(--borde-suave, #eee); }
+.pr-btn-exportar{ margin-left: auto; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 10px;
+  border: 1px solid var(--borde, #ddd); background: var(--vidrio, #fff); color: var(--tx, #161B3A); font-size: 13px; font-weight: 600; cursor: pointer; }
+.pr-btn-exportar:hover{ background: var(--hover, #f2f2f8); }
+.pr-btn-exportar i{ color: var(--verde, #0E9C88); }
+@media (max-width: 640px){ .pr-btn-exportar span{ display: none; } }
+@media (prefers-reduced-motion: reduce){ .pr-menu{ animation: none; } }
+.pr-btn-exportar + .dsh-caret{ margin-left: 8px !important; }
