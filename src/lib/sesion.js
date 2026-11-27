@@ -40,6 +40,27 @@ export async function requiereSesionValida(env, payload) {
   return buscarUsuarioPorToken(env, payload && payload.token);
 }
 
+// Quién hace la petición, venga del panel (usuarios) o del portal del empleado
+// (empleados_acceso). Sirve para no confiar en IDs que manda el navegador.
+//   panel    → { origen:"panel", idInterno, email, rol, empresas, esAdmin, datos }
+//   empleado → { origen:"empleado", idInterno, email, rol:"Empleado", empresas:[], esAdmin:false }
+export async function identidadPorToken(env, token) {
+  token = s(token);
+  if (!token) return null;
+  const u = await buscarUsuarioPorToken(env, token);
+  if (u) return {
+    origen: "panel", idInterno: s(u.id_interno), email: u.email, rol: u.rol,
+    empresas: listaEmpresas(u.empresas_asignadas).filter(Boolean), esAdmin: u.rol === "Administrador", datos: u,
+  };
+  const e = await env.DB.prepare(
+    "SELECT id_interno, correo, expira_token FROM empleados_acceso WHERE token_sesion = ? AND estatus = 'Activo' LIMIT 1"
+  ).bind(token).first();
+  if (!e) return null;
+  const exp = Date.parse(e.expira_token || "");
+  if (!exp || exp <= Date.now()) return null;
+  return { origen: "empleado", idInterno: s(e.id_interno), email: s(e.correo), rol: "Empleado", empresas: [], esAdmin: false };
+}
+
 // Objeto "usuario" que GAS devuelve en login / validar_token
 export function usuarioPublico(u) {
   return {
