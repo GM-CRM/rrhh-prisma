@@ -1662,7 +1662,7 @@ if ('serviceWorker' in navigator) {
 </style>
  
 <link rel="stylesheet" href="css/prisma-compat.css?v=5">
-<link rel="stylesheet" href="css/prisma-tema.css?v=6">
+<link rel="stylesheet" href="css/prisma-tema.css?v=7">
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
@@ -1962,7 +1962,7 @@ class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left t
 </div>
 </nav>
 
-<div class="pr-usuario" id="sb-usuario" title="Usuario con sesión">
+<div class="pr-usuario" id="sb-usuario" title="Mi perfil: foto, datos y contraseña" role="button" tabindex="0" onclick="abrirMiPerfil()" onkeydown="if(event.key==='Enter')abrirMiPerfil()" style="cursor:pointer">
 <span class="pr-foto" id="sb-usuario-foto" style="width:40px;height:40px"></span>
 <div class="min-w-0">
 <p class="pr-usuario-nombre truncate" id="sb-usuario-nombre"></p>
@@ -2523,24 +2523,47 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 <!-- ══ USUARIOS ═════════════════════════════════════════════ -->
 <section id="module-usuarios" class="module-section">
 
-  <!-- Vista de administrador -->
+  <!-- Vista de quien administra usuarios: usuarios, roles y su propio perfil -->
   <div class="mod-wrap" id="panel-usuarios-admin">
-    <div class="mod-head">
-      <div>
-        <h3>Gestión de usuarios</h3>
-        <p>Administra los accesos al sistema.</p>
+    <div class="mod-tabs">
+      <button type="button" onclick="activarTabUsuarios('usuarios',this)" data-tab="usuarios" class="mod-tab usr-tab active"><i class="fas fa-users"></i>Usuarios</button>
+      <button type="button" onclick="activarTabUsuarios('roles',this)" data-tab="roles" class="mod-tab usr-tab"><i class="fas fa-shield-halved"></i>Roles y permisos</button>
+      <button type="button" onclick="activarTabUsuarios('perfil',this)" data-tab="perfil" class="mod-tab usr-tab"><i class="fas fa-circle-user"></i>Mi perfil</button>
+    </div>
+    <div id="usr-tab-usuarios">
+      <div class="mod-head">
+        <div>
+          <h3>Gestión de usuarios</h3>
+          <p>Quién entra al sistema, con qué rol y a qué empresas.</p>
+        </div>
+        <div>
+          <button onclick="abrirModalNuevoUsuario()" class="mod-btn">
+            <i class="fas fa-user-plus" style="font-size:.75rem"></i>Nuevo usuario
+          </button>
+        </div>
       </div>
-      <div>
-        <button onclick="abrirModalNuevoUsuario()" class="mod-btn">
-          <i class="fas fa-user-plus" style="font-size:.75rem"></i>Nuevo usuario
-        </button>
+      <div id="tabla-usuarios-container" class="mod-body" style="min-height:auto">
+        <div class="mod-placeholder">
+          <i class="fas fa-users-gear"></i>
+          <p>Cargando usuarios...</p>
+        </div>
       </div>
     </div>
-    <div id="tabla-usuarios-container" class="mod-body" style="min-height:auto">
-      <div class="mod-placeholder">
-        <i class="fas fa-users-gear"></i>
-        <p>Cargando usuarios...</p>
+    <div id="usr-tab-roles" hidden>
+      <div class="mod-head">
+        <div>
+          <h3>Roles y permisos</h3>
+          <p>Cada rol define qué puede ver y hacer en cada módulo. Las empresas se asignan a cada usuario.</p>
+        </div>
+        <div>
+          <button onclick="editarRol()" class="mod-btn"><i class="fas fa-plus" style="font-size:.75rem"></i>Nuevo rol</button>
+        </div>
       </div>
+      <div id="roles-container" class="mod-body" style="min-height:auto"></div>
+    </div>
+    <div id="usr-tab-perfil" hidden>
+      <div class="mod-head"><div><h3>Mi perfil</h3><p>Tu foto, tus datos y tu contraseña.</p></div></div>
+      <div id="perfil-admin-body" class="mod-body" style="min-height:auto"></div>
     </div>
   </div>
 
@@ -2549,7 +2572,7 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
     <div class="mod-head">
       <div>
         <h3>Mi perfil</h3>
-        <p>Actualiza tu información personal.</p>
+        <p>Tu foto, tus datos y tu contraseña.</p>
       </div>
     </div>
     <div id="perfil-auxiliar-body" class="mod-body" style="min-height:auto"></div>
@@ -2897,7 +2920,7 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.39"></script>
+<script src="main.js?v=69.40"></script>
 
  <div id="ses-aviso">
   <div class="ico"><i class="fas fa-clock-rotate-left"></i></div>

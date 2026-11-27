@@ -3,6 +3,7 @@
 //  autenticarRequest, requiereSesionValida y registrarEvento (GAS)
 // ============================================================
 import { s, ahoraISO, listaEmpresas } from "./util.js";
+import { alcanceEmpresas, permisosDeRol, tienePermiso } from "./permisos.js";
 
 // Fila de usuarios con sesión vigente y estatus Activo, o null
 export async function buscarUsuarioPorToken(env, token) {
@@ -30,7 +31,7 @@ export async function autenticarRequest(env, payload) {
     datos: u,
     email: u.email,
     rol: u.rol,
-    empresas: listaEmpresas(u.empresas_asignadas),
+    empresas: (await alcanceEmpresas(env, u)).filter(Boolean),          // sueltas + las de sus grupos
     esAdmin: u.rol === "Administrador",
   };
 }
@@ -50,7 +51,7 @@ export async function identidadPorToken(env, token) {
   const u = await buscarUsuarioPorToken(env, token);
   if (u) return {
     origen: "panel", idInterno: s(u.id_interno), email: u.email, rol: u.rol,
-    empresas: listaEmpresas(u.empresas_asignadas).filter(Boolean), esAdmin: u.rol === "Administrador", datos: u,
+    empresas: (await alcanceEmpresas(env, u)).filter(Boolean), esAdmin: u.rol === "Administrador", datos: u,
   };
   const e = await env.DB.prepare(
     "SELECT id_interno, correo, expira_token FROM empleados_acceso WHERE token_sesion = ? AND estatus = 'Activo' LIMIT 1"
@@ -73,7 +74,25 @@ export function usuarioPublico(u) {
     telefono: u.telefono || "",
     urlFoto: u.url_foto || "",
     idInterno: s(u.id_interno),
+    grupos: listaEmpresas(u.grupos_asignados).filter(Boolean),
   };
+}
+
+// usuarioPublico + permisos del rol + empresas efectivas (para que la pantalla
+// muestre solo lo que el usuario puede usar; el servidor lo vuelve a validar)
+export async function usuarioConPermisos(env, u) {
+  const base = usuarioPublico(u);
+  base.permisos = await permisosDeRol(env, u.rol);
+  base.alcance = (await alcanceEmpresas(env, u)).filter(x => x && x !== "__sin_empresas__");
+  base.puedeAdministrar = tienePermiso(base.permisos, "usuarios.administrar");
+  return base;
+}
+
+// ¿El usuario de este token tiene el permiso? Devuelve la fila del usuario o null.
+export async function usuarioConPermiso(env, token, req) {
+  const u = await buscarUsuarioPorToken(env, token);
+  if (!u) return null;
+  return tienePermiso(await permisosDeRol(env, u.rol), req) ? u : null;
 }
 
 // registrarEvento(email, rol, accion, detalle, empresa, dispositivo) — nunca rompe la petición

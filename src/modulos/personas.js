@@ -5,7 +5,7 @@
 //  setupColumnasNuevas
 // ============================================================
 import { s, ok, error } from "../lib/util.js";
-import { requiereSesionValida, registrarEvento } from "../lib/sesion.js";
+import { requiereSesionValida, autenticarRequest, registrarEvento } from "../lib/sesion.js";
 import { URL_EXPEDIENTE_SQL } from "../lib/columnas.js";
 import { origen } from "../lib/archivos.js";
 
@@ -18,15 +18,17 @@ function ddmmaaaa(iso) {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
 }
 
-async function directorio(env, ctx) {
+async function directorio(env, ctx, alcance) {
+  const filtro = alcance && alcance.length ? JSON.stringify(alcance) : null;
   // Mismo criterio que GAS: todas las filas con NO. EMPLEADO, en el orden del Sheet
   const { results } = await env.DB.prepare(
     `SELECT v.id_interno, v.no_empleado, v.nombre, v.empresa, v.puesto, v.departamento, v.estatus,
             v.telefono, v.correo, v.jefe_directo, v.correo_acceso, ${URL_EXPEDIENTE_SQL} AS url_exp
      FROM v_empleados v JOIN empleados e ON e.id_interno = v.id_interno
      WHERE TRIM(COALESCE(CAST(v.no_empleado AS TEXT),'')) <> ''
+       AND (?2 IS NULL OR UPPER(TRIM(v.empresa)) IN (SELECT UPPER(TRIM(value)) FROM json_each(?2)))
      ORDER BY COALESCE(e.fila_sheet_origen, 999999999), e.rowid`
-  ).bind(origen(ctx)).all();
+  ).bind(origen(ctx), filtro).all();
   return results.map(r => ({
     idInterno: s(r.id_interno), noEmpleado: s(r.no_empleado), nombre: s(r.nombre), empresa: s(r.empresa),
     puesto: s(r.puesto), depto: s(r.departamento), estatus: s(r.estatus), telefono: s(r.telefono),
@@ -36,18 +38,20 @@ async function directorio(env, ctx) {
 
 // ── obtener_directorio ────────────────────────────────────────
 async function obtenerDirectorio(p, env, ctx) {
-  if (!(await requiereSesionValida(env, p))) return SESION_INVALIDA;     // GAS lo dejaba abierto
+  const quien = await autenticarRequest(env, p);
+  if (!quien) return SESION_INVALIDA;                                    // GAS lo dejaba abierto
   try {
-    const lista = await directorio(env, ctx);
+    const lista = await directorio(env, ctx, quien.empresas.filter(Boolean));
     return ok({ empleados: lista, total: lista.length });
   } catch (e) { return error(String(e)); }
 }
 
 // ── obtener_organigrama (árbol por jefe directo) ──────────────
 async function obtenerOrganigrama(p, env, ctx) {
-  if (!(await requiereSesionValida(env, p))) return SESION_INVALIDA;
+  const quien = await autenticarRequest(env, p);
+  if (!quien) return SESION_INVALIDA;
   try {
-    const empleados = await directorio(env, ctx);
+    const empleados = await directorio(env, ctx, quien.empresas.filter(Boolean));
     const mapa = {};
     empleados.forEach(e => { if (e.idInterno) mapa[e.idInterno] = e; e.children = []; e.nivel = 0; });
     // Evita ciclos (A jefe de B y B jefe de A): en GAS rompían la respuesta

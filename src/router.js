@@ -17,10 +17,13 @@ import encuestas from "./modulos/encuestas.js";
 import evaluaciones from "./modulos/evaluaciones.js";
 import nom035 from "./modulos/nom035.js";
 import contratos from "./modulos/contratos.js";
+import roles from "./modulos/roles.js";
+import { PERMISO_ACCION, permisosDeRol, tienePermiso, ETIQUETA_PERMISO } from "./lib/permisos.js";
+import { buscarUsuarioPorToken } from "./lib/sesion.js";
 
-export const VERSION_API = "cf-1.8.0";
+export const VERSION_API = "cf-1.9.0";
 
-const MODULOS = [auth, accesoEmpleados, empleados, expedientes, ocr, personas, encuestas, evaluaciones, nom035, contratos];
+const MODULOS = [auth, accesoEmpleados, empleados, expedientes, ocr, personas, encuestas, evaluaciones, nom035, contratos, roles];
 
 // Las 66 acciones del doPost() de GAS (Código.gs). Sirve como checklist de avance.
 export const ACCIONES_GAS = [
@@ -59,7 +62,20 @@ export async function despachar(body, env, ctx) {
   const action = body && body.action;
   const payload = (body && body.payload) || {};
   const fn = HANDLERS[action];
-  if (fn) return fn(payload, env, ctx);
+  if (fn) {
+    // Permisos por rol: se validan aquí, antes de tocar datos. Solo aplica a
+    // usuarios del panel; el portal del empleado y las encuestas públicas
+    // siguen con sus propias reglas dentro de cada módulo.
+    const req = PERMISO_ACCION[action];
+    if (req && payload.token) {
+      const u = await buscarUsuarioPorToken(env, payload.token);
+      if (u && !tienePermiso(await permisosDeRol(env, u.rol), req)) {
+        const r = Array.isArray(req) ? req[0] : req;
+        return { status: "error", sinPermiso: true, message: "Tu rol (" + u.rol + ") no tiene permiso para " + ETIQUETA_PERMISO(r) + ". Pídelo a un administrador." };
+      }
+    }
+    return fn(payload, env, ctx);
+  }
   if (ACCIONES_GAS.includes(action)) {
     return { status: "error", message: "Función en proceso de migración a Cloudflare (" + action + "). Disponible próximamente.", pendiente: true };
   }

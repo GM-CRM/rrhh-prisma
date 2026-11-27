@@ -84,19 +84,25 @@ const esObra = t => /obra/i.test(s(t));
 // La base arma el JSON (json_object) en bloques; el Worker solo los une.
 // Así casi no consume CPU aunque sean miles de registros.
 async function exportarDatos(p, env, ctx) {
-  if (!(await requiereSesionValida(env, p))) return SESION_INVALIDA;
+  const quien = await autenticarRequest(env, p);
+  if (!quien) return SESION_INVALIDA;
+  // Alcance por empresa/grupo: el servidor solo entrega lo que el usuario puede ver
+  // (antes llegaba todo y se filtraba en pantalla)
+  const alcance = quien.empresas.filter(Boolean);
+  const filtro = alcance.length ? JSON.stringify(alcance) : null;
   const pares = [];
   for (const [h, col, tipo] of COLUMNAS) pares.push(`'${h.replace(/'/g, "''")}', ${expresionExport(h, col, tipo)}`);
   pares.push(`'URL EXPEDIENTE', ${URL_EXPEDIENTE_SQL}`);          // GAS copiaba CARPETA a URL EXPEDIENTE
   const sql = `SELECT json_group_array(json(o)) AS j FROM (
       SELECT json_object(${pares.join(", ")}) AS o
       FROM v_empleados v JOIN empleados e ON e.id_interno = v.id_interno
+      WHERE ?4 IS NULL OR UPPER(TRIM(v.empresa)) IN (SELECT UPPER(TRIM(value)) FROM json_each(?4))
       ORDER BY COALESCE(e.fila_sheet_origen, 999999999), e.rowid
       LIMIT ?2 OFFSET ?3)`;
   const total = (await env.DB.prepare("SELECT COUNT(*) AS n FROM empleados").first()).n;
   const partes = [];
   for (let off = 0; off < total; off += BLOQUE_EXPORT) {
-    const r = await env.DB.prepare(sql).bind(origen(ctx), BLOQUE_EXPORT, off).first();
+    const r = await env.DB.prepare(sql).bind(origen(ctx), BLOQUE_EXPORT, off, filtro).first();
     const j = r && r.j ? r.j : "[]";
     if (j.length > 2) partes.push(j.slice(1, -1));
   }
@@ -154,11 +160,26 @@ function b64aBytes(b64) {
 
 const limpiarRuta = t => s(t).replace(/[\\/:*?"<>|#\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim() || "Sin nombre";
 
+// ¿La empresa está dentro del alcance del usuario? (lista vacía = todas)
+async function empresaEnAlcance(env, p, empresa) {
+  const quien = await autenticarRequest(env, p);
+  const lista = quien ? quien.empresas.filter(Boolean) : [];
+  if (!lista.length) return true;
+  const k = s(empresa).toUpperCase();
+  return lista.some(e => s(e).toUpperCase() === k);
+}
+async function empleadoEnAlcance(env, p, idInterno) {
+  const r = await env.DB.prepare("SELECT empresa FROM empleados WHERE id_interno = ? LIMIT 1").bind(idInterno).first();
+  return empresaEnAlcance(env, p, r ? r.empresa : "");
+}
+const FUERA_ALCANCE = error("Esa empresa no está entre las que tienes asignadas.");
+
 async function alta(p, env, ctx) {
   const usuario = await requiereSesionValida(env, p);
   if (!usuario) return SESION_INVALIDA;
 
   const empresa = s(p.empresa);
+  if (!(await empresaEnAlcance(env, p, empresa))) return FUERA_ALCANCE;
   const noEmpPayload = s(p.numeroEmpleado);
   const curp = s(p.curp).toUpperCase(), rfc = s(p.rfc).toUpperCase();
 
@@ -263,6 +284,7 @@ async function baja(p, env) {
     fila = await env.DB.prepare("SELECT id_interno, nombre FROM empleados WHERE CAST(no_empleado AS TEXT) = ? AND TRIM(empresa) = ? ORDER BY (fecha_baja IS NULL) DESC, COALESCE(fila_sheet_origen, 999999999) DESC, rowid DESC LIMIT 1").bind(noEmp, empresa).first();
   }
   if (!fila) return error("No se encontró el colaborador.");
+  if (!(await empleadoEnAlcance(env, p, fila.id_interno))) return FUERA_ALCANCE;
 
   await env.DB.prepare(
     "UPDATE empleados SET fecha_baja = ?, tipo_salida = ?, motivo_salida = ?, monto_finiquito = ?, actualizado_en = ? WHERE id_interno = ?"
@@ -285,6 +307,7 @@ async function actualizarEmpleado(p, env, ctx) {
   if (!fila && !idBuscar && noEmpBuscar && empBuscar)
     fila = await env.DB.prepare("SELECT id_interno, no_empleado FROM empleados WHERE CAST(no_empleado AS TEXT) = ? AND TRIM(empresa) = ? ORDER BY (fecha_baja IS NULL) DESC, COALESCE(fila_sheet_origen, 999999999) DESC, rowid DESC LIMIT 1").bind(noEmpBuscar, empBuscar).first();
   if (!fila) return error("No se encontró el empleado.");
+  if (!(await empleadoEnAlcance(env, p, fila.id_interno))) return FUERA_ALCANCE;
 
   const campos = p.campos || {};
   const sets = [], vals = [], nombres = [];

@@ -2261,7 +2261,7 @@ async function procesarLogin(){
             sesionActual={token:r.token,usuario:r.usuario};
             aplicarSesion(r.usuario);
             ocultarLoginScreen();
-            await initApp();
+            await initApp(); abrirPrimerModuloPermitido();
         } else {
             mostrarLoginError(r.message||'Credenciales incorrectas.');
             if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-sign-in-alt"></i> Entrar';}
@@ -2275,15 +2275,19 @@ async function procesarLogin(){
 function aplicarSesion(usuario){
     if(!usuario) return;
     const labelNav=document.getElementById('nav-label-usuarios');
-    if(labelNav) labelNav.textContent=usuario.rol==='Administrador'?'Usuarios':'Mi Perfil';
     const headerUser=document.getElementById('header-usuario');
     if(headerUser) headerUser.textContent=usuario.nombre||'';
     const sbNom=document.getElementById('sb-usuario-nombre');
     if(sbNom) sbNom.textContent=usuario.nombre||'';
     const sbRol=document.getElementById('sb-usuario-rol');
     if(sbRol) sbRol.textContent=usuario.rol||'';
-    pintarFotoMarco(document.getElementById('sb-usuario-foto'),usuario.idInterno);
-    window._empresasPermitidas=(usuario.rol!=='Administrador'&&usuario.empresas&&usuario.empresas.length)?usuario.empresas:null;
+    pintarFotoUsuario(document.getElementById('sb-usuario-foto'),usuario);
+    const admUsr=usuario.puedeAdministrar!==undefined?usuario.puedeAdministrar:usuario.rol==='Administrador';
+    if(labelNav) labelNav.textContent=admUsr?'Usuarios':'Mi perfil';
+    // Empresas que puede ver: las sueltas + las de sus grupos (el servidor ya filtra; esto ajusta filtros y listas)
+    const alc=Array.isArray(usuario.alcance)?usuario.alcance:((usuario.rol!=='Administrador'&&usuario.empresas&&usuario.empresas.length)?usuario.empresas:[]);
+    window._empresasPermitidas=alc.length?alc:null;
+    aplicarPermisosUI();
 }
 
 async function procesarLogout(){
@@ -2323,20 +2327,359 @@ function filtrarUsuariosTabla(q){
     const s=document.getElementById('usr-sin-res'); if(s) s.hidden=vis>0;
 }
 
+// ══ Permisos en pantalla ═════════════════════════════════════════
+// El servidor valida todo; aquí solo se esconde lo que el rol no puede usar
+// para que nadie choque con un "sin permiso".
+function puede(req){
+    const p=(sesionActual&&sesionActual.usuario&&sesionActual.usuario.permisos)||null;
+    if(!p) return true;                       // sesión de una versión anterior del servidor: no esconder nada
+    return (Array.isArray(req)?req:[req]).some(function(x){ const k=x.split('.'); return Array.isArray(p[k[0]])&&p[k[0]].indexOf(k[1])>=0; });
+}
+const _NAV_PERMISO={dashboard:'indicadores.ver',alta:'alta.crear',baja:'baja.crear',basedatos:'expedientes.ver',personas:'personas.ver',encuestas:['encuestas.ver','nom035.ver']};
+function aplicarPermisosUI(){
+    Object.keys(_NAV_PERMISO).forEach(function(m){
+        const b=document.querySelector('#sidebar .nav-btn[onclick*="showModule(\''+m+'\')"]');
+        if(b) b.style.display=puede(_NAV_PERMISO[m])?'':'none';
+    });
+    // Grupos del menú sin ninguna opción visible
+    document.querySelectorAll('#sidebar .nav-group').forEach(function(g){
+        const vis=[].some.call(g.querySelectorAll('.nav-btn'),function(b){return b.style.display!=='none';});
+        g.style.display=vis?'':'none';
+    });
+    const exp=document.querySelector('.pr-btn-exportar'); if(exp) exp.style.display=puede('indicadores.exportar')?'':'none';
+    // Accesos directos de la bienvenida
+    [['alta','alta.crear'],['baja','baja.crear'],['basedatos','expedientes.ver']].forEach(function(x){
+        document.querySelectorAll('.pr-accion[onclick*="irAModulo(\''+x[0]+'\')"]').forEach(function(b){ b.style.display=puede(x[1])?'':'none'; });
+    });
+}
+// Si el rol no ve Indicadores, abrir el primer módulo que sí puede usar
+function abrirPrimerModuloPermitido(){
+    if(puede('indicadores.ver')) return;
+    const b=[].find.call(document.querySelectorAll('#sidebar .nav-btn'),function(x){return x.style.display!=='none';});
+    if(b) b.click();
+}
+// Foto del usuario del panel: la suya si la subió; si no, la del expediente vinculado
+function pintarFotoUsuario(el,u){
+    if(!el||!u) return;
+    if(u.urlFoto && (u.urlFoto.indexOf('/archivo?')===0 || u.urlFoto.indexOf('http')===0)){
+        const img=new Image(); img.alt='';
+        img.onload=function(){ el.innerHTML=''; el.appendChild(img); };
+        img.onerror=function(){ pintarFotoMarco(el,u.idInterno); };
+        el.innerHTML=SILUETA_SVG; img.src=u.urlFoto; return;
+    }
+    pintarFotoMarco(el,u.idInterno);
+}
+function htmlFotoUsuario(u,tam){
+    if(u.urlFoto && (u.urlFoto.indexOf('/archivo?')===0 || u.urlFoto.indexOf('http')===0))
+        return '<span class="pr-foto" style="width:'+tam+'px;height:'+tam+'px"><img src="'+escHtmlInicio(u.urlFoto)+'" alt="" onerror="this.remove()"></span>';
+    return htmlFotoIniciales(u.nombre,u.idInterno,tam);
+}
+
+// ══ Usuarios: pestañas ═══════════════════════════════════════════
+function activarTabUsuarios(tab,btn){
+    document.querySelectorAll('.usr-tab').forEach(function(b){ b.classList.toggle('active',b===btn||b.dataset.tab===tab); });
+    ['usuarios','roles','perfil'].forEach(function(t){ const el=document.getElementById('usr-tab-'+t); if(el) el.hidden=t!==tab; });
+    if(tab==='usuarios') cargarTablaUsuarios();
+    if(tab==='roles') cargarRoles();
+    if(tab==='perfil') renderizarPerfil('perfil-admin-body');
+}
 async function cargarModuloUsuarios(){
     if(!sesionActual) return;
-    const rol=sesionActual.usuario.rol;
+    const admin=!!sesionActual.usuario.puedeAdministrar || (sesionActual.usuario.puedeAdministrar===undefined && sesionActual.usuario.rol==='Administrador');
     const panelAdmin=document.getElementById('panel-usuarios-admin');
     const panelAux=document.getElementById('panel-perfil-auxiliar');
-    if(rol==='Administrador'){
-        if(panelAdmin) panelAdmin.classList.remove('hidden');
-        if(panelAux)   panelAux.classList.add('hidden');
-        await cargarTablaUsuarios();
+    if(panelAdmin) panelAdmin.classList.toggle('hidden',!admin);
+    if(panelAux)   panelAux.classList.toggle('hidden',admin);
+    if(admin){
+        const tab=window._usrTabInicial||'usuarios'; window._usrTabInicial=null;
+        activarTabUsuarios(tab,document.querySelector('.usr-tab[data-tab="'+tab+'"]'));
     } else {
-        if(panelAdmin) panelAdmin.classList.add('hidden');
-        if(panelAux)   panelAux.classList.remove('hidden');
-        renderizarPerfilAuxiliar();
+        renderizarPerfil('perfil-auxiliar-body');
+        const ht=document.getElementById('header-title'); if(ht) ht.textContent='Mi perfil';
     }
+}
+function abrirMiPerfil(){
+    window._usrTabInicial='perfil';
+    irAModulo('usuarios');
+}
+async function datosRoles(forzar){
+    if(window._rolesData && !forzar) return window._rolesData;
+    const r=await enviarPeticion('listar_roles',{});
+    if(r.status!=='success') throw new Error(r.message||'No se pudieron leer los roles.');
+    window._rolesData=r; return r;
+}
+
+// ══ Mi perfil (todos los usuarios) ═══════════════════════════════
+function renderizarPerfil(idCont){
+    const body=document.getElementById(idCont);
+    if(!body||!sesionActual) return;
+    const u=sesionActual.usuario;
+    const alc=(u.alcance&&u.alcance.length)?u.alcance:null;
+    body.innerHTML='<div class="pr-perfil">'
+        +'<div class="pr-perfil-cab">'
+        +'<span class="pr-foto pr-perfil-foto" id="perfil-foto"></span>'
+        +'<div class="min-w-0"><p class="pr-perfil-nom">'+escHtmlInicio(u.nombre)+'</p>'
+        +'<p class="pr-li-sub">'+escHtmlInicio(u.email)+'</p>'
+        +'<div class="pr-dw-chips"><span class="pr-dw-chip"><i class="fas fa-shield-halved"></i>'+escHtmlInicio(u.rol)+'</span>'
+        +'<span class="pr-dw-chip" title="'+escHtmlInicio(alc?alc.join(', '):'')+'"><i class="fas fa-building"></i>'+(alc?(alc.length===1?escHtmlInicio(alc[0]):alc.length+' empresas'):'Todas las empresas')+'</span></div>'
+        +'<label class="pr-enlace pr-perfil-cambiar"><i class="fas fa-camera"></i> Cambiar foto'
+        +'<input type="file" accept="image/jpeg,image/png,image/webp" hidden onchange="subirFotoUsuario(this)"></label></div></div>'
+        +'<div class="pr-perfil-grid">'
+        +'<section class="pr-perfil-sec"><h4>Mis datos</h4>'
+        +'<label class="pr-alta-label" for="perfil-nombre">Nombre completo</label><input type="text" id="perfil-nombre" class="pr-input" value="'+escHtmlInicio(u.nombre)+'">'
+        +'<label class="pr-alta-label" for="perfil-telefono">Teléfono</label><input type="tel" id="perfil-telefono" class="pr-input" value="'+escHtmlInicio(u.telefono||'')+'">'
+        +'<button type="button" class="pr-accion primaria" onclick="guardarPerfil()"><i class="fas fa-floppy-disk"></i>Guardar datos</button></section>'
+        +'<section class="pr-perfil-sec"><h4>Cambiar contraseña</h4>'
+        +'<label class="pr-alta-label" for="perfil-pass-actual">Contraseña actual</label><input type="password" id="perfil-pass-actual" class="pr-input" autocomplete="current-password">'
+        +'<label class="pr-alta-label" for="perfil-pass-nuevo">Nueva contraseña</label><input type="password" id="perfil-pass-nuevo" class="pr-input" autocomplete="new-password" oninput="medirPassword(this.value)">'
+        +'<p class="pr-campo-msg" id="perfil-pass-fuerza"></p>'
+        +'<label class="pr-alta-label" for="perfil-pass-conf">Repite la nueva contraseña</label><input type="password" id="perfil-pass-conf" class="pr-input" autocomplete="new-password">'
+        +'<button type="button" class="pr-accion" onclick="cambiarPasswordPerfil()"><i class="fas fa-key"></i>Cambiar contraseña</button></section>'
+        +'</div></div>';
+    pintarFotoUsuario(document.getElementById('perfil-foto'),u);
+}
+function renderizarPerfilAuxiliar(){ renderizarPerfil('perfil-auxiliar-body'); }
+function medirPassword(v){
+    const el=document.getElementById('perfil-pass-fuerza'); if(!el) return;
+    if(!v){ el.className='pr-campo-msg'; el.textContent=''; return; }
+    let pts=0; if(v.length>=8)pts++; if(v.length>=12)pts++; if(/[A-Z]/.test(v)&&/[a-z]/.test(v))pts++; if(/\d/.test(v))pts++; if(/[^A-Za-z0-9]/.test(v))pts++;
+    const n=v.length<8?0:pts<=2?1:pts<=3?2:3;
+    el.className='pr-campo-msg '+['error','aviso','ok','ok'][n];
+    el.innerHTML=['<i class="fas fa-circle-xmark"></i>Muy corta: mínimo 8 caracteres.','<i class="fas fa-triangle-exclamation"></i>Débil: combina mayúsculas, números o símbolos.','<i class="fas fa-circle-check"></i>Aceptable.','<i class="fas fa-circle-check"></i>Fuerte.'][n];
+}
+async function guardarPerfil(){
+    if(!sesionActual) return;
+    const nombre=(document.getElementById('perfil-nombre')?.value||'').trim(), telefono=(document.getElementById('perfil-telefono')?.value||'').trim();
+    if(!nombre){ mostrarToast('warning','Falta el nombre','Escribe tu nombre completo.'); return; }
+    const r=await enviarPeticion('actualizar_usuario',{email:sesionActual.usuario.email,nombre,telefono});
+    if(r.status==='success'){
+        sesionActual.usuario.nombre=nombre; sesionActual.usuario.telefono=telefono; aplicarSesion(sesionActual.usuario);
+        mostrarToast('success','Datos guardados','Tu perfil se actualizó.');
+    } else mostrarToast('error','No se guardó',r.message);
+}
+function guardarPerfilAuxiliar(){ return guardarPerfil(); }
+async function cambiarPasswordPerfil(){
+    const actual=document.getElementById('perfil-pass-actual')?.value||'';
+    const nuevo=document.getElementById('perfil-pass-nuevo')?.value||'';
+    const conf=document.getElementById('perfil-pass-conf')?.value||'';
+    if(!actual||!nuevo){mostrarToast('warning','Faltan datos','Escribe tu contraseña actual y la nueva.');return;}
+    if(nuevo.length<8){mostrarToast('warning','Contraseña muy corta','La nueva contraseña necesita al menos 8 caracteres.');return;}
+    if(conf!==nuevo){mostrarToast('warning','No coinciden','La confirmación es distinta de la nueva contraseña.');return;}
+    const r=await enviarPeticion('cambiar_password',{passActual:actual,passNuevo:nuevo});
+    if(r.status==='success'){
+        mostrarToast('success','Contraseña cambiada','Úsala la próxima vez que entres.');
+        ['perfil-pass-actual','perfil-pass-nuevo','perfil-pass-conf'].forEach(function(id){const e=document.getElementById(id); if(e) e.value='';});
+        medirPassword('');
+    } else mostrarToast('error','No se cambió',r.message);
+}
+// Foto: se reduce a 512 px en el navegador antes de subirla (más rápida y ligera)
+function _reducirImagen(file,max){
+    return new Promise(function(res,rej){
+        const fr=new FileReader();
+        fr.onload=function(){ const img=new Image(); img.onload=function(){
+            const k=Math.min(1,max/Math.max(img.width,img.height)), c=document.createElement('canvas');
+            c.width=Math.round(img.width*k); c.height=Math.round(img.height*k);
+            c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+            res(c.toDataURL('image/jpeg',0.86));
+        }; img.onerror=function(){rej(new Error('No se pudo leer la imagen.'));}; img.src=fr.result; };
+        fr.onerror=rej; fr.readAsDataURL(file);
+    });
+}
+async function subirFotoUsuario(input,email){
+    const f=input&&input.files&&input.files[0]; if(!f) return;
+    if(!/^image\/(jpeg|png|webp)$/.test(f.type)){ mostrarToast('warning','Formato no válido','Usa una foto JPG, PNG o WEBP.'); return; }
+    try{
+        mostrarLoader('Subiendo foto...');
+        const data=await _reducirImagen(f,512);
+        const r=await enviarPeticion('subir_foto_usuario',{email:email||'',mimeType:'image/jpeg',data:data.split(',')[1]});
+        ocultarLoader();
+        if(r.status!=='success'){ mostrarToast('error','No se subió la foto',r.message); return; }
+        if(!email || email===sesionActual.usuario.email){
+            sesionActual.usuario.urlFoto=r.urlFoto; aplicarSesion(sesionActual.usuario);
+            const pf=document.getElementById('perfil-foto'); if(pf) pintarFotoUsuario(pf,sesionActual.usuario);
+        }
+        mostrarToast('success','Foto actualizada','Ya se ve en el sistema.');
+        if(email) cargarTablaUsuarios();
+    }catch(e){ ocultarLoader(); mostrarToast('error','No se subió la foto',e.message); }
+    finally{ if(input) input.value=''; }
+}
+
+// ══ Editor de usuario (crear y editar) ═══════════════════════════
+function _alcanceHTML(grupos,gSel,eSel){
+    const gS=new Set((gSel||[]).map(x=>x.toUpperCase())), eS=new Set((eSel||[]).map(x=>x.toUpperCase()));
+    const todas=!gS.size&&!eS.size;
+    return '<label class="pr-switch"><input type="checkbox" id="ue-todas"'+(todas?' checked':'')+' onchange="document.getElementById(\'ue-arbol\').hidden=this.checked"><span></span>Todas las empresas (presentes y futuras)</label>'
+        +'<div class="pr-arbol" id="ue-arbol"'+(todas?' hidden':'')+'>'
+        +grupos.map(function(g,i){
+            const gOn=gS.has(g.grupo.toUpperCase());
+            const nSel=g.empresas.filter(e=>eS.has(e.toUpperCase())).length;
+            return '<div class="pr-arbol-g'+(gOn?' completo':'')+'">'
+                +'<div class="pr-arbol-fila"><label><input type="checkbox" class="ue-grupo" value="'+escHtmlInicio(g.grupo)+'"'+(gOn?' checked':'')+' onchange="this.closest(\'.pr-arbol-g\').classList.toggle(\'completo\',this.checked)">'
+                +'<b>'+escHtmlInicio(g.grupo)+'</b><span class="pr-li-sub">grupo completo · '+g.empresas.length+' empresa'+(g.empresas.length===1?'':'s')+'</span></label>'
+                +(g.empresas.length>1?'<button type="button" class="pr-enlace" onclick="this.closest(\'.pr-arbol-g\').classList.toggle(\'abierto\')">'+(nSel?nSel+' elegida'+(nSel===1?'':'s'):'Elegir empresas')+'</button>':'')+'</div>'
+                +'<div class="pr-arbol-emps">'+g.empresas.map(function(e){
+                    return '<label><input type="checkbox" class="ue-empresa" value="'+escHtmlInicio(e)+'"'+(eS.has(e.toUpperCase())?' checked':'')+'>'+escHtmlInicio(e)+'</label>';
+                }).join('')+'</div></div>';
+        }).join('')+'</div>'
+        +'<p class="pr-lado-sub" style="margin-top:8px">Un grupo completo incluye también las empresas que se agreguen después a ese grupo.</p>';
+}
+function _leerAlcance(){
+    if(document.getElementById('ue-todas')?.checked) return {grupos:'',empresas:''};
+    const grupos=[].map.call(document.querySelectorAll('.ue-grupo:checked'),c=>c.value);
+    const gS=new Set(grupos.map(x=>x.toUpperCase()));
+    // Las empresas de un grupo completo no se guardan sueltas (ya vienen con el grupo)
+    const empresasSel=[].filter.call(document.querySelectorAll('.ue-empresa:checked'),c=>!gS.has((c.closest('.pr-arbol-g').querySelector('.ue-grupo').value||'').toUpperCase())).map(c=>c.value);
+    return {grupos:grupos.join(','),empresas:empresasSel.join(',')};
+}
+function _rolesHTML(roles,actual){
+    return '<div class="pr-roles-sel">'+roles.map(function(r){
+        return '<label class="pr-rol-op"><input type="radio" name="ue-rol" value="'+escHtmlInicio(r.nombre)+'"'+(r.nombre===actual?' checked':'')+'>'
+            +'<span class="pr-rol-punto" style="background:'+r.color+'"></span><span class="min-w-0"><b>'+escHtmlInicio(r.nombre)+'</b><span class="pr-li-sub" style="display:block">'+escHtmlInicio(r.descripcion||'')+'</span></span></label>';
+    }).join('')+'</div>';
+}
+function _generarPass(){
+    const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789', b=new Uint32Array(12); crypto.getRandomValues(b);
+    return [].map.call(b,x=>a[x%a.length]).join('');
+}
+async function abrirEditorUsuario(u){
+    let rd; try{ rd=await datosRoles(); }catch(e){ mostrarToast('error','No se pudieron leer los roles',e.message); return; }
+    const nuevo=!u; u=u||{nombre:'',email:'',telefono:'',rol:'Auxiliar',empresas:[],grupos:[],idInterno:'',estatus:'Activo'};
+    const esYo=sesionActual && u.email===sesionActual.usuario.email;
+    const res=await Swal.fire({
+        title:nuevo?'Nuevo usuario':'Editar usuario', width:760, customClass:{popup:'pr-swal-ancho'},
+        html:'<div class="pr-ue">'
+            +(nuevo?'':'<div class="pr-ue-cab">'+htmlFotoUsuario(u,56)+'<div class="min-w-0"><b>'+escHtmlInicio(u.nombre)+'</b><span class="pr-li-sub" style="display:block">'+escHtmlInicio(u.email)+'</span>'
+                +'<label class="pr-enlace" style="padding:0"><i class="fas fa-camera"></i> Cambiar foto<input type="file" hidden accept="image/jpeg,image/png,image/webp" onchange="Swal.close();subirFotoUsuario(this,\''+escHtmlInicio(u.email)+'\')"></label></div></div>')
+            +'<div class="pr-ue-grid">'
+            +'<div><label class="pr-alta-label" for="ue-nombre">Nombre completo</label><input id="ue-nombre" class="pr-input" value="'+escHtmlInicio(u.nombre)+'"></div>'
+            +'<div><label class="pr-alta-label" for="ue-email">Correo</label><input id="ue-email" type="email" class="pr-input" value="'+escHtmlInicio(u.email)+'"'+(nuevo?'':' disabled')+' placeholder="correo@empresa.mx"></div>'
+            +'<div><label class="pr-alta-label" for="ue-tel">Teléfono</label><input id="ue-tel" class="pr-input" value="'+escHtmlInicio(u.telefono||'')+'"></div>'
+            +(nuevo?'<div><label class="pr-alta-label" for="ue-pass">Contraseña inicial</label><div class="pr-input-btn"><input id="ue-pass" class="pr-input" value="'+_generarPass()+'"><button type="button" class="pr-enlace" onclick="document.getElementById(\'ue-pass\').value=_generarPass()">Otra</button></div><span class="pr-li-sub">Se le envía por correo junto con la bienvenida.</span></div>'
+                  :'<div><label class="pr-alta-label" for="ue-estatus">Estatus</label><select id="ue-estatus" class="pr-input"'+(esYo?' disabled title="No puedes desactivarte a ti mismo"':'')+'><option'+(u.estatus==='Activo'?' selected':'')+'>Activo</option><option'+(u.estatus!=='Activo'?' selected':'')+'>Inactivo</option></select></div>')
+            +'<div class="pr-ue-full"><label class="pr-alta-label" for="ue-idint">Empleado vinculado <span class="pr-auto">para sus evaluaciones y su foto del expediente</span></label>'
+            +'<div class="pr-input-btn"><input id="ue-idint" class="pr-input" value="'+escHtmlInicio(u.idInterno||'')+'" placeholder="ID INTERNO, p. ej. GM12"><button type="button" class="pr-enlace" onclick="buscarIDInternoEditor()"><i class="fas fa-magnifying-glass"></i> Buscar por nombre</button></div>'
+            +'<p class="pr-lado-sub" id="ue-idint-res"></p></div>'
+            +'</div>'
+            +'<h4 class="pr-ue-tit">Rol</h4>'+_rolesHTML(rd.roles,u.rol)
+            +'<h4 class="pr-ue-tit">Empresas a las que tiene acceso</h4>'+_alcanceHTML(rd.grupos,u.grupos,u.empresas)
+            +'</div>',
+        showCancelButton:true, confirmButtonText:nuevo?'Crear usuario':'Guardar cambios', cancelButtonText:'Cancelar', focusConfirm:false,
+        preConfirm:async function(){
+            const nombre=document.getElementById('ue-nombre').value.trim(), email=document.getElementById('ue-email').value.trim().toLowerCase();
+            const rol=(document.querySelector('input[name="ue-rol"]:checked')||{}).value;
+            if(!nombre||!email){ Swal.showValidationMessage('Escribe el nombre y el correo.'); return false; }
+            if(!rol){ Swal.showValidationMessage('Elige un rol.'); return false; }
+            const alc=_leerAlcance();
+            if(!document.getElementById('ue-todas').checked && !alc.grupos && !alc.empresas){ Swal.showValidationMessage('Elige al menos un grupo o una empresa, o marca "Todas las empresas".'); return false; }
+            const datos={nombre,email,telefono:document.getElementById('ue-tel').value.trim(),rol,grupos:alc.grupos,empresas:alc.empresas,idInterno:document.getElementById('ue-idint').value.trim()};
+            if(nuevo){ datos.password=document.getElementById('ue-pass').value.trim(); if(datos.password.length<8){ Swal.showValidationMessage('La contraseña inicial necesita al menos 8 caracteres.'); return false; } }
+            else if(!esYo) datos.estatus=document.getElementById('ue-estatus').value;
+            const r=await enviarPeticion(nuevo?'crear_usuario':'actualizar_usuario',datos);
+            if(r.status!=='success'){ Swal.showValidationMessage(r.message); return false; }
+            return r;
+        }
+    });
+    if(res.isConfirmed){
+        mostrarToast('success',nuevo?'Usuario creado':'Usuario actualizado',nuevo?'Se le envió un correo con sus accesos.':'Los cambios aplican en su siguiente acción.');
+        window._rolesData=null; cargarTablaUsuarios();
+    }
+}
+async function buscarIDInternoEditor(){
+    const nombre=(document.getElementById('ue-nombre')?.value||'').trim(), out=document.getElementById('ue-idint-res');
+    if(nombre.length<3){ if(out) out.textContent='Escribe primero el nombre (al menos 3 letras).'; return; }
+    if(out) out.textContent='Buscando...';
+    try{
+        const r=await enviarPeticion('buscar_usuario_por_nombre',{nombre});
+        const c=(r.candidatos||[]).slice(0,5);
+        if(!c.length){ out.textContent='No encontré un empleado con ese nombre. Puedes escribir el ID a mano.'; return; }
+        out.innerHTML=c.map(x=>'<button type="button" class="pr-chip-op" onclick="document.getElementById(\'ue-idint\').value=\''+escHtmlInicio(x.idInterno)+'\'">'+escHtmlInicio(x.nombre)+' · '+escHtmlInicio(x.empresa)+' <b>'+escHtmlInicio(x.idInterno)+'</b></button>').join('');
+    }catch(e){ out.textContent='No se pudo buscar: '+e.message; }
+}
+function abrirModalNuevoUsuario(){ abrirEditorUsuario(null); }
+async function editarUsuario(email){
+    const u=(window._usuariosLista||[]).find(x=>x.email===email);
+    if(u) return abrirEditorUsuario(u);
+    const r=await enviarPeticion('listar_usuarios',{});
+    const v=(r.usuarios||[]).find(x=>x.email===email); if(v) abrirEditorUsuario(v);
+}
+async function resetPassword(email){
+    const res=await Swal.fire({title:'¿Restablecer la contraseña?',html:'Se generará una contraseña temporal para <b>'+escHtmlInicio(email)+'</b>, se le enviará por correo y se cerrará su sesión abierta.',icon:'warning',confirmButtonText:'Sí, restablecer',showCancelButton:true,cancelButtonText:'Cancelar'});
+    if(!res.isConfirmed) return;
+    const r=await enviarPeticion('resetear_password',{email});
+    if(r.status!=='success'){ mostrarToast('error','No se restableció',r.message); return; }
+    Swal.fire({icon:'success',title:'Contraseña restablecida',
+        html:'<p style="margin:0 0 10px">Contraseña temporal de <b>'+escHtmlInicio(email)+'</b>:</p><p class="pr-pass-temp" id="pass-temp">'+escHtmlInicio(r.passTemporal||'')+'</p><p class="pr-li-sub">También se envió por correo. Pídele que la cambie en Mi perfil.</p>',
+        confirmButtonText:'Copiar y cerrar'}).then(function(){ try{ navigator.clipboard.writeText(r.passTemporal||''); }catch(e){} });
+}
+
+// ══ Roles y permisos ═════════════════════════════════════════════
+async function cargarRoles(){
+    const cont=document.getElementById('roles-container'); if(!cont) return;
+    cont.innerHTML='<p class="pr-vacio">Cargando roles...</p>';
+    let rd; try{ rd=await datosRoles(true); }catch(e){ cont.innerHTML='<p class="pr-vacio">'+escHtmlInicio(e.message)+'</p>'; return; }
+    const cat=rd.catalogo;
+    cont.innerHTML='<div class="pr-roles">'+rd.roles.map(function(r){
+        const mods=cat.filter(m=>r.permisos[m.id]&&r.permisos[m.id].length);
+        return '<article class="pr-rol" style="--rol:'+r.color+'">'
+            +'<div class="pr-rol-cab"><span class="pr-rol-punto" style="background:'+r.color+'"></span><h4>'+escHtmlInicio(r.nombre)+'</h4>'
+            +(r.esSistema?'<span class="pr-dw-chip" title="Viene con el sistema: no se puede borrar ni renombrar">Sistema</span>':'')+'</div>'
+            +'<p class="pr-lado-sub">'+escHtmlInicio(r.descripcion||'Sin descripción')+'</p>'
+            +'<p class="pr-rol-dato"><i class="fas fa-users"></i>'+r.usuarios+' usuario'+(r.usuarios===1?'':'s')+' · '+mods.length+' de '+cat.length+' módulos</p>'
+            +'<div class="pr-rol-mods">'+cat.map(m=>'<span class="'+(mods.indexOf(m)>=0?'on':'')+'" title="'+escHtmlInicio(m.nombre+': '+((r.permisos[m.id]||[]).map(a=>m.acciones[a]).join(', ')||'sin acceso'))+'">'+escHtmlInicio(m.nombre)+'</span>').join('')+'</div>'
+            +'<div class="pr-rol-acc"><button type="button" class="pr-accion" onclick="editarRol(\''+r.id+'\')"><i class="fas fa-pen"></i>'+(r.nombre==='Administrador'?'Ver':'Editar')+'</button>'
+            +'<button type="button" class="pr-accion" onclick="editarRol(\''+r.id+'\',true)" title="Crear un rol nuevo a partir de este"><i class="fas fa-copy"></i>Duplicar</button>'
+            +(r.esSistema?'':'<button type="button" class="pr-accion peligro" onclick="eliminarRol(\''+r.id+'\')" title="Borrar rol"><i class="fas fa-trash"></i></button>')+'</div>'
+            +'</article>';
+    }).join('')+'</div>';
+}
+const _COLORES_ROL=['#5B7CFF','#A35BFF','#2FE0C8','#FF6BA6','#FFAA3C','#8C93B8'];
+async function editarRol(id,duplicar){
+    let rd; try{ rd=await datosRoles(); }catch(e){ mostrarToast('error','Error',e.message); return; }
+    const base=id?rd.roles.find(r=>r.id===id):null;
+    const esAdmin=base&&base.nombre==='Administrador'&&!duplicar;
+    const rol=base?Object.assign({},base,duplicar?{id:'',nombre:base.nombre+' (copia)',esSistema:false}:{}):{id:'',nombre:'',descripcion:'',color:_COLORES_ROL[0],permisos:{},esSistema:false};
+    const cat=rd.catalogo;
+    const matriz='<table class="pr-matriz"><thead><tr><th>Módulo</th><th>Permisos</th><th class="c">Todo</th></tr></thead><tbody>'
+        +cat.map(function(m){
+            const tiene=rol.permisos[m.id]||[], acc=Object.keys(m.acciones);
+            return '<tr data-mod="'+m.id+'"><td><b>'+escHtmlInicio(m.nombre)+'</b></td><td><div class="pr-chips-perm">'
+                +acc.map(a=>'<label class="pr-perm"><input type="checkbox" class="rp" data-mod="'+m.id+'" value="'+a+'"'+(tiene.indexOf(a)>=0?' checked':'')+(esAdmin?' disabled':'')+'><span>'+escHtmlInicio(m.acciones[a])+'</span></label>').join('')
+                +'</div></td><td class="c"><input type="checkbox" class="rp-todo" aria-label="Todo en '+escHtmlInicio(m.nombre)+'"'+(acc.every(a=>tiene.indexOf(a)>=0)?' checked':'')+(esAdmin?' disabled':'')
+                +' onchange="this.closest(\'tr\').querySelectorAll(\'.rp\').forEach(c=>c.checked=this.checked)"></td></tr>';
+        }).join('')+'</tbody></table>';
+    const res=await Swal.fire({
+        title:esAdmin?'Rol Administrador':(rol.id?'Editar rol':'Nuevo rol'), width:820, customClass:{popup:'pr-swal-ancho'},
+        html:'<div class="pr-ue">'
+            +(esAdmin?'<p class="pr-nota-info"><i class="fas fa-lock"></i><span>El Administrador siempre tiene todos los permisos, para que nadie se quede sin acceso. Solo puedes cambiar su descripción y color.</span></p>':'')
+            +'<div class="pr-ue-grid">'
+            +'<div><label class="pr-alta-label" for="rol-nombre">Nombre del rol</label><input id="rol-nombre" class="pr-input" maxlength="40" value="'+escHtmlInicio(rol.nombre)+'"'+(rol.esSistema&&!duplicar?' disabled title="Los roles del sistema no se renombran"':'')+' placeholder="Ej. Jefe de área"></div>'
+            +'<div><span class="pr-alta-label">Color</span><div class="pr-colores">'+_COLORES_ROL.map(c=>'<label><input type="radio" name="rol-color" value="'+c+'"'+(c===rol.color?' checked':'')+'><span style="background:'+c+'"></span></label>').join('')+'</div></div>'
+            +'<div class="pr-ue-full"><label class="pr-alta-label" for="rol-desc">Descripción</label><input id="rol-desc" class="pr-input" maxlength="200" value="'+escHtmlInicio(rol.descripcion||'')+'" placeholder="Para qué sirve este rol"></div>'
+            +'</div><h4 class="pr-ue-tit">Qué puede ver y hacer</h4>'+matriz
+            +'<p class="pr-lado-sub" style="margin-top:10px">Las empresas que ve cada persona se eligen en su usuario, no en el rol. "Mis evaluaciones" y "Mi perfil" siempre están disponibles.</p></div>',
+        showCancelButton:true, confirmButtonText:esAdmin?'Guardar':'Guardar rol', cancelButtonText:'Cancelar', focusConfirm:false,
+        preConfirm:async function(){
+            const permisos={};
+            document.querySelectorAll('.pr-matriz .rp:checked').forEach(c=>{ (permisos[c.dataset.mod]=permisos[c.dataset.mod]||[]).push(c.value); });
+            const r=await enviarPeticion('guardar_rol',{id:rol.id||'',nombre:document.getElementById('rol-nombre').value.trim(),descripcion:document.getElementById('rol-desc').value.trim(),
+                color:(document.querySelector('input[name="rol-color"]:checked')||{}).value||_COLORES_ROL[0],permisos});
+            if(r.status!=='success'){ Swal.showValidationMessage(r.message); return false; }
+            return r;
+        }
+    });
+    if(res.isConfirmed){ mostrarToast('success','Rol guardado',res.value.message); window._rolesData=null; cargarRoles(); }
+}
+async function eliminarRol(id){
+    const rd=await datosRoles(); const r=rd.roles.find(x=>x.id===id); if(!r) return;
+    const otros=rd.roles.filter(x=>x.id!==id);
+    const res=await Swal.fire({icon:'warning',title:'¿Borrar el rol "'+r.nombre+'"?',
+        html:r.usuarios?'<p style="margin:0 0 10px">Tiene <b>'+r.usuarios+' usuario'+(r.usuarios===1?'':'s')+'</b>. ¿A qué rol los paso?</p><select id="rol-destino" class="pr-input">'+otros.map(o=>'<option value="'+o.id+'"'+(o.nombre==='Auxiliar'?' selected':'')+'>'+escHtmlInicio(o.nombre)+'</option>').join('')+'</select>':'Nadie lo usa; se puede borrar sin afectar a nadie.',
+        showCancelButton:true,confirmButtonText:'Borrar rol',cancelButtonText:'Cancelar',focusCancel:true,
+        preConfirm:async function(){
+            const x=await enviarPeticion('eliminar_rol',{id,reasignarA:(document.getElementById('rol-destino')||{}).value||''});
+            if(x.status!=='success'){ Swal.showValidationMessage(x.message); return false; } return x;
+        }});
+    if(res.isConfirmed){ mostrarToast('success','Rol borrado',res.value.message); window._rolesData=null; cargarRoles(); }
 }
 
 async function cargarTablaUsuarios(){
@@ -2346,6 +2689,8 @@ async function cargarTablaUsuarios(){
     const r=await enviarPeticion('listar_usuarios',{token:getToken()});
     if(r.status!=='success'){cont.innerHTML='<p class="text-sm text-red-400 text-center py-8">'+r.message+'</p>';return;}
     const us=r.usuarios||[];
+    window._usuariosLista=us;
+    let _colRol={}; try{ (await datosRoles()).roles.forEach(x=>{_colRol[x.nombre]=x.color;}); }catch(e){}
     const nAct=us.filter(u=>u.estatus==='Activo').length, nAdm=us.filter(u=>u.rol==='Administrador').length;
     cont.innerHTML='<div class="pr-usr-barra"><div class="pr-usr-buscar"><i class="fas fa-magnifying-glass"></i>'
         +'<input type="search" id="usr-buscar" placeholder="Buscar por nombre, correo, rol o empresa" oninput="filtrarUsuariosTabla(this.value)" aria-label="Buscar usuarios"></div>'
@@ -2359,15 +2704,15 @@ async function cargarTablaUsuarios(){
         +us.map(function(u){
             const activo=u.estatus==='Activo';
             const badge=activo?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
-            const emps=(u.empresas||[]).join(', ')||'—';
+            const emps=[].concat((u.grupos||[]).map(g=>'Grupo '+g),u.empresas||[]).join(', ')||'Todas';
             const ua=textoUltimoAcceso(u.ultimoAcceso);
             return '<tr class="hover:bg-slate-50 pr-usr-fila" data-buscar="'+escHtmlInicio((u.nombre+' '+u.email+' '+u.rol+' '+emps).toLowerCase())+'">'
                 +'<td class="px-4 py-3"><div class="pr-colab">'
-                +htmlFotoIniciales(u.nombre,u.idInterno,36)
+                +htmlFotoUsuario(u,36)
                 +'<div class="min-w-0"><span class="font-medium text-slate-700" style="display:block">'+u.nombre+'</span>'
                 +'<span class="pr-li-sub" style="display:block">'+(ua?'Último acceso '+ua:'Sin accesos registrados')+'</span></div></div></td>'
                 +'<td class="px-4 py-3 text-slate-500 text-xs">'+u.email+'</td>'
-                +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+(u.rol==='Administrador'?'bg-violet-100 text-violet-700':'bg-blue-100 text-blue-700')+'">'+u.rol+'</span></td>'
+                +'<td class="px-4 py-3"><span class="pr-rol-chip"><span class="pr-rol-punto" style="background:'+(_colRol[u.rol]||'#8C93B8')+'"></span>'+escHtmlInicio(u.rol)+'</span></td>'
                 +'<td class="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">'+emps+'</td>'
                 +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+badge+'">'+u.estatus+'</span></td>'
                 +'<td class="px-4 py-3"><div class="flex justify-center gap-2">'
@@ -2389,122 +2734,6 @@ async function cargarTablaUsuarios(){
             if(a==='toggle')  toggleUsuario(em,es);
         });
     },100);;
-}
-
-function renderizarPerfilAuxiliar(){
-    const body=document.getElementById('perfil-auxiliar-body');
-    if(!body||!sesionActual) return;
-    const u=sesionActual.usuario;
-    body.innerHTML='<div class="max-w-md mx-auto space-y-5">'
-        +'<div class="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">'
-        +'<div class="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center text-violet-700 font-bold text-2xl overflow-hidden" id="perfil-avatar">'
-        +(u.urlFoto?'<img src="'+u.urlFoto+'" class="w-full h-full object-cover">':((u.nombre||'U')[0].toUpperCase()))
-        +'</div><div>'
-        +'<p class="font-bold text-slate-800">'+u.nombre+'</p>'
-        +'<p class="text-xs text-slate-400">'+u.rol+' · '+u.email+'</p>'
-        +'<label class="text-xs text-violet-600 hover:text-violet-800 cursor-pointer font-semibold mt-1 inline-block">'
-        +'<i class="fas fa-camera mr-1"></i>Cambiar foto'
-        +'<input type="file" accept=".jpg,.jpeg,.png" class="hidden" onchange="subirFotoUsuario(this)"></label>'
-        +'</div></div>'
-        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Nombre completo</label>'
-        +'<input type="text" id="perfil-nombre" value="'+u.nombre+'" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500"></div>'
-        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Teléfono</label>'
-        +'<input type="tel" id="perfil-telefono" value="'+(u.telefono||'')+'" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500"></div>'
-        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Correo electrónico</label>'
-        +'<input type="email" value="'+u.email+'" disabled class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm bg-slate-50 text-slate-400 cursor-not-allowed"></div>'
-        +'<div><label class="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Empresas asignadas</label>'
-        +'<p class="text-sm text-slate-600 bg-slate-50 rounded-xl px-4 py-2.5 border border-slate-200">'+((u.empresas&&u.empresas.length)?u.empresas.join(', '):'Todas las empresas')+'</p></div>'
-        +'<div class="pt-2 border-t border-slate-100">'
-        +'<p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Cambiar contraseña</p>'
-        +'<div class="space-y-3">'
-        +'<input type="password" id="perfil-pass-actual" placeholder="Contraseña actual" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500">'
-        +'<input type="password" id="perfil-pass-nuevo" placeholder="Nueva contraseña (mín. 8 caracteres)" class="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-violet-500">'
-        +'<button onclick="cambiarPasswordPerfil()" class="text-xs font-semibold text-violet-600 hover:text-violet-800 transition">Actualizar contraseña →</button>'
-        +'</div></div>'
-        +'<button onclick="guardarPerfilAuxiliar()" class="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl transition shadow-sm">'
-        +'<i class="fas fa-save mr-2"></i>Guardar cambios</button></div>';
-}
-
-async function guardarPerfilAuxiliar(){
-    if(!sesionActual) return;
-    const r=await enviarPeticion('actualizar_usuario',{token:getToken(),email:sesionActual.usuario.email,nombre:document.getElementById('perfil-nombre')?.value||'',telefono:document.getElementById('perfil-telefono')?.value||''});
-    if(r.status==='success'){sesionActual.usuario.nombre=document.getElementById('perfil-nombre')?.value||'';mostrarToast('success','Perfil actualizado','Datos guardados correctamente.');}
-    else mostrarToast('error','Error',r.message);
-}
-
-async function cambiarPasswordPerfil(){
-    const actual=document.getElementById('perfil-pass-actual')?.value||'';
-    const nuevo=document.getElementById('perfil-pass-nuevo')?.value||'';
-    if(!actual||!nuevo){mostrarToast('warning','Campos vacíos','Ingresa tu contraseña actual y la nueva.');return;}
-    const r=await enviarPeticion('cambiar_password',{token:getToken(),passActual:actual,passNuevo:nuevo});
-    if(r.status==='success'){mostrarToast('success','Contraseña actualizada','Tu contraseña fue cambiada.');document.getElementById('perfil-pass-actual').value='';document.getElementById('perfil-pass-nuevo').value='';}
-    else mostrarToast('error','Error',r.message);
-}
-
-function abrirModalNuevoUsuario(){
-    Swal.fire({
-        title:'Nuevo Usuario RRHH',
-        html:'<div class="text-left" style="display:grid;gap:8px;">'
-            +'<div style="position:relative;">'
-            +'<input id="swal-nombre" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="Nombre completo del usuario">'
-            +'<button type="button" id="btn-buscar-idint" onclick="buscarIDInternoAuto()" '
-            +'style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:#7c3aed;border:none;color:#fff;border-radius:6px;padding:4px 10px;font-size:.72rem;cursor:pointer;white-space:nowrap;">'
-            +'<i class="fas fa-search"></i> Buscar empleado</button>'
-            +'</div>'
-            // Resultado de búsqueda
-            +'<div id="idint-resultado" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#166534;"></div>'
-            // Campo ID INTERNO (oculto/readonly después de buscar)
-            +'<input id="swal-idint" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="ID INTERNO (se llena automático o escribe el ID)">'
-            +'<input id="swal-email" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" type="email" placeholder="correo@gmnet.mx">'
-            +'<input id="swal-pass" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" type="password" placeholder="Contraseña inicial">'
-            +'<input id="swal-tel" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;" placeholder="Teléfono">'
-            +'<select id="swal-rol" class="swal2-input" style="margin:0;width:100%;box-sizing:border-box;">'
-            +'<option value="Auxiliar">Auxiliar</option>'
-            +'<option value="Administrador">Administrador</option>'
-            +'</select>'
-            +'<div style="margin:4px 0;">'
-            +'<label style="font-size:.78rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">Empresas con acceso <span style="font-weight:400;color:#94a3b8">(vacío = todas)</span></label>'
-            +'<div id="swal-empresas-list" style="max-height:140px;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#f8fafc;">'
-            +(window._catalogoEmpresas||empresas||[]).map(function(e){
-                const nom=typeof e==='object'?e.nombre:e;
-                return '<label style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer;padding:2px 0;">'
-                    +'<input type="checkbox" class="swal-emp-check" value="'+nom+'" style="accent-color:#7c3aed;width:14px;height:14px;"> '+nom+'</label>';
-            }).join('')
-            +'</div></div>'
-            +'<input id="swal-empresas" type="hidden" value="">'
-            +'</div>',
-        confirmButtonText:'Crear usuario',
-        confirmButtonColor:'#7c3aed',
-        showCancelButton:true,
-        cancelButtonText:'Cancelar',
-        preConfirm: async function(){
-            const nombre   = document.getElementById('swal-nombre').value.trim();
-            const email    = document.getElementById('swal-email').value.trim();
-            const password = document.getElementById('swal-pass').value.trim();
-            const idInterno= document.getElementById('swal-idint').value.trim();
-            if(!nombre||!email||!password){
-                Swal.showValidationMessage('Nombre, email y contraseña son requeridos.');
-                return false;
-            }
-            // Leer empresas seleccionadas del checklist
-            const _checks = document.querySelectorAll('.swal-emp-check:checked');
-            const _empSel = Array.from(_checks).map(function(c){return c.value;}).join(',');
-            const r = await enviarPeticion('crear_usuario',{
-                token:getToken(), nombre, email, password,
-                telefono:   document.getElementById('swal-tel').value.trim(),
-                rol:        document.getElementById('swal-rol').value,
-                empresas:   _empSel,
-                idInterno:  idInterno
-            });
-            if(r.status!=='success') Swal.showValidationMessage(r.message);
-            return r;
-        }
-    }).then(function(res){
-        if(res.isConfirmed){
-            mostrarToast('success','Usuario creado','Acceso creado y email de bienvenida enviado.');
-            cargarTablaUsuarios();
-        }
-    });
 }
 
 // ── Buscar ID INTERNO automáticamente por nombre ──────────────
@@ -2570,62 +2799,6 @@ async function buscarIDInternoAuto() {
     },100);
     if(btn){ btn.innerHTML='<i class="fas fa-search"></i> Buscar empleado'; btn.disabled=false; }
 }
-
-async function resetPassword(email){
-    const res=await Swal.fire({title:'¿Resetear contraseña?',html:'Se reseteará la contraseña de <strong>'+email+'</strong> a <code>Prisma2025*</code>',icon:'warning',confirmButtonText:'Sí, resetear',confirmButtonColor:'#d97706',showCancelButton:true,cancelButtonText:'Cancelar'});
-    if(!res.isConfirmed) return;
-    const r=await enviarPeticion('resetear_password',{token:getToken(),email});
-    mostrarToast(r.status==='success'?'success':'error',r.status==='success'?'Contraseña reseteada':'Error',r.message);
-}
-
-async function toggleUsuario(email,estatusActual){
-    const nuevoEstatus=estatusActual==='Activo'?'Inactivo':'Activo';
-    const r=await enviarPeticion('actualizar_usuario',{token:getToken(),email,estatus:nuevoEstatus});
-    if(r.status==='success'){mostrarToast('success',nuevoEstatus==='Activo'?'Usuario activado':'Usuario desactivado',email);cargarTablaUsuarios();}
-    else mostrarToast('error','Error',r.message);
-}
-
-async function editarUsuario(email){
-    const r=await enviarPeticion('listar_usuarios',{token:getToken()});
-    if(r.status!=='success') return;
-    const u=(r.usuarios||[]).find(function(x){return x.email===email;});
-    if(!u) return;
-    const _empActuales = u.empresas || [];
-    const _listaEmps = empresas || [];
-    Swal.fire({
-        title:'Editar: '+u.nombre,
-        html:'<div class="text-left space-y-3">'
-            +'<input id="swal-e-nombre" class="swal2-input" value="'+(u.nombre||'')+'" placeholder="Nombre completo">'
-            +'<input id="swal-e-tel" class="swal2-input" value="'+(u.telefono||'')+'" placeholder="Teléfono">'
-            +'<select id="swal-e-rol" class="swal2-input"><option value="Auxiliar"'+(u.rol==='Auxiliar'?' selected':'')+'>Auxiliar</option><option value="Administrador"'+(u.rol==='Administrador'?' selected':'')+'>Administrador</option></select>'
-            +'<div style="margin:4px 0;">'
-            +'<label style="font-size:.78rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">Empresas con acceso <span style="font-weight:400;color:#94a3b8">(vacío = todas)</span></label>'
-            +'<div id="swal-e-empresas-list" style="max-height:140px;overflow-y:auto;border:1.5px solid #e2e8f0;border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#f8fafc;">'
-            +_listaEmps.map(function(nom){
-                const checked = _empActuales.some(function(e){ return e.trim().toLowerCase()===nom.trim().toLowerCase(); });
-                return '<label style="display:flex;align-items:center;gap:6px;font-size:.75rem;cursor:pointer;padding:2px 0;">'
-                    +'<input type="checkbox" class="swal-e-emp-check" value="'+nom+'"'+(checked?' checked':'')+' style="accent-color:#7c3aed;width:14px;height:14px;"> '+nom+'</label>';
-            }).join('')
-            +'</div></div>'
-            +'<input id="swal-e-idint" class="swal2-input" value="'+(u.idInterno||'')+'" placeholder="ID INTERNO del empleado (ej. NM5) — para evaluaciones">'
-            +'</div>',
-        confirmButtonText:'Guardar',confirmButtonColor:'#7c3aed',showCancelButton:true,cancelButtonText:'Cancelar',
-        preConfirm:async function(){
-            const _empChecked = Array.from(document.querySelectorAll('.swal-e-emp-check:checked')).map(function(c){return c.value;}).join(',');
-            const r2=await enviarPeticion('actualizar_usuario',{
-                token:getToken(), email,
-                nombre:     document.getElementById('swal-e-nombre').value,
-                telefono:   document.getElementById('swal-e-tel').value,
-                rol:        document.getElementById('swal-e-rol').value,
-                empresas:   _empChecked,
-                idInterno:  document.getElementById('swal-e-idint').value.trim()
-            });
-            if(r2.status!=='success') Swal.showValidationMessage(r2.message);
-            return r2;
-        }
-    }).then(function(res){if(res.isConfirmed){mostrarToast('success','Usuario actualizado','Datos guardados.');cargarTablaUsuarios();}});
-}
-
 
 // ─── API GAS ──────────────────────────────────────────────────
 async function enviarPeticion(action,payload,timeoutMs){
@@ -7962,7 +8135,7 @@ async function arrancarApp(){
         clearTimeout(failsafe);
         if(sesionOk) {
             setLoaderStatus('Cargando datos...', 60);
-            await initApp();
+            await initApp(); abrirPrimerModuloPermitido();
             setLoaderStatus('Listo', 100);
             setTimeout(ocultarLoader_app, 400);
         } else {

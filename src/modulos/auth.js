@@ -6,7 +6,9 @@
 //  Mismos nombres de acción, mismos payloads, mismas respuestas y mensajes.
 // ============================================================
 import { hashPassword, generarToken, generarPasswordTemporal, ahoraISO, s, listaEmpresas, ok, error } from "../lib/util.js";
-import { buscarUsuario, buscarUsuarioPorToken, usuarioPublico, registrarEvento } from "../lib/sesion.js";
+import { buscarUsuario, buscarUsuarioPorToken, usuarioConPermisos, usuarioConPermiso, registrarEvento } from "../lib/sesion.js";
+import { permisosDeRol, tienePermiso } from "../lib/permisos.js";
+import { urlFotoUsuario } from "./roles.js";
 import { enviarEnSegundoPlano } from "../lib/correo.js";
 import { getPlantillaBienvenida, getPlantillaResetPassword } from "../lib/plantillas_correo.js";
 
@@ -41,7 +43,9 @@ async function login(p, env) {
   ).bind(token, expira, ahoraISO(), ahoraISO(), u.id_usuario).run();
 
   await registrarEvento(env, email, u.rol, "LOGIN", "Inicio de sesión exitoso", u.empresas_asignadas || "Todas", device);
-  return ok({ token, expira, usuario: usuarioPublico(u) });
+  const usuario = await usuarioConPermisos(env, u);
+  usuario.urlFoto = await urlFotoUsuario(env, u.url_foto);
+  return ok({ token, expira, usuario });
 }
 
 // ── logout ────────────────────────────────────────────────────
@@ -59,18 +63,37 @@ async function logout(p, env) {
 async function validarToken(p, env) {
   const u = await buscarUsuarioPorToken(env, p && p.token);
   if (!u) return error("Sesión inválida o expirada.");
-  return ok({ usuario: usuarioPublico(u) });
+  const usuario = await usuarioConPermisos(env, u);
+  usuario.urlFoto = await urlFotoUsuario(env, u.url_foto);
+  return ok({ usuario });
 }
 
-// ── crear_usuario (solo Admin) ────────────────────────────────
+// El rol debe existir en la tabla de roles (si la tabla aún no existe, se aceptan los dos de siempre)
+async function rolValido(env, rol) {
+  try {
+    const r = await env.DB.prepare("SELECT nombre FROM roles WHERE nombre = ? COLLATE NOCASE").bind(rol).first();
+    return r ? r.nombre : null;
+  } catch (_) { return ["Administrador", "Auxiliar"].includes(rol) ? rol : null; }
+}
+// ¿Quedaría al menos un Administrador activo si este usuario deja de serlo?
+async function quedaOtroAdmin(env, idUsuario) {
+  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM usuarios WHERE rol = 'Administrador' AND estatus = 'Activo' AND id_usuario <> ?").bind(idUsuario).first();
+  return r && r.n > 0;
+}
+const limpiarLista = v => listaEmpresas(v).map(x => s(x)).filter(Boolean).join(",");
+
+// ── crear_usuario (permiso: usuarios.administrar) ─────────────
 async function crearUsuario(p, env, ctx) {
-  const admin = await buscarUsuarioPorToken(env, p.token);
-  if (!admin || admin.rol !== "Administrador") return error("Sin permisos para crear usuarios.");
+  const admin = await usuarioConPermiso(env, p.token, "usuarios.administrar");
+  if (!admin) return error("Sin permisos para crear usuarios.");
 
   const nombre = s(p.nombre), email = s(p.email).toLowerCase(), password = s(p.password);
-  const rol = s(p.rol) || "Auxiliar", empresas = s(p.empresas), telefono = s(p.telefono);
+  const empresas = limpiarLista(p.empresas), grupos = limpiarLista(p.grupos), telefono = s(p.telefono);
   const idInterno = s(p.idInterno);
   if (!nombre || !email || !password) return error("Nombre, email y contraseña son requeridos.");
+  if (password.length < 8) return error("La contraseña inicial debe tener al menos 8 caracteres.");
+  const rol = await rolValido(env, s(p.rol) || "Auxiliar");
+  if (!rol) return error("El rol \"" + s(p.rol) + "\" no existe.");
   if (await buscarUsuario(env, email)) return error("Ya existe un usuario con ese email.");
 
   // Siguiente USR### (por el número más alto existente; GAS usaba el número de filas)
@@ -81,11 +104,11 @@ async function crearUsuario(p, env, ctx) {
 
   await env.DB.prepare(
     `INSERT INTO usuarios (id_usuario, nombre_completo, email, hash_password, rol, empresas_asignadas,
-       estatus, telefono, url_foto, fecha_creacion, creado_por, id_interno)
-     VALUES (?,?,?,?,?,?,'Activo',?,'',?,?,?)`
-  ).bind(nuevoId, nombre, email, await hashPassword(password), rol, empresas, telefono, ahoraISO(), admin.email, idInterno).run();
+       estatus, telefono, url_foto, fecha_creacion, creado_por, id_interno, grupos_asignados)
+     VALUES (?,?,?,?,?,?,'Activo',?,'',?,?,?,?)`
+  ).bind(nuevoId, nombre, email, await hashPassword(password), rol, empresas, telefono, ahoraISO(), admin.email, idInterno, grupos).run();
 
-  await registrarEvento(env, admin.email, admin.rol, "CREAR_USUARIO", "Creó usuario " + email + " con rol " + rol, empresas, "");
+  await registrarEvento(env, admin.email, admin.rol, "CREAR_USUARIO", "Creó usuario " + email + " con rol " + rol, [grupos, empresas].filter(Boolean).join(" | "), "");
   enviarEnSegundoPlano(ctx, env, {
     to: email,
     subject: "Bienvenido(a) a RRHH Prisma — Tus accesos",
@@ -96,10 +119,11 @@ async function crearUsuario(p, env, ctx) {
 
 // ── listar_usuarios (solo Admin) ──────────────────────────────
 async function listarUsuarios(p, env) {
-  const admin = await buscarUsuarioPorToken(env, p && p.token);
-  if (!admin || admin.rol !== "Administrador") return error("Sin permisos.");
+  const admin = await usuarioConPermiso(env, p && p.token, "usuarios.administrar");
+  if (!admin) return error("Sin permisos.");
   const { results } = await env.DB.prepare("SELECT * FROM usuarios ORDER BY id_usuario").all();
-  const usuarios = results.filter(u => u.id_usuario).map(u => ({
+  const usuarios = [];
+  for (const u of results.filter(x => x.id_usuario)) usuarios.push({
     id: u.id_usuario,
     nombre: u.nombre_completo,
     email: u.email,
@@ -107,11 +131,12 @@ async function listarUsuarios(p, env) {
     empresas: listaEmpresas(u.empresas_asignadas),
     estatus: u.estatus,
     telefono: u.telefono || "",
-    urlFoto: u.url_foto || "",
+    urlFoto: await urlFotoUsuario(env, u.url_foto),
     idInterno: s(u.id_interno),
+    grupos: listaEmpresas(u.grupos_asignados).filter(Boolean),
     // GAS devolvía la columna K (expiración del token) como "último acceso"; aquí va el real si existe
     ultimoAcceso: u.ultimo_acceso || u.expira_token || "",
-  }));
+  });
   return ok({ usuarios });
 }
 
@@ -121,7 +146,8 @@ async function actualizarUsuario(p, env) {
   if (!caller) return error("Sesión inválida.");
   const callerEmail = s(caller.email).toLowerCase();
   const targetEmail = s(p.email).toLowerCase();
-  if (caller.rol !== "Administrador" && callerEmail !== targetEmail) return error("Sin permisos para editar otros usuarios.");
+  const administra = tienePermiso(await permisosDeRol(env, caller.rol), "usuarios.administrar");
+  if (!administra && callerEmail !== targetEmail) return error("Sin permisos para editar otros usuarios.");
 
   const target = await buscarUsuario(env, targetEmail);
   if (!target) return error("Usuario no encontrado.");
@@ -132,12 +158,30 @@ async function actualizarUsuario(p, env) {
   };
   campo("nombre", "nombre_completo", "nombre");
   campo("telefono", "telefono", "telefono");
-  campo("urlFoto", "url_foto", "foto");
-  campo("idInterno", "id_interno", "idInterno", p.idInterno || "");
-  if (caller.rol === "Administrador") {
-    campo("rol", "rol", "rol");
-    campo("empresas", "empresas_asignadas", "empresas");
-    campo("estatus", "estatus", "estatus");
+  // La foto se cambia con subir_foto_usuario. El vínculo con el empleado (ID INTERNO),
+  // el rol, el alcance y el estatus solo los cambia quien administra usuarios:
+  // antes cualquiera podía ponerse otro ID INTERNO y ver evaluaciones ajenas.
+  if (administra) {
+    campo("idInterno", "id_interno", "idInterno", s(p.idInterno));
+    if (p.rol !== undefined) {
+      const rol = await rolValido(env, s(p.rol));
+      if (!rol) return error("El rol \"" + s(p.rol) + "\" no existe.");
+      if (target.rol === "Administrador" && rol !== "Administrador" && !(await quedaOtroAdmin(env, target.id_usuario)))
+        return error("Debe quedar al menos un Administrador activo.");
+      if (callerEmail === targetEmail && rol !== caller.rol && !tienePermiso(await permisosDeRol(env, rol), "usuarios.administrar"))
+        return error("No puedes cambiarte a un rol sin acceso a Usuarios: te quedarías fuera de esta pantalla.");
+      campo("rol", "rol", "rol", rol);
+    }
+    campo("empresas", "empresas_asignadas", "empresas", limpiarLista(p.empresas));
+    campo("grupos", "grupos_asignados", "grupos", limpiarLista(p.grupos));
+    if (p.estatus !== undefined) {
+      const est = s(p.estatus) === "Activo" ? "Activo" : "Inactivo";
+      if (est === "Inactivo" && callerEmail === targetEmail) return error("No puedes desactivar tu propio usuario.");
+      if (est === "Inactivo" && target.rol === "Administrador" && !(await quedaOtroAdmin(env, target.id_usuario)))
+        return error("Debe quedar al menos un Administrador activo.");
+      campo("estatus", "estatus", "estatus", est);
+      if (est === "Inactivo") { sets.push("token_sesion = NULL", "expira_token = NULL"); }
+    }
   }
   if (sets.length) {
     vals.push(target.id_usuario);
@@ -162,10 +206,12 @@ async function cambiarPassword(p, env) {
 
 // ── resetear_password (solo Admin) ────────────────────────────
 async function resetearPassword(p, env, ctx) {
-  const admin = await buscarUsuarioPorToken(env, p.token);
-  if (!admin || admin.rol !== "Administrador") return error("Sin permisos para resetear contraseñas.");
+  const admin = await usuarioConPermiso(env, p.token, "usuarios.administrar");
+  if (!admin) return error("Sin permisos para resetear contraseñas.");
   const targetEmail = s(p.email).toLowerCase();
-  const passNueva = s(p.passNueva) || "Prisma2025*";
+  // Antes todos quedaban con "Prisma2025*"; ahora cada reseteo genera una temporal distinta
+  const passNueva = s(p.passNueva) || generarPasswordTemporal();
+  if (passNueva.length < 8) return error("La contraseña debe tener al menos 8 caracteres.");
   const target = await buscarUsuario(env, targetEmail);
   if (!target) return error("Usuario no encontrado.");
 
@@ -177,7 +223,7 @@ async function resetearPassword(p, env, ctx) {
     subject: "RRHH Prisma — Restablecimiento de contraseña",
     html: getPlantillaResetPassword(target.nombre_completo || targetEmail, targetEmail, passNueva),
   });
-  return ok({ message: "Contraseña de " + targetEmail + " reseteada. Se envió email de notificación." });
+  return ok({ message: "Contraseña de " + targetEmail + " reseteada. Se envió email de notificación.", passTemporal: passNueva });
 }
 
 // ── solicitar_reset (desde el login, sin sesión) ──────────────
