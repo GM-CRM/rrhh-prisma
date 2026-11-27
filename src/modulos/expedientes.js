@@ -32,7 +32,7 @@ async function guardarArchivo(env, emp, { nombre, mime, bytes, categoria, usuari
 }
 
 // ── subir_documento (documentos del expediente y foto de perfil) ─
-async function subirDocumento(p, env) {
+async function subirDocumento(p, env, ctx) {
   const usuario = await requiereSesionValida(env, p);            // GAS no pedía sesión aquí
   if (!usuario) return SESION_INVALIDA;
   const noEmp = s(p.numeroEmpleado), idInterno = s(p.idInterno);
@@ -53,7 +53,7 @@ async function subirDocumento(p, env) {
   return {
     status: "success",
     message: (esFoto ? "Foto" : "Documento") + " subido al expediente #" + (s(emp.no_empleado) || emp.id_interno) + ".",
-    fileId: String(a.id), fileUrl: await urlFirmada(env, a.key), folderUrl: urlCarpeta(emp.id_interno),
+    fileId: String(a.id), fileUrl: await urlFirmada(env, a.key), folderUrl: urlCarpeta(emp.id_interno, ctx),
   };
 }
 
@@ -114,7 +114,7 @@ async function listarArchivosExpediente(p, env) {
 }
 
 // ── crear_expediente ──────────────────────────────────────────
-async function crearExpediente(p, env) {
+async function crearExpediente(p, env, ctx) {
   const usuario = await requiereSesionValida(env, p);
   if (!usuario) return SESION_INVALIDA;
   const idInterno = s(p.idInterno), noEmp = s(p.numeroEmpleado), empresa = s(p.empresa) || "Sin Empresa";
@@ -123,12 +123,12 @@ async function crearExpediente(p, env) {
   if (idInterno) emp = await env.DB.prepare("SELECT id_interno, no_empleado, empresa, nombre, carpeta FROM empleados WHERE id_interno = ?").bind(idInterno).first();
   if (!emp && noEmp) emp = await env.DB.prepare("SELECT id_interno, no_empleado, empresa, nombre, carpeta FROM empleados WHERE CAST(no_empleado AS TEXT) = ? AND TRIM(empresa) = ? ORDER BY (fecha_baja IS NULL) DESC LIMIT 1").bind(noEmp, empresa).first();
   if (!emp) return error("No se encontró el empleado" + (idInterno ? " con ID " + idInterno : " #" + noEmp + " en " + empresa) + ".");
-  if (s(emp.carpeta).startsWith("r2:")) return ok({ url: urlCarpeta(emp.id_interno), message: "El empleado ya tiene expediente." });
+  if (s(emp.carpeta).startsWith("r2:")) return ok({ url: urlCarpeta(emp.id_interno, ctx), message: "El empleado ya tiene expediente." });
   if (s(emp.carpeta).startsWith("http")) return ok({ url: s(emp.carpeta), message: "El empleado ya tiene expediente en Drive." });
   if (!emp.nombre && p.nombreTrabajador) emp.nombre = p.nombreTrabajador;
   await asegurarPrefijo(env, emp);
   await registrarEvento(env, usuario.email, usuario.rol, "CREAR_EXPEDIENTE", emp.id_interno, emp.empresa, "");
-  return ok({ url: urlCarpeta(emp.id_interno), message: "Expediente creado correctamente." });
+  return ok({ url: urlCarpeta(emp.id_interno, ctx), message: "Expediente creado correctamente." });
 }
 
 // ── getDriveUsage → uso del almacenamiento de R2 ──────────────

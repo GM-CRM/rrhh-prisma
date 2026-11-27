@@ -8,7 +8,7 @@ import { s, ahoraISO, ok, error } from "../lib/util.js";
 import { requiereSesionValida, autenticarRequest, registrarEvento } from "../lib/sesion.js";
 import { activarAccesoInterno } from "./acceso_empleados.js";
 import { COLUMNAS, POR_ENCABEZADO, PROTEGIDOS, aValorD1, literal, expresionExport, URL_EXPEDIENTE_SQL } from "../lib/columnas.js";
-import { urlCarpeta } from "../lib/archivos.js";
+import { urlCarpeta, origen } from "../lib/archivos.js";
 
 const SESION_INVALIDA = { status: "error", message: "Sesión inválida o expirada." };
 const BLOQUE_EXPORT = 300;          // filas por consulta (cada bloque < 2 MB)
@@ -76,14 +76,14 @@ function nuevoIdPersona() {
 }
 
 // La URL que se exporta para expedientes en R2; si vuelve en un Excel no debe pisar la ubicación real
-const esUrlR2 = v => typeof v === "string" && v.trim().startsWith("/expediente/folders/");
+const esUrlR2 = v => typeof v === "string" && /^(https?:\/\/[^/]+)?\/expediente\/folders\//.test(v.trim());
 const esUrbanThink = e => /URBAN\s*THINK/i.test(s(e));
 const esObra = t => /obra/i.test(s(t));
 
 // ── exportar_datos ────────────────────────────────────────────
 // La base arma el JSON (json_object) en bloques; el Worker solo los une.
 // Así casi no consume CPU aunque sean miles de registros.
-async function exportarDatos(p, env) {
+async function exportarDatos(p, env, ctx) {
   if (!(await requiereSesionValida(env, p))) return SESION_INVALIDA;
   const pares = [];
   for (const [h, col, tipo] of COLUMNAS) pares.push(`'${h.replace(/'/g, "''")}', ${expresionExport(h, col, tipo)}`);
@@ -92,11 +92,11 @@ async function exportarDatos(p, env) {
       SELECT json_object(${pares.join(", ")}) AS o
       FROM v_empleados v JOIN empleados e ON e.id_interno = v.id_interno
       ORDER BY COALESCE(e.fila_sheet_origen, 999999999), e.rowid
-      LIMIT ? OFFSET ?)`;
+      LIMIT ?2 OFFSET ?3)`;
   const total = (await env.DB.prepare("SELECT COUNT(*) AS n FROM empleados").first()).n;
   const partes = [];
   for (let off = 0; off < total; off += BLOQUE_EXPORT) {
-    const r = await env.DB.prepare(sql).bind(BLOQUE_EXPORT, off).first();
+    const r = await env.DB.prepare(sql).bind(origen(ctx), BLOQUE_EXPORT, off).first();
     const j = r && r.j ? r.j : "[]";
     if (j.length > 2) partes.push(j.slice(1, -1));
   }
@@ -232,7 +232,7 @@ async function alta(p, env, ctx) {
 
   const esOperativo = /^operativ/i.test(s(p.tipoIngreso));
   return {
-    status: "success", message: "Alta registrada.", urlExpediente: urlCarpeta(idInterno), noEmpleado: noEmp, idInterno,
+    status: "success", message: "Alta registrada.", urlExpediente: urlCarpeta(idInterno, ctx), noEmpleado: noEmp, idInterno,
     esReingreso, idPersonaAnterior,
     contratoPrefill: {
       empresa, esUrbanThink: esUrbanThink(empresa), esObraUrbanThink: esUrbanThink(empresa) && esObra(p.tipoIngreso),

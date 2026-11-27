@@ -47,7 +47,9 @@ export async function verificarFirma(env, key, exp, sig) {
 export const limpiarRuta = t => s(t).replace(/[\\/:*?"<>|#\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim() || "Sin nombre";
 
 // URL "de carpeta" que entiende el frontend (extrae lo que va después de /folders/)
-export const urlCarpeta = idInterno => "/expediente/folders/" + encodeURIComponent(idInterno);
+// Debe ser absoluta (https://…): el frontend solo muestra la carpeta si la dirección empieza con "http"
+export const origen = ctx => { try { return new URL(ctx.request.url).origin; } catch (e) { return ""; } };
+export const urlCarpeta = (idInterno, ctx) => origen(ctx) + "/expediente/folders/" + encodeURIComponent(idInterno);
 
 // folderId del frontend → empleado. Acepta el ID INTERNO (expedientes en R2)
 // o el ID de una carpeta de Drive (expedientes aún no migrados).
