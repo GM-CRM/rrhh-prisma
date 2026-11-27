@@ -276,6 +276,12 @@ function avanzar(luego){
   },250);
 }
 
+// F21/F31: el servidor vuelve a verificar en cada paso que el No. y el nombre
+// que escribio la persona correspondan al registro (antes bastaba un ID).
+function credNOM035(){
+  return {idInterno:empleadoId,noEmpleado:($('inp-noemp').value||'').trim(),nombre:empleadoNombre};
+}
+
 async function iniciarEncuesta(){
   hideErr();
   const noemp=$('inp-noemp').value.trim();
@@ -303,7 +309,7 @@ async function iniciarEncuesta(){
   }catch(e){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(T.errConexion);return}
   btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
   try{
-    const r2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:{idInterno:empleadoId}})});
+    const r2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:credNOM035()})});
     const d2=await r2.json();
     if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
     nom035Data=d2;
@@ -355,7 +361,7 @@ function seleccionarCandidatoNOM035(idx){
   // resolver empleadoId: pedir la estructura NOM-035.
   var btn=$('btn-iniciar');
   btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Preparando...';
-  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:{idInterno:empleadoId}})})
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'obtener_estructura_nom035',payload:credNOM035()})})
     .then(function(r){return r.json();})
     .then(function(d2){
       if(d2.status!=='success'){btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> Comenzar';showErr(d2.message||'Error al cargar cuestionario.');return}
@@ -643,7 +649,7 @@ async function iniciarGuiaV(){
   try{
     var r=await fetch(API_URL,{method:'POST',body:JSON.stringify({
       action:'obtener_guia_v_nom035',
-      payload:{idInterno:empleadoId}
+      payload:credNOM035()
     })});
     var d=await r.json();
     if(d.status!=='success'){ enviarTodoNOM035(); return; }

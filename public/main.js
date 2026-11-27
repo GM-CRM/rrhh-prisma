@@ -1587,7 +1587,7 @@ async function ejecutarOCR() {
                 data:     b64Envio,
                 mimeType: mimeEnvio,
                 nombre:   nombreEnvio
-            });
+            }, 60000); // la IA puede tardar con imágenes grandes
             console.log('[OCR] Resultado groq_ocr:', JSON.stringify(r));
             if (r.status !== 'success') {
                 console.warn('[OCR] groq_ocr falló, usando ocr_documento:', r.message);
@@ -1595,7 +1595,7 @@ async function ejecutarOCR() {
                     data:     b64Envio,
                     mimeType: mimeEnvio,
                     nombre:   nombreEnvio
-                });
+                }, 60000); // la IA puede tardar con imágenes grandes
             }
 
             if (r.status !== 'success') {
@@ -1695,7 +1695,7 @@ async function ejecutarOCR() {
             ${errores.map(e => `<p class="text-xs text-red-600 mb-1">• ${e}</p>`).join('')}
             <div class="mt-3 pt-3 border-t border-red-200 space-y-1">
               <p class="text-xs font-semibold text-slate-600">¿Qué hacer?</p>
-              <p class="text-xs text-slate-500">• Verifica que GOOGLE_VISION_API_KEY esté configurada en las propiedades del script de GAS</p>
+              <p class="text-xs text-slate-500">• Toma la foto con buena luz, de frente y sin reflejos, o súbela en PDF</p>
               <p class="text-xs text-slate-500">• Si el PDF tiene contraseña o está protegido, primero quítale la protección</p>
               <p class="text-xs text-slate-500">• Puedes capturar manualmente los datos en los pasos siguientes</p>
             </div>
@@ -4651,7 +4651,11 @@ async function renderModuloNOM035(cont){
       +_selectNOM035('nom035-f-mes','mes', '<option value="ALL">Todos los meses</option>'+['01','02','03','04','05','06','07','08','09','10','11','12'].map((m,i)=>'<option value="'+m+'" '+(f.mes===m?'selected':'')+'>'+['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][i]+'</option>').join(''))
       +_selectNOM035('nom035-f-grupo','grupo', '<option value="ALL">Todos los grupos</option>'+listaGrupos().map(g=>'<option value="'+g+'" '+(f.grupo===g?'selected':'')+'>'+g+'</option>').join(''))
       +_selectNOM035('nom035-f-empresa','empresa', '<option value="ALL">Todas las razones sociales</option>'+empresas.map(e=>'<option value="'+e+'" '+(f.empresa===e?'selected':'')+'>'+e+'</option>').join(''))
-      +_selectNOM035('nom035-f-tipo','tipoCuestionario', '<option value="ALL">Todos los cuestionarios</option><option value="guia1" '+(f.tipoCuestionario==='guia1'?'selected':'')+'>Guía I (&lt;50 trabajadores)</option><option value="guia2" '+(f.tipoCuestionario==='guia2'?'selected':'')+'>Guía II (&ge;50 trabajadores)</option>')
+      +_selectNOM035('nom035-f-tipo','tipoCuestionario', '<option value="ALL">Todos los cuestionarios</option>'
+        // F32: antes ofrecía "guia1" (valor que no existe) y rotulaba la Guía II como ≥50
+        +'<option value="guia2" '+(f.tipoCuestionario==='guia2'?'selected':'')+'>Guía II (16 a 50 trabajadores)</option>'
+        +'<option value="guia3" '+(f.tipoCuestionario==='guia3'?'selected':'')+'>Guía III (más de 50)</option>'
+        +'<option value="no_aplica" '+(f.tipoCuestionario==='no_aplica'?'selected':'')+'>Solo Guía I (hasta 15)</option>')
       +'<button onclick="limpiarFiltrosNOM035()" class="text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-lg transition flex items-center gap-1.5"><i class="fas fa-filter-circle-xmark text-xs"></i>Limpiar</button>'
       +'</div>'
       +'<div id="nom035-sub-contenido"></div>';
@@ -8347,9 +8351,11 @@ function reconectarSesion(){
   }
 })();
 
-/* Informe del numeral 7.7 — genera un Google Doc y devuelve el
-   enlace. Llamable desde donde quieras: botón en el dashboard de
-   NOM-035, menú de Encuestas, etc. */
+/* Informe del numeral 7.7 — genera un documento de Word (.docx) que queda
+   archivado en RRHH Prisma (numeral 10.4) y devuelve el enlace. Llamable
+   desde donde quieras: botón en el dashboard de NOM-035, menú de Encuestas, etc.
+   Los datos del centro (razón social, domicilio, responsable…) ya no viven en
+   una hoja de cálculo: se capturan aquí mismo con "Datos del centro". */
 async function generarInforme77UI(){
   let centros = [];
   try{
@@ -8361,11 +8367,12 @@ async function generarInforme77UI(){
     mostrarToast('warning','Sin centros','No se encontraron centros de trabajo con personal activo.');
     return;
   }
+  window._nom035Centros = centros;
 
   const opciones = centros.map(c =>
     `<option value="${c.grupo}">${c.grupo} — ${c.activos} trabajadores</option>`).join('');
 
-  const { value: grupo } = await Swal.fire({
+  const res = await Swal.fire({
     title: 'Informe NOM-035 · numeral 7.7',
     html: `
       <div style="text-align:left">
@@ -8374,21 +8381,30 @@ async function generarInforme77UI(){
         </label>
         <select id="sw77-centro" class="gc-input">${opciones}</select>
         <p style="font-size:.75rem;color:#94a3b8;margin-top:12px;line-height:1.5">
-          Se generará un documento en Google Drive con los ocho elementos
-          que exige la Norma. No incluye datos individuales de los trabajadores.
+          Se generará un documento de Word con los ocho elementos que exige la Norma
+          y quedará archivado en RRHH Prisma. No incluye datos individuales de los trabajadores.
         </p>
       </div>`,
     showCancelButton: true,
+    showDenyButton: true,
     confirmButtonText: 'Generar informe',
+    denyButtonText: 'Datos del centro',
     cancelButtonText: 'Cancelar',
-    preConfirm: () => document.getElementById('sw77-centro').value
+    preConfirm: () => document.getElementById('sw77-centro').value,
+    preDeny: () => document.getElementById('sw77-centro').value
   });
-
+  const grupo = res.value;
   if(!grupo) return;
+  if(res.isDenied){
+    if(await capturarDatosCentroNOM035(grupo)) await _generarInforme77(grupo);
+    return;
+  }
+  await _generarInforme77(grupo);
+}
 
+async function _generarInforme77(grupo){
   mostrarLoader('Generando informe...');
   try{
-    // Crear el Doc y agregar tablas toma su tiempo: 60s de margen.
     const r = await enviarPeticion('generar_informe_77', {grupo}, 60000);
     ocultarLoader();
 
@@ -8401,11 +8417,11 @@ async function generarInforme77UI(){
       `<div style="background:#fef3c7;color:#92400e;padding:10px 12px;border-radius:9px;
                    font-size:.78rem;margin-top:14px;text-align:left;line-height:1.5">
          <strong>Faltan datos del centro.</strong> El informe se generó con campos
-         marcados como [PENDIENTE]. Complétalos en la hoja
-         <code>NOM035_CENTROS</code> y vuelve a generarlo antes de archivarlo.
+         marcados como [PENDIENTE]. Captúralos con <strong>Datos del centro</strong>
+         y vuelve a generarlo antes de archivarlo.
        </div>`;
 
-    await Swal.fire({
+    const res = await Swal.fire({
       icon: r.completo ? 'success' : 'warning',
       title: 'Informe generado',
       html: `
@@ -8417,15 +8433,71 @@ async function generarInforme77UI(){
           Requieren valoración clínica: ${r.resumen.giRequieren}
         </div>
         ${aviso}`,
-      confirmButtonText: 'Abrir documento',
+      confirmButtonText: 'Descargar Word',
+      showDenyButton: !r.completo,
+      denyButtonText: 'Datos del centro',
       showCancelButton: true,
       cancelButtonText: 'Cerrar'
-    }).then(res => { if(res.isConfirmed) window.open(r.url, '_blank'); });
+    });
+    if(res.isConfirmed) window.open(r.url, '_blank');
+    else if(res.isDenied && await capturarDatosCentroNOM035(grupo)) await _generarInforme77(grupo);
 
   }catch(e){
     ocultarLoader();
     mostrarToast('error','Error', e.message || 'No se pudo generar el informe.');
   }
+}
+
+/* Captura de los datos del centro de trabajo (antes: hoja NOM035_CENTROS).
+   Devuelve true si se guardaron. */
+async function capturarDatosCentroNOM035(grupo){
+  let c = (window._nom035Centros || []).find(x => x.grupo === grupo);
+  if(!c){
+    try{
+      const r = await enviarPeticion('listar_centros_nom035', {});
+      if(r.status === 'success'){ window._nom035Centros = r.centros || []; c = window._nom035Centros.find(x => x.grupo === grupo); }
+    }catch(e){}
+  }
+  const d = (c && c.datos) || {};
+  const esc = v => String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const campo = (id, et, v, area) =>
+    `<label style="display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;color:#64748b;margin:10px 0 4px">${et}</label>`
+    + (area ? `<textarea id="${id}" class="gc-input" rows="3" style="width:100%">${esc(v)}</textarea>`
+            : `<input id="${id}" class="gc-input" style="width:100%" value="${esc(v)}">`);
+  const res = await Swal.fire({
+    title: 'Datos del centro · ' + grupo,
+    width: 620,
+    html: '<div style="text-align:left;max-height:60vh;overflow-y:auto">'
+      + campo('dc-rs','Nombre, denominación o razón social', d.razonSocial)
+      + campo('dc-dom','Domicilio', d.domicilio, true)
+      + campo('dc-act','Actividad principal', d.actividadPrincipal)
+      + campo('dc-acts','Principales actividades realizadas', d.actividadesRealizadas, true)
+      + campo('dc-rn','Responsable de la evaluación (nombre completo)', d.responsableNombre)
+      + campo('dc-rc','Cédula profesional (si aplica)', d.responsableCedula)
+      + campo('dc-rp','Cargo del responsable', d.responsablePuesto)
+      + '</div>',
+    showCancelButton: true,
+    confirmButtonText: 'Guardar',
+    cancelButtonText: 'Cancelar',
+    showLoaderOnConfirm: true,
+    preConfirm: async () => {
+      const v = id => document.getElementById(id).value.trim();
+      const r = await enviarPeticion('guardar_centro_nom035', {
+        grupo, razonSocial: v('dc-rs'), domicilio: v('dc-dom'), actividadPrincipal: v('dc-act'),
+        actividadesRealizadas: v('dc-acts'), responsableNombre: v('dc-rn'), responsableCedula: v('dc-rc'),
+        responsablePuesto: v('dc-rp')
+      });
+      if(r.status !== 'success'){ Swal.showValidationMessage(r.message || 'No se pudo guardar'); return false; }
+      return true;
+    },
+    allowOutsideClick: () => !Swal.isLoading()
+  });
+  if(res.isConfirmed){
+    window._nom035Centros = null;
+    mostrarToast('success','Datos guardados','Se usarán en el informe 7.7.');
+    return true;
+  }
+  return false;
 }
 
 /* El botón de Informe 7.7 solo aplica a NOM-035. En esa pestaña se
@@ -8770,6 +8842,17 @@ async function verificarVencimientosNOM035(){
       }
     });
 
+    // Centros con personal activo y ninguna evaluacion registrada (antes no avisaba)
+    (r.sinEvaluar || []).forEach(function(g){
+      agregarNotificacion(
+        'nom035venc',
+        'NOM-035 sin aplicar: ' + g.grupo,
+        'No hay ninguna evaluacion de riesgo psicosocial registrada para este centro ('
+        + g.activos + ' trabajadores activos). Debe aplicarse.',
+        '', true
+      );
+    });
+
     _nom035PintarBannerVigencia();
   }catch(e){ console.warn('[NOM035] vencimientos no disponibles', e); }
 }
@@ -8784,8 +8867,9 @@ function _nom035PintarBannerVigencia(){
   const g = (_nom035Vencimientos.grupos || []).filter(function(x){
     return x.estado !== 'vigente';
   });
+  const sin = _nom035Vencimientos.sinEvaluar || [];
 
-  if(!g.length){
+  if(!g.length && !sin.length){
     const total = (_nom035Vencimientos.grupos || []).length;
     cont.innerHTML = total
       ? '<div class="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-100 mb-4">'
@@ -8815,6 +8899,12 @@ function _nom035PintarBannerVigencia(){
           + '<span class="text-[11px] tabular-nums" style="color:'
           + (rojo ? '#b91c1c' : '#b45309') + '">' + txt
           + ' <span class="text-slate-400">(' + fmt(x.limite) + ')</span></span></div>';
+      }).join('')
+    + sin.map(function(x){
+        return '<div class="flex justify-between items-baseline gap-3 py-1">'
+          + '<span class="text-xs font-semibold text-slate-700">' + x.grupo + '</span>'
+          + '<span class="text-[11px]" style="color:#b91c1c">sin evaluacion registrada'
+          + ' <span class="text-slate-400">(' + x.activos + ' activos)</span></span></div>';
       }).join('')
     + '</div>';
 }
