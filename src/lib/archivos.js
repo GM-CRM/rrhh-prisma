@@ -54,17 +54,35 @@ export const urlCarpeta = idInterno => "/expediente/folders/" + encodeURICompone
 export async function empleadoPorFolder(env, folderId) {
   folderId = s(folderId);
   if (!folderId) return null;
-  let e = await env.DB.prepare("SELECT id_interno, no_empleado, empresa, nombre, carpeta FROM empleados WHERE id_interno = ? LIMIT 1").bind(folderId).first();
+  const SEL = "SELECT id_interno, no_empleado, empresa, nombre, carpeta FROM empleados";
+  let e = await env.DB.prepare(SEL + " WHERE id_interno = ? LIMIT 1").bind(folderId).first();
   if (!e && folderId.length >= 10) {
-    e = await env.DB.prepare("SELECT id_interno, no_empleado, empresa, nombre, carpeta FROM empleados WHERE carpeta LIKE ? LIMIT 1").bind("%" + folderId + "%").first();
+    // Carpeta de Drive: primero la tabla de equivalencias (sigue sirviendo aunque
+    // el expediente ya se haya pasado a R2), luego la URL todavía guardada
+    await asegurarTablaCarpetas(env);
+    e = await env.DB.prepare(SEL + " WHERE id_interno = (SELECT id_interno FROM carpetas_drive WHERE drive_id = ?) LIMIT 1").bind(folderId).first();
+    if (!e) e = await env.DB.prepare(SEL + " WHERE carpeta LIKE ? LIMIT 1").bind("%" + folderId + "%").first();
   }
   return e || null;
+}
+
+let _tablaCarpetas = false;
+async function asegurarTablaCarpetas(env) {
+  if (_tablaCarpetas) return;
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS carpetas_drive (drive_id TEXT PRIMARY KEY, id_interno TEXT NOT NULL)").run();
+  _tablaCarpetas = true;
 }
 
 // Prefijo del expediente en R2; si el empleado no tiene, se crea y se guarda
 export async function asegurarPrefijo(env, emp) {
   const c = s(emp.carpeta);
   if (c.startsWith("r2:")) return c.slice(3);
+  // Recordar la carpeta de Drive para que su dirección siga llevando a este expediente
+  const m = c.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (m) {
+    await asegurarTablaCarpetas(env);
+    await env.DB.prepare("INSERT OR IGNORE INTO carpetas_drive (drive_id, id_interno) VALUES (?, ?)").bind(m[1], emp.id_interno).run();
+  }
   const prefijo = `expedientes/${limpiarRuta(emp.empresa || "Sin Empresa")}/${limpiarRuta((s(emp.no_empleado) || "SIN-NUM") + " - " + (emp.nombre || "Sin Nombre"))}/`;
   // Si tenía carpeta de Drive se conserva en archivos.drive_id_origen al migrar; aquí pasa a R2
   await env.DB.prepare("UPDATE empleados SET carpeta = ? WHERE id_interno = ?").bind("r2:" + prefijo, emp.id_interno).run();

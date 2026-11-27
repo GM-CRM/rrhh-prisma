@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 RRHH Prisma — Migración Google Sheet (.xlsx) → Cloudflare D1
-v1.2  26-nov-2026
+v1.4  26-nov-2026
 
 Uso (desde la raíz del repo):
     pip install openpyxl
@@ -193,6 +193,8 @@ AJUSTE_V11 = [
     "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.2');",
     "CREATE TABLE IF NOT EXISTS _config (clave TEXT PRIMARY KEY, valor TEXT NOT NULL);",
     "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.3');",
+    "CREATE TABLE IF NOT EXISTS carpetas_drive (drive_id TEXT PRIMARY KEY, id_interno TEXT NOT NULL);",
+    "INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.4');",
 ]
 
 
@@ -299,6 +301,17 @@ def main(xlsx):
         "contrato4_inicio", "contrato4_vencimiento", "contrato5_inicio", "contrato5_vencimiento",
         "contrato6_inicio", "contrato6_vencimiento", "fila_sheet_origen"], regs)
     conteo["empleados"] = len(regs)
+
+    # Equivalencia carpeta de Drive → ID INTERNO (columna CARPETA)
+    cd = []
+    for x in regs:
+        m = re.search(r"/folders/([a-zA-Z0-9_-]+)", x[45] or "")
+        if m:
+            cd.append([m.group(1), x[0]])
+    carpetas_sql = ["CREATE TABLE IF NOT EXISTS carpetas_drive (drive_id TEXT PRIMARY KEY, id_interno TEXT NOT NULL);"] + \
+        [s_.replace("INSERT INTO", "INSERT OR IGNORE INTO", 1) for s_ in inserts("carpetas_drive", ["drive_id", "id_interno"], cd)]
+    out += ["DELETE FROM carpetas_drive;"] + carpetas_sql[1:]
+    conteo["carpetas_drive"] = len(cd)
     conteo["empleados_activos"] = sum(1 for x in regs if not x[13])
     conteo["empleados_baja"] = sum(1 for x in regs if x[13])
     conteo["suma_sueldos_activos"] = round(sum(x[10] for x in regs if not x[13] and isinstance(x[10], (int, float))), 2)
@@ -411,6 +424,9 @@ def main(xlsx):
     os.makedirs(destino, exist_ok=True)
     with open(os.path.join(destino, "seed.sql"), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out) + "\n")
+    # Archivo aparte: solo la equivalencia de carpetas (se puede cargar sin tocar lo demás)
+    with open(os.path.join(destino, "carpetas_drive.sql"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(carpetas_sql) + "\n")
     with open(os.path.join(destino, "conteos_esperados.json"), "w", encoding="utf-8") as f:
         json.dump(conteo, f, ensure_ascii=False, indent=2)
 

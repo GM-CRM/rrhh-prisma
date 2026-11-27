@@ -1,10 +1,11 @@
 -- ============================================================
---  RRHH Prisma — Esquema D1 (SQLite)  v1.3  26-nov-2026
+--  RRHH Prisma — Esquema D1 (SQLite)  v1.4  26-nov-2026
 --  v1.1: no_empleado puede repetirse en la misma empresa (33 casos reales);
 --        evaluaciones con id propio (GAS generó id_eval duplicados).
 --  v1.2: eventos.empresa (GAS escribe 7 columnas aunque el encabezado tenga 6).
 --        Fechas-hora en UTC con 'Z' (el Sheet las guardaba en hora de México).
 --  v1.3: _config (clave de firma de enlaces a archivos; se genera sola).
+--  v1.4: carpetas_drive (ID de carpeta de Drive → ID INTERNO).
 --  Fuente: BD_PWA_Multimedia (13 hojas)
 --
 --  Convenciones:
@@ -322,6 +323,14 @@ CREATE TABLE IF NOT EXISTS archivos (
 CREATE INDEX IF NOT EXISTS ix_archivos_emp       ON archivos(id_interno);
 CREATE INDEX IF NOT EXISTS ix_archivos_categoria ON archivos(categoria);
 
+-- ── EQUIVALENCIA CARPETA DE DRIVE → EMPLEADO ────────────────
+--  Para que las direcciones de Drive guardadas sigan funcionando y para
+--  la migración de archivos Drive → R2.
+CREATE TABLE IF NOT EXISTS carpetas_drive (
+  drive_id    TEXT PRIMARY KEY,
+  id_interno  TEXT NOT NULL
+);
+
 -- ── CONFIGURACIÓN INTERNA ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS _config (
   clave  TEXT PRIMARY KEY,
@@ -337,3 +346,4 @@ INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.0');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.1');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.2');
 INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.3');
+INSERT OR IGNORE INTO _schema_version(version) VALUES ('1.4');

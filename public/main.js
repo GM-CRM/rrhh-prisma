@@ -5738,6 +5738,9 @@ async function subirFotoPerfil(){
         const folderUrl = resp.folderUrl || (empleadoEdicion["URL EXPEDIENTE"]||"").toString().trim();
         if(folderUrl){
             empleadoEdicion["URL EXPEDIENTE"] = folderUrl;
+            const _idF = (empleadoEdicion["ID INTERNO"] || "").toString();
+            const _empF = _idF && cacheGlobal.find(e => (e["ID INTERNO"] || "").toString() === _idF);
+            if(_empF) _empF["URL EXPEDIENTE"] = folderUrl;
             // Actualizar el ícono de carpeta en la tabla
             const iconoCarpeta = document.querySelector('tr [title="Abrir expediente en Drive"]');
             if(iconoCarpeta) iconoCarpeta.href = folderUrl;
@@ -6747,6 +6750,7 @@ function actualizarListaModal() {
 
 async function subirDocumentosExpediente() {
     if (!modalDocsId) return;
+    const _idSubidaDocs = (modalDocsIdInt || '').toString(); // se conserva aunque se cierre el modal
     const input = document.getElementById('modal-archivos');
     if (!input || !input.files.length) {
         mostrarToast('warning','Sin archivos','Selecciona al menos un archivo.');
@@ -6786,7 +6790,16 @@ async function subirDocumentosExpediente() {
                 mimeType:       file.type || 'application/octet-stream',
                 data:           b64
             }, 45000); // timeout largo: la primera subida a un empleado sin carpeta aún crea carpeta+subcarpeta en Drive
-            if (resp.status === 'success') subidos++;
+            if (resp.status === 'success') {
+                subidos++;
+                // Si el expediente cambió de ubicación (Drive → R2), actualizar la ficha y el caché
+                if (resp.folderUrl) {
+                    const idI = (modalDocsIdInt || '').toString();
+                    const empC = idI && cacheGlobal.find(e => (e["ID INTERNO"] || "").toString() === idI);
+                    if (empC) empC["URL EXPEDIENTE"] = resp.folderUrl;
+                    if (empleadoEdicion && (empleadoEdicion["ID INTERNO"] || "").toString() === idI) empleadoEdicion["URL EXPEDIENTE"] = resp.folderUrl;
+                }
+            }
             else { errores++; console.warn(file.name, resp.message); }
         } catch(e) { errores++; }
     }
@@ -6796,6 +6809,10 @@ async function subirDocumentosExpediente() {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-upload"></i> Subir al expediente';
         cerrarModalDocs();
+        // Refrescar la lista de archivos si la ficha del empleado está abierta
+        if (subidos && empleadoEdicion && _idSubidaDocs && (empleadoEdicion["ID INTERNO"] || "").toString() === _idSubidaDocs) {
+            try { cargarArchivosExpediente((empleadoEdicion["URL EXPEDIENTE"] || "").toString().trim()); } catch(e) {}
+        }
         if (errores === 0) {
             mostrarToast('success', subidos + ' archivo(s) subidos', 'Guardados en el expediente de ' + modalDocsNom + '.', 6000);
         } else {
@@ -7524,7 +7541,7 @@ function abrirModalMovimiento(idPersona, nombreEmpleado) {
 // Excluye: email, password, date, number y campos con data-nouppercase
 // ════════════════════════════════════════════════════════════
 (function(){
-    const _EXCL_TYPE = new Set(['email','password','search','number','date','time','tel']);
+    const _EXCL_TYPE = new Set(['email','password','search','number','date','time','tel','file','checkbox','radio','range','color','hidden','submit','button','reset','image','datetime-local','month','week']);
     const _EXCL_ID   = new Set(['correoElectronico','correo','email','password','contrasena','token']);
     function _upper(el){
         if(!el || el.tagName==='SELECT') return;
@@ -7608,7 +7625,7 @@ window.addEventListener('load', function(){
 // MAYÚSCULAS GLOBALES — todos los inputs de texto
 // ════════════════════════════════════════════════════════════
 (function(){
-    const _EX_TYPE = new Set(['email','password','search','number','date','time','tel']);
+    const _EX_TYPE = new Set(['email','password','search','number','date','time','tel','file','checkbox','radio','range','color','hidden','submit','button','reset','image','datetime-local','month','week']);
     const _EX_ID   = new Set(['correoElectronico','correo','email','password','contrasena','token']);
     function _upper(el){
         if(!el||el.tagName==='SELECT') return;
