@@ -90,33 +90,41 @@ function htmlFotoIniciales(nom,idInterno,tam){
 // Pinta las fotos de los marcos con data-foto cuando se vuelven visibles
 var _obsFotos=null;
 function cargarFotosVisibles(raiz){
-    var marcos=(raiz||document).querySelectorAll('.pr-foto[data-foto]:not([data-foto=""])');
+    var marcos=(raiz||document).querySelectorAll('.pr-foto[data-foto]:not([data-foto=""]):not([data-foto-obs])');
+    marcos.forEach(function(m){ m.setAttribute('data-foto-obs','1'); });
     if(!('IntersectionObserver' in window)){ marcos.forEach(function(m){ pintarFotoMarco(m,m.getAttribute('data-foto'),true); }); return; }
     if(!_obsFotos) _obsFotos=new IntersectionObserver(function(ents){
         ents.forEach(function(e){ if(e.isIntersecting){ _obsFotos.unobserve(e.target); pintarFotoMarco(e.target,e.target.getAttribute('data-foto'),true); } });
     },{rootMargin:'200px'});
     marcos.forEach(function(m){ _obsFotos.observe(m); });
 }
+// Cualquier marco de foto que aparezca en pantalla carga su foto solo
+(function(){
+    var t=null;
+    var mo=new MutationObserver(function(){ clearTimeout(t); t=setTimeout(function(){ try{ cargarFotosVisibles(document); }catch(e){} },120); });
+    function iniciar(){ mo.observe(document.body,{childList:true,subtree:true}); }
+    if(document.body) iniciar(); else document.addEventListener('DOMContentLoaded',iniciar);
+})();
 var SILUETA_SVG='<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="15.5" r="7" fill="#fff" opacity=".92"/><path d="M6 38c1.6-8 7.4-12 14-12s12.4 4 14 12z" fill="#fff" opacity=".92"/></svg>';
 var _fotoMarcoCache={};
-var _fotoCola=[], _fotoActivas=0;
+var _prFotoCola=[], _prFotoActivas=0;
 function _pedirFoto(idInterno){
     if(idInterno in _fotoMarcoCache) return Promise.resolve(_fotoMarcoCache[idInterno]);
     return new Promise(function(res){
-        _fotoCola.push({id:idInterno,res:res});
+        _prFotoCola.push({id:idInterno,res:res});
         _siguienteFoto();
     });
 }
 function _siguienteFoto(){
-    while(_fotoActivas<4 && _fotoCola.length){
-        var t=_fotoCola.shift();
+    while(_prFotoActivas<4 && _prFotoCola.length){
+        var t=_prFotoCola.shift();
         if(t.id in _fotoMarcoCache){ t.res(_fotoMarcoCache[t.id]); continue; }
-        _fotoActivas++;
+        _prFotoActivas++;
         (function(t){
             enviarPeticion('obtener_foto',{folderId:t.id}).then(function(r){
                 _fotoMarcoCache[t.id]=(r&&r.status==='success'&&r.url)?r.url:null;
             }).catch(function(){ _fotoMarcoCache[t.id]=null; }).then(function(){
-                _fotoActivas--; t.res(_fotoMarcoCache[t.id]); _siguienteFoto();
+                _prFotoActivas--; t.res(_fotoMarcoCache[t.id]); _siguienteFoto();
             });
         })(t);
     }
@@ -2298,6 +2306,23 @@ function filtrarPorEmpresasPermitidas(datos){
     });
 }
 
+// Último acceso en palabras: "hoy 09:10", "ayer", "hace 5 días", "el 2 ago 2026"
+function textoUltimoAcceso(v){
+    if(!v) return '';
+    const f=new Date(v); if(isNaN(f)) return '';
+    const hoy=new Date(), d0=new Date(hoy.getFullYear(),hoy.getMonth(),hoy.getDate()), d1=new Date(f.getFullYear(),f.getMonth(),f.getDate());
+    const dias=Math.round((d0-d1)/86400000);
+    if(dias<=0) return 'hoy '+f.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+    if(dias===1) return 'ayer';
+    if(dias<30) return 'hace '+dias+' días';
+    return 'el '+f.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'});
+}
+function filtrarUsuariosTabla(q){
+    q=(q||'').toLowerCase().trim(); let vis=0;
+    document.querySelectorAll('#tabla-usr-wrap .pr-usr-fila').forEach(function(tr){ const ok=!q||tr.dataset.buscar.indexOf(q)>=0; tr.style.display=ok?'':'none'; if(ok) vis++; });
+    const s=document.getElementById('usr-sin-res'); if(s) s.hidden=vis>0;
+}
+
 async function cargarModuloUsuarios(){
     if(!sesionActual) return;
     const rol=sesionActual.usuario.rol;
@@ -2321,7 +2346,11 @@ async function cargarTablaUsuarios(){
     const r=await enviarPeticion('listar_usuarios',{token:getToken()});
     if(r.status!=='success'){cont.innerHTML='<p class="text-sm text-red-400 text-center py-8">'+r.message+'</p>';return;}
     const us=r.usuarios||[];
-    cont.innerHTML='<div class="overflow-x-auto" id="tabla-usr-wrap"><table class="w-full text-sm text-left">'
+    const nAct=us.filter(u=>u.estatus==='Activo').length, nAdm=us.filter(u=>u.rol==='Administrador').length;
+    cont.innerHTML='<div class="pr-usr-barra"><div class="pr-usr-buscar"><i class="fas fa-magnifying-glass"></i>'
+        +'<input type="search" id="usr-buscar" placeholder="Buscar por nombre, correo, rol o empresa" oninput="filtrarUsuariosTabla(this.value)" aria-label="Buscar usuarios"></div>'
+        +'<p class="pr-usr-resumen">'+us.length+' usuarios · '+nAct+' activos · '+nAdm+' administradores</p></div>'
+        +'<div class="overflow-x-auto" id="tabla-usr-wrap"><table class="w-full text-sm text-left">'
         +'<thead class="text-xs text-slate-400 uppercase bg-slate-50 border-b">'
         +'<tr><th class="px-4 py-3">Usuario</th><th class="px-4 py-3">Email</th>'
         +'<th class="px-4 py-3">Rol</th><th class="px-4 py-3">Empresas</th>'
@@ -2331,11 +2360,12 @@ async function cargarTablaUsuarios(){
             const activo=u.estatus==='Activo';
             const badge=activo?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
             const emps=(u.empresas||[]).join(', ')||'—';
-            const ini=((u.nombre||'U').split(' ')[0]||'U')[0].toUpperCase();
-            return '<tr class="hover:bg-slate-50">'
-                +'<td class="px-4 py-3"><div class="flex items-center gap-2">'
-                +'<div class="w-8 h-8 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold flex-shrink-0">'+ini+'</div>'
-                +'<span class="font-medium text-slate-700">'+u.nombre+'</span></div></td>'
+            const ua=textoUltimoAcceso(u.ultimoAcceso);
+            return '<tr class="hover:bg-slate-50 pr-usr-fila" data-buscar="'+escHtmlInicio((u.nombre+' '+u.email+' '+u.rol+' '+emps).toLowerCase())+'">'
+                +'<td class="px-4 py-3"><div class="pr-colab">'
+                +htmlFotoIniciales(u.nombre,u.idInterno,36)
+                +'<div class="min-w-0"><span class="font-medium text-slate-700" style="display:block">'+u.nombre+'</span>'
+                +'<span class="pr-li-sub" style="display:block">'+(ua?'Último acceso '+ua:'Sin accesos registrados')+'</span></div></div></td>'
                 +'<td class="px-4 py-3 text-slate-500 text-xs">'+u.email+'</td>'
                 +'<td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-semibold '+(u.rol==='Administrador'?'bg-violet-100 text-violet-700':'bg-blue-100 text-blue-700')+'">'+u.rol+'</span></td>'
                 +'<td class="px-4 py-3 text-xs text-slate-500 max-w-[180px] truncate">'+emps+'</td>'
@@ -2347,7 +2377,8 @@ async function cargarTablaUsuarios(){
                 +'<i class="fas fa-'+(activo?'ban':'check-circle')+' text-xs pointer-events-none"></i></button>'
                 +'</div></td></tr>';
         }).join('')
-        +'</tbody></table></div>';
+        +'</tbody></table><p class="pr-vacio" id="usr-sin-res" hidden>Ningún usuario coincide con la búsqueda.</p></div>';
+    cargarFotosVisibles(cont);
     setTimeout(function(){
         const wrap=document.getElementById('tabla-usr-wrap');
         if(wrap) wrap.addEventListener('click',function(e){
@@ -2757,7 +2788,7 @@ async function crearExpedienteEnDrive() {
             if (empleadoEdicion) empleadoEdicion["URL EXPEDIENTE"] = r.url;
 
             mostrarToast('success', 'Expediente creado',
-                'Carpeta creada en Drive para ' + nom + '.', 6000);
+                'Expediente digital creado para ' + nom + '.', 6000);
 
             // Re-renderizar el drawer para mostrar el link
             renderizarDrawer(empleadoEdicion);
@@ -2765,7 +2796,7 @@ async function crearExpedienteEnDrive() {
             mostrarToast('error', 'Error al crear expediente', r.message || 'Intenta de nuevo.');
             if (btn) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente';
+                btn.innerHTML = '<i class="fas fa-folder-plus"></i> Crear expediente digital';
             }
         }
     } catch(e) {
@@ -2773,7 +2804,7 @@ async function crearExpedienteEnDrive() {
         mostrarToast('error', 'Error', 'No se pudo crear la carpeta. Verifica la conexión.');
         if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-folder-plus"></i> Crear carpeta de expediente';
+            btn.innerHTML = '<i class="fas fa-folder-plus"></i> Crear expediente digital';
         }
     }
 }
@@ -3020,11 +3051,10 @@ function renderizarDashboardClima(respuestas, container, link) {
     +'<tbody class="divide-y divide-slate-50">'
     +respuestas.slice(0,8).map(function(r){
         const n=Object.keys(r.respuestas||{}).length;
-        const f=r.fecha?new Date(r.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}):'—';
-        const ini=((r.nombre||'?').trim()[0]||'?').toUpperCase();
+        const f=r.fecha?fechaCorta(r.fecha):'—';
         return '<tr class="hover:bg-slate-50">'
           +'<td class="px-4 py-2.5"><div class="flex items-center gap-2">'
-          +'<div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">'+ini+'</div>'
+          +htmlFotoIniciales(r.nombre,r.idInterno,30)
           +'<span class="font-medium text-slate-700 text-xs">'+r.nombre+'</span></div></td>'
           +'<td class="px-4 py-2.5 text-xs text-slate-500">'+r.empresa+'</td>'
           +'<td class="px-4 py-2.5 text-xs text-slate-400">'+f+'</td>'
@@ -3419,22 +3449,24 @@ function renderGridDirectorio(data) {
             var m = e.urlExp.match(/\/folders\/([a-zA-Z0-9_-]+)/);
             if(m) folderId = m[1];
         }
-        return '<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 hover:shadow-md hover:border-violet-200 transition cursor-pointer dir-card"'
+        // Correo y teléfono se pueden tocar para escribir o llamar
+        const tel=(e.telefono||'').replace(/[^\d+]/g,'');
+        return '<div class="pr-dir-card dir-card" tabindex="0"'
             +' data-id="'+e.idInterno+'"'
             +(folderId ? ' data-folder="'+folderId+'"' : '')+'>'
-            +'<div class="flex flex-col items-center text-center">'
+            +'<div class="pr-dir-top">'
             // Avatar — ID único para poder actualizar después
-            +'<div id="dir-av-'+e.idInterno+'" class="dir-avatar w-16 h-16 rounded-full mb-3 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0"'
-            +' style="background:'+color+';">'+ini+'</div>'
-            +'<p class="font-bold text-slate-800 text-sm leading-tight mb-0.5">'+e.nombre+'</p>'
-            +'<p class="text-xs text-slate-400 mb-2">'+e.puesto+'</p>'
-            +'<span class="px-2 py-0.5 rounded-full text-xs font-bold mb-3 '+badge+'">'+e.estatus+'</span>'
-            +'<div class="w-full text-left space-y-1 border-t border-slate-100 pt-3">'
-            +(e.empresa?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-building text-slate-300 w-3"></i>'+e.empresa+'</p>':'')
-            +(e.depto?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-sitemap text-slate-300 w-3"></i>'+e.depto+'</p>':'')
-            +(e.email?'<p class="text-xs text-slate-500 flex items-center gap-1.5 truncate"><i class="fas fa-envelope text-slate-300 w-3"></i>'+e.email+'</p>':'')
-            +(e.telefono?'<p class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fas fa-phone text-slate-300 w-3"></i>'+e.telefono+'</p>':'')
-            +'</div></div></div>';
+            +'<div id="dir-av-'+e.idInterno+'" class="dir-avatar pr-dir-foto" style="background:'+gradFoto(e.nombre)+';">'+inicialesNombre(e.nombre)+'</div>'
+            +'<span class="pr-estado '+(act?'activo':'baja')+'">'+escHtmlInicio(e.estatus||'—')+'</span>'
+            +'</div>'
+            +'<p class="pr-dir-nom">'+escHtmlInicio(e.nombre)+'</p>'
+            +'<p class="pr-dir-pue">'+escHtmlInicio(e.puesto||'Sin puesto')+'</p>'
+            +'<ul class="pr-dir-datos">'
+            +(e.empresa?'<li><i class="fas fa-building"></i><span>'+escHtmlInicio(e.empresa)+'</span></li>':'')
+            +(e.depto?'<li><i class="fas fa-sitemap"></i><span>'+escHtmlInicio(e.depto)+'</span></li>':'')
+            +(e.email?'<li><i class="fas fa-envelope"></i><a href="mailto:'+escHtmlInicio(e.email)+'" onclick="event.stopPropagation()">'+escHtmlInicio(e.email)+'</a></li>':'')
+            +(e.telefono?'<li><i class="fas fa-phone"></i><a href="tel:'+tel+'" onclick="event.stopPropagation()">'+escHtmlInicio(e.telefono)+'</a></li>':'')
+            +'</ul></div>';
     }).join('');
 
     // Iniciar carga lazy de fotos con IntersectionObserver
@@ -3876,7 +3908,7 @@ async function renderAdminPersonas(cont) {
 
     cont.innerHTML =
     '<h3 class="text-base font-bold text-slate-800 mb-5">Administración — Catálogos</h3>'
-    +'<p class="text-xs text-slate-400 mb-5">Estos catálogos se generan automáticamente desde los datos del Sheet. Para modificarlos, edita directamente el expediente del colaborador.</p>'
+    +'<p class="text-xs text-slate-400 mb-5">Estos catálogos se generan solos a partir de los expedientes. Para cambiar un valor, edita el expediente del colaborador.</p>'
     +'<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">'
     // Departamentos
     +'<div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">'
@@ -4025,7 +4057,7 @@ async function renderMisEvaluaciones(cont) {
               +'<div>'
               +'<p class="font-bold text-slate-800 text-sm">'+ev.nombreEvaluado+'</p>'
               +'<p class="text-xs text-violet-600 font-semibold mt-0.5">'+rol+'</p>'
-              +'<p class="text-xs text-slate-400">Proceso: '+ev.idProceso+'</p>'
+              +'<p class="text-xs text-slate-400">Proceso: '+escHtmlInicio(ev.nombreProceso||ev.idProceso)+'</p>'
               +(ev.fechaComp?'<p class="text-xs text-emerald-500 mt-0.5">Completada: '+new Date(ev.fechaComp).toLocaleDateString('es-MX')+'</p>':'')
               +'</div></div>'
               +'<div class="flex items-center gap-2 flex-shrink-0">'
@@ -4094,10 +4126,10 @@ async function renderMiEquipoEval(cont) {
         const ini  = getIniciales(ev.nombreEvaluado)||'?';
         const col  = avatarColor(ev.nombreEvaluado);
         return '<div class="bg-white rounded-2xl border '+(pend?'border-amber-100':'border-slate-100')+' shadow-sm p-4 flex items-center gap-4">'
-            +'<div class="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style="background:'+col+';">'+ini+'</div>'
+            +htmlFotoIniciales(ev.nombreEvaluado,ev.idEvaluado,40)
             +'<div class="flex-1">'
             +'<p class="font-bold text-slate-700 text-sm">'+ev.nombreEvaluado+'</p>'
-            +'<p class="text-xs text-slate-400">Proceso: '+ev.idProceso+'</p>'
+            +'<p class="text-xs text-slate-400">Proceso: '+escHtmlInicio(ev.nombreProceso||ev.idProceso)+'</p>'
             +'</div>'
             +'<div class="flex items-center gap-2">'
             +'<span class="px-2 py-1 rounded-lg text-xs font-bold '+(pend?'bg-amber-100 text-amber-700':'bg-emerald-100 text-emerald-700')+'">'+ev.estatus+'</span>'
@@ -5568,11 +5600,10 @@ function renderizarDashboardEncuesta(encId, respuestas, container){
     +'<tbody class="divide-y divide-slate-50">'
     +respuestas.slice(0,10).map(function(r){
         const n=Object.keys(r.respuestas||{}).length;
-        const f=r.fecha?new Date(r.fecha).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'}):'—';
-        const ini=((r.nombre||'?').trim()[0]||'?').toUpperCase();
+        const f=r.fecha?fechaCorta(r.fecha):'—';
         return '<tr class="hover:bg-slate-50">'
           +'<td class="px-4 py-2.5"><div class="flex items-center gap-2">'
-          +'<div class="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold flex-shrink-0">'+ini+'</div>'
+          +htmlFotoIniciales(r.nombre,r.idInterno,30)
           +'<span class="font-medium text-slate-700 text-xs">'+r.nombre+'</span></div></td>'
           +'<td class="px-4 py-2.5 text-xs text-slate-500">'+r.empresa+'</td>'
           +'<td class="px-4 py-2.5 text-xs text-slate-400">'+f+'</td>'
@@ -5911,7 +5942,7 @@ async function guardarEditorEncuesta() {
     });
 
     if (r.status === 'success') {
-        mostrarToast('success','Encuesta guardada','Los cambios se guardaron correctamente en el Sheet.',5000);
+        mostrarToast('success','Encuesta guardada','Los cambios se guardaron correctamente.',5000);
         if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-save mr-1"></i> Guardar'; }
         // Recargar el tab activo para reflejar cambios
         cerrarEditorEncuesta();
@@ -5993,7 +6024,7 @@ async function subirFotoPerfil(){
     }, 45000); // timeout largo: puede implicar crear carpeta+subcarpeta en Drive antes de subir
     console.log('[subirFotoPerfil] Respuesta backend:', JSON.stringify(resp));
     if(resp.status === 'success'){
-        mostrarToast('success','Foto guardada','Foto subida a Drive. Carpeta: '+(resp.folderUrl||'existente'));
+        mostrarToast('success','Foto guardada','La foto se guardó en su expediente.');
         const folderUrl = resp.folderUrl || (empleadoEdicion["URL EXPEDIENTE"]||"").toString().trim();
         if(folderUrl){
             empleadoEdicion["URL EXPEDIENTE"] = folderUrl;
@@ -6001,7 +6032,7 @@ async function subirFotoPerfil(){
             const _empF = _idF && cacheGlobal.find(e => (e["ID INTERNO"] || "").toString() === _idF);
             if(_empF) _empF["URL EXPEDIENTE"] = folderUrl;
             // Actualizar el ícono de carpeta en la tabla
-            const iconoCarpeta = document.querySelector('tr [title="Abrir expediente en Drive"]');
+            const iconoCarpeta = document.querySelector('tr [title="Abrir expediente"]');
             if(iconoCarpeta) iconoCarpeta.href = folderUrl;
             await new Promise(r => setTimeout(r, 1500));
             await cargarFotoPerfil(folderUrl);
@@ -6249,8 +6280,8 @@ function renderizarDrawer(emp){
         )+'</div>'
     );
     var _p11 = rawFull((url && url.indexOf("http")===0
-        ?'<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4"><div class="flex items-center gap-3"><i class="fas fa-folder-open text-blue-500 text-xl flex-shrink-0"></i><div class="flex-1 min-w-0"><p class="text-sm font-bold text-blue-800">Expediente en Drive</p><p class="text-xs text-blue-600 truncate">'+url+'</p></div><a href="'+url+'" target="_blank" rel="noopener" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0"><i class="fas fa-external-link-alt mr-1"></i>Abrir</a></div></div>'
-        :'<div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4"><div class="flex items-center gap-3 mb-3"><i class="fas fa-folder text-amber-400 text-xl flex-shrink-0"></i><div class="flex-1"><p class="text-sm font-bold text-amber-800">Sin expediente en Drive</p><p class="text-xs text-amber-600">Este empleado no tiene carpeta asignada en Drive.</p></div></div><button onclick="crearExpedienteEnDrive()" class="w-full text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 py-2.5 rounded-xl transition flex items-center justify-center gap-2"><i class="fas fa-folder-plus"></i> Crear carpeta de expediente</button></div>'
+        ?'<div class="mb-5 bg-blue-50 border border-blue-200 rounded-xl p-4"><div class="flex items-center gap-3"><i class="fas fa-folder-open text-blue-500 text-xl flex-shrink-0"></i><div class="flex-1 min-w-0"><p class="text-sm font-bold text-blue-800">Expediente digital</p><p class="text-xs text-blue-600 truncate">'+url+'</p></div><a href="'+url+'" target="_blank" rel="noopener" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 transition flex-shrink-0"><i class="fas fa-external-link-alt mr-1"></i>Abrir</a></div></div>'
+        :'<div class="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4"><div class="flex items-center gap-3 mb-3"><i class="fas fa-folder text-amber-400 text-xl flex-shrink-0"></i><div class="flex-1"><p class="text-sm font-bold text-amber-800">Sin expediente digital</p><p class="text-xs text-amber-600">Este colaborador todavía no tiene expediente digital.</p></div></div><button onclick="crearExpedienteEnDrive()" class="w-full text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 active:scale-95 py-2.5 rounded-xl transition flex items-center justify-center gap-2"><i class="fas fa-folder-plus"></i> Crear expediente digital</button></div>'
     ));
     // REDISEÑO: en vez de un solo contenedor de 2 columnas, cada sección
     // se reparte en su pestaña correspondiente. Los inputs quedan igual
@@ -6977,7 +7008,7 @@ function renderizarPagina(pag) {
             const link    = urlOk
                 ? '<a href="' + url + '" target="_blank" rel="noopener noreferrer" '
                   + 'class="text-slate-400 hover:text-blue-600 transition" '
-                  + 'title="Abrir expediente en Drive" '
+                  + 'title="Abrir expediente" '
                   + 'onclick="event.stopPropagation()">'
                   + '<i class="fas fa-folder-open text-sm"></i></a>'
                 : '<span class="text-slate-400" title="Sin expediente asignado">'
@@ -7547,6 +7578,13 @@ function actualizarInicio(D,cTend,meses,activos){
         }
     }
     renderPendientesInicio();
+}
+// Fecha corta "01 nov 26". Una fecha sola (2026-11-01) se toma tal cual, sin restar
+// las horas de diferencia con UTC (antes salía "31 oct").
+function fechaCorta(v){
+    var s=String(v||'').trim(); if(!s) return '—';
+    var d=/^\d{4}-\d{2}-\d{2}$/.test(s)?new Date(s+'T12:00:00'):new Date(s);
+    return isNaN(d)?s:d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'2-digit'});
 }
 function escHtmlInicio(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 // Pendientes = avisos del centro de notificaciones, sin cumpleaños ni aniversarios

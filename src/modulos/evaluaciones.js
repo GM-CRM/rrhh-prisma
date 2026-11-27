@@ -292,7 +292,7 @@ async function listarMisEvaluaciones(p, env) {
   if (!idUsuario) return error(quien.origen === "panel" ? "Tu usuario no tiene ID INTERNO asignado." : "ID requerido.");
   try {
     const { results } = await env.DB.prepare(
-      `SELECT e.*, p.estatus AS estatus_proceso FROM evaluaciones e LEFT JOIN procesos_eval p ON p.id_proceso = e.id_proceso
+      `SELECT e.*, p.estatus AS estatus_proceso, p.nombre AS nombre_proceso FROM evaluaciones e LEFT JOIN procesos_eval p ON p.id_proceso = e.id_proceso
         WHERE e.id_evaluador = ?1 OR e.id_evaluado = ?1 ORDER BY e.id`
     ).bind(idUsuario).all();
     const evaluaciones = [], comoEvaluado = [];
@@ -300,7 +300,7 @@ async function listarMisEvaluaciones(p, env) {
       const base = {
         id: s(r.id_eval), idProceso: s(r.id_proceso), idEvaluado: s(r.id_evaluado), nombreEvaluado: s(r.nombre_evaluado),
         idEvaluador: s(r.id_evaluador), rolEvaluador: s(r.rol_evaluador), estatus: s(r.estatus),
-        fechaComp: s(r.fecha_completada), estatusProceso: s(r.estatus_proceso),
+        fechaComp: s(r.fecha_completada), estatusProceso: s(r.estatus_proceso), nombreProceso: s(r.nombre_proceso),
       };
       // Yo debo llenar este formulario: veo mis propias respuestas
       if (base.idEvaluador === idUsuario) evaluaciones.push({ ...base, respuestas: parse(r.respuestas_json, {}), perspectiva: "evaluador" });
@@ -324,13 +324,13 @@ async function listarEquipoEval(p, env) {
   if (!idJefe) return error("ID requerido.");
   try {
     const { results } = await env.DB.prepare(
-      "SELECT * FROM evaluaciones WHERE id_evaluador = ? AND rol_evaluador = 'jefe' ORDER BY id"
+      "SELECT e.*, p.nombre AS nombre_proceso FROM evaluaciones e LEFT JOIN procesos_eval p ON p.id_proceso = e.id_proceso WHERE e.id_evaluador = ? AND e.rol_evaluador = 'jefe' ORDER BY e.id"
     ).bind(idJefe).all();
     return {
       status: "success",
       equipo: results.map(r => ({
         id: s(r.id_eval), idProceso: s(r.id_proceso), idEvaluado: s(r.id_evaluado), nombreEvaluado: s(r.nombre_evaluado),
-        estatus: s(r.estatus), fechaComp: s(r.fecha_completada),
+        estatus: s(r.estatus), fechaComp: s(r.fecha_completada), nombreProceso: s(r.nombre_proceso),
       })),
     };
   } catch (e) { return error(String(e)); }

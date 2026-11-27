@@ -124,5 +124,38 @@ for prop,val in re.findall(r'(?<![\w-])(color|background|background-color)\s*:\s
     if not nv: continue
     for sep in (':',': '):
         out.append(f'html[data-tema] [style*="{prop}{sep}{val}"]{{{"background" if prop.startswith("background") else "color"}:{nv}!important}}')
+
+# 5) Pastel y colores fuertes escritos en línea (style="background:#eff6ff;color:#2563eb"):
+#    en tema oscuro, el pastel pasa a un tinte translúcido y el color fuerte a su tono claro,
+#    eligiendo el color de Tailwind con el matiz más parecido.
+import colorsys
+PAL4={'red':('#fca5a5','#f87171'),'orange':('#fdba74','#fb923c'),'amber':('#fcd34d','#fbbf24'),'yellow':('#fde047','#facc15'),
+'lime':('#bef264','#a3e635'),'green':('#86efac','#4ade80'),'emerald':('#6ee7b7','#34d399'),'teal':('#5eead4','#2dd4bf'),
+'cyan':('#67e8f9','#22d3ee'),'sky':('#7dd3fc','#38bdf8'),'blue':('#93c5fd','#60a5fa'),'indigo':('#a5b4fc','#818cf8'),
+'violet':('#c4b5fd','#a78bfa'),'purple':('#d8b4fe','#c084fc'),'fuchsia':('#f0abfc','#e879f9'),'pink':('#f9a8d4','#f472b6'),'rose':('#fda4af','#fb7185')}
+def _rgb(h):
+    h=h.lstrip('#'); h=''.join(c*2 for c in h) if len(h)==3 else h
+    return tuple(int(h[i:i+2],16)/255 for i in (0,2,4))
+def _hue(h): r,g,b=_rgb(h); return colorsys.rgb_to_hls(r,g,b)
+def _cercano(h):
+    hu=_hue(h)[0]
+    return min(PAL4.items(),key=lambda kv: min(abs(_hue(kv[1][1])[0]-hu),1-abs(_hue(kv[1][1])[0]-hu)))[1]
+vistos5=set()
+_hex=set(h.lower() for h in re.findall(r"['\"](#[0-9a-fA-F]{6})['\"]",js))
+_pares=[(p_,v_) for p_,v_ in re.findall(r'(?<![\w-])(background|color)\s*:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\b',html+js)]
+_pares+= [('background',h) for h in _hex]+[('color',h) for h in _hex]
+for prop,val in _pares:
+    k=(prop,val.lower())
+    if k in vistos5: continue
+    vistos5.add(k)
+    hu,li,sa=_hue(val)
+    if prop=='background' and li>=0.9 and sa>0.25:
+        c3,c4=_cercano(val); r,g,b=[int(x*255) for x in _rgb(c4)]
+        for sep in (':',': '):
+            out.append(f'html[data-tema="oscuro"] [style*="background{sep}{val}"]{{background:rgba({r},{g},{b},.16)!important}}')
+    elif prop=='color' and li<=0.62 and sa>0.35:
+        c3,c4=_cercano(val)
+        for sep in (':',': '):
+            out.append(f'html[data-tema="oscuro"] [style*="color{sep}{val}"]{{color:{c3}!important}}')
 sys.stdout.write('/* GENERADO por scripts/generar_tema_compat.py — no editar a mano.\n   Traduce los colores claros fijos de los módulos existentes a las variables del tema. */\n'+'\n'.join(out)+'\n')
 print(len(out),file=sys.stderr)

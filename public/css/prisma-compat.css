@@ -339,3 +339,115 @@ html[data-tema] [style*="background:oklch(96% 0.03 285)"]{background:var(--sutil
 html[data-tema] [style*="background: oklch(96% 0.03 285)"]{background:var(--sutil)!important}
 html[data-tema] [style*="background:oklch(96% 0.04 70)"]{background:var(--sutil)!important}
 html[data-tema] [style*="background: oklch(96% 0.04 70)"]{background:var(--sutil)!important}
+html[data-tema="oscuro"] [style*="background:#f1f5f9"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f1f5f9"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background:#ddd6fe"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #ddd6fe"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="color:#0d1b3e"]{color:#93c5fd!important}
+html[data-tema="oscuro"] [style*="color: #0d1b3e"]{color:#93c5fd!important}
+html[data-tema="oscuro"] [style*="background:#f8fafc"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f8fafc"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="color:#2563eb"]{color:#93c5fd!important}
+html[data-tema="oscuro"] [style*="color: #2563eb"]{color:#93c5fd!important}
+html[data-tema="oscuro"] [style*="background:#e2e8f0"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #e2e8f0"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background:#fef2f2"]{background:rgba(248,113,113,.16)!important}
+html[data-tema="oscuro"] [style*="background: #fef2f2"]{background:rgba(248,113,113,.16)!important}
+html[data-tema="oscuro"] [style*="color:#b91c1c"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="color: #b91c1c"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="background:#f0fdf4"]{background:rgba(74,222,128,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f0fdf4"]{background:rgba(74,222,128,.16)!important}
+html[data-tema="oscuro"] [style*="color:#166534"]{color:#86efac!important}
+html[data-tema="oscuro"] [style*="color: #166534"]{color:#86efac!important}
+html[data-tema="oscuro"] [style*="background:#f8f7ff"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f8f7ff"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="color:#7c3aed"]{color:#c4b5fd!important}
+html[data-tema="oscuro"] [style*="color: #7c3aed"]{color:#c4b5fd!important}
+html[data-tema="oscuro"] [style*="color:#ef4444"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="color: #ef4444"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="color:#10b981"]{color:#6ee7b7!important}
+html[data-tema="oscuro"] [style*="color: #10b981"]{color:#6ee7b7!important}
+html[data-tema="oscuro"] [style*="background:#ede9fe"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #ede9fe"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="color:#22c55e"]{color:#86efac!important}
+html[data-tema="oscuro"] [style*="color: #22c55e"]{color:#86efac!important}
+html[data-tema="oscuro"] [style*="color:#92400e"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #92400e"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="background:#f5f3ff"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f5f3ff"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="background:#eeecf5"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #eeecf5"]{background:rgba(167,139,250,.16)!important}
+html[data-tema="oscuro"] [style*="color:#991b1b"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="color: #991b1b"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="background:#dbeafe"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #dbeafe"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background:#dfe5ff"]{background:rgba(129,140,248,.16)!important}
+html[data-tema="oscuro"] [style*="background: #dfe5ff"]{background:rgba(129,140,248,.16)!important}
+html[data-tema="oscuro"] [style*="background:#f2f4fb"]{background:rgba(129,140,248,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f2f4fb"]{background:rgba(129,140,248,.16)!important}
+html[data-tema="oscuro"] [style*="background:#f7fee7"]{background:rgba(163,230,53,.16)!important}
+html[data-tema="oscuro"] [style*="background: #f7fee7"]{background:rgba(163,230,53,.16)!important}
+html[data-tema="oscuro"] [style*="background:#eff6ff"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background: #eff6ff"]{background:rgba(96,165,250,.16)!important}
+html[data-tema="oscuro"] [style*="background:#ffdce8"]{background:rgba(244,114,182,.16)!important}
+html[data-tema="oscuro"] [style*="background: #ffdce8"]{background:rgba(244,114,182,.16)!important}
+html[data-tema="oscuro"] [style*="background:#fffbeb"]{background:rgba(250,204,21,.16)!important}
+html[data-tema="oscuro"] [style*="background: #fffbeb"]{background:rgba(250,204,21,.16)!important}
+html[data-tema="oscuro"] [style*="background:#fff7ed"]{background:rgba(251,146,60,.16)!important}
+html[data-tema="oscuro"] [style*="background: #fff7ed"]{background:rgba(251,146,60,.16)!important}
+html[data-tema="oscuro"] [style*="background:#fefce8"]{background:rgba(250,204,21,.16)!important}
+html[data-tema="oscuro"] [style*="background: #fefce8"]{background:rgba(250,204,21,.16)!important}
+html[data-tema="oscuro"] [style*="color:#1d4ed8"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color: #1d4ed8"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color:#2fe0c8"]{color:#5eead4!important}
+html[data-tema="oscuro"] [style*="color: #2fe0c8"]{color:#5eead4!important}
+html[data-tema="oscuro"] [style*="color:#b45309"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #b45309"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#e11d48"]{color:#fda4af!important}
+html[data-tema="oscuro"] [style*="color: #e11d48"]{color:#fda4af!important}
+html[data-tema="oscuro"] [style*="color:#d98a1c"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #d98a1c"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#1e40af"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color: #1e40af"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color:#d63c74"]{color:#f9a8d4!important}
+html[data-tema="oscuro"] [style*="color: #d63c74"]{color:#f9a8d4!important}
+html[data-tema="oscuro"] [style*="color:#f59e0b"]{color:#fcd34d!important}
+html[data-tema="oscuro"] [style*="color: #f59e0b"]{color:#fcd34d!important}
+html[data-tema="oscuro"] [style*="color:#161b3a"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color: #161b3a"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color:#9a3412"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #9a3412"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#0e9c88"]{color:#5eead4!important}
+html[data-tema="oscuro"] [style*="color: #0e9c88"]{color:#5eead4!important}
+html[data-tema="oscuro"] [style*="color:#eab308"]{color:#fcd34d!important}
+html[data-tema="oscuro"] [style*="color: #eab308"]{color:#fcd34d!important}
+html[data-tema="oscuro"] [style*="color:#d97706"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #d97706"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#151a3d"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color: #151a3d"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color:#8b4fe0"]{color:#d8b4fe!important}
+html[data-tema="oscuro"] [style*="color: #8b4fe0"]{color:#d8b4fe!important}
+html[data-tema="oscuro"] [style*="color:#0a0e24"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color: #0a0e24"]{color:#a5b4fc!important}
+html[data-tema="oscuro"] [style*="color:#854d0e"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #854d0e"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#65a30d"]{color:#bef264!important}
+html[data-tema="oscuro"] [style*="color: #65a30d"]{color:#bef264!important}
+html[data-tema="oscuro"] [style*="color:#9333ea"]{color:#d8b4fe!important}
+html[data-tema="oscuro"] [style*="color: #9333ea"]{color:#d8b4fe!important}
+html[data-tema="oscuro"] [style*="color:#ea580c"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #ea580c"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#dc2626"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="color: #dc2626"]{color:#fca5a5!important}
+html[data-tema="oscuro"] [style*="color:#0891b2"]{color:#67e8f9!important}
+html[data-tema="oscuro"] [style*="color: #0891b2"]{color:#67e8f9!important}
+html[data-tema="oscuro"] [style*="color:#3b82f6"]{color:#93c5fd!important}
+html[data-tema="oscuro"] [style*="color: #3b82f6"]{color:#93c5fd!important}
+html[data-tema="oscuro"] [style*="color:#065f46"]{color:#6ee7b7!important}
+html[data-tema="oscuro"] [style*="color: #065f46"]{color:#6ee7b7!important}
+html[data-tema="oscuro"] [style*="color:#f97316"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color: #f97316"]{color:#fdba74!important}
+html[data-tema="oscuro"] [style*="color:#059669"]{color:#6ee7b7!important}
+html[data-tema="oscuro"] [style*="color: #059669"]{color:#6ee7b7!important}
+html[data-tema="oscuro"] [style*="color:#16a34a"]{color:#86efac!important}
+html[data-tema="oscuro"] [style*="color: #16a34a"]{color:#86efac!important}
