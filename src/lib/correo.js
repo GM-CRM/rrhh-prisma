@@ -5,7 +5,7 @@
 //  Si falta configuración, no truena: registra en log y devuelve false
 //  (igual que el try/catch de los envíos en GAS).
 // ============================================================
-import { WorkerMailer } from "worker-mailer";
+import { WorkerMailer } from "../vendor/worker-mailer.mjs";
 import { EMAIL_FROM_NAME } from "./plantillas_correo.js";
 
 export function correoConfigurado(env) {

@@ -7,8 +7,5 @@
   "scripts": {
     "dev": "wrangler pages dev",
     "seed:dev": "wrangler d1 execute rrhh-prisma-dev --remote --file=db/seed/seed.sql"
-  },
-  "dependencies": {
-    "worker-mailer": "1.3.1"
   }
 }
