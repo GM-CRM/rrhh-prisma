@@ -1662,7 +1662,7 @@ if ('serviceWorker' in navigator) {
 </style>
  
 <link rel="stylesheet" href="css/prisma-compat.css?v=4">
-<link rel="stylesheet" href="css/prisma-tema.css?v=3">
+<link rel="stylesheet" href="css/prisma-tema.css?v=4">
 </head>
 <body class="text-slate-800 h-screen flex overflow-hidden">
 
@@ -2312,7 +2312,7 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
         <div class="ab-icono"><i class="fas fa-user-plus"></i></div>
         <div style="min-width:0">
           <h3>Alta de nuevo colaborador</h3>
-          <p>Completa cada sección para registrar al colaborador y crear su expediente en Drive.</p>
+          <p>Completa cada sección para registrar al colaborador y crear su expediente digital.</p>
         </div>
       </div>
     </div>
@@ -2322,8 +2322,11 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
       <div id="stepper-barra"></div>
     </div>
 
-    <!-- El contenido de cada paso lo inyecta main.js -->
-    <div class="ab-cuerpo" id="stepper-contenido"></div>
+    <!-- El contenido de cada paso lo inyecta main.js; a un lado, el resumen del expediente -->
+    <div class="pr-alta-cuerpo">
+      <div class="ab-cuerpo" id="stepper-contenido"></div>
+      <aside class="pr-alta-lado" id="alta-lateral" aria-label="Expediente en preparación"></aside>
+    </div>
 
     <div class="ab-pie">
       <button id="btn-anterior" onclick="anteriorPaso()" class="ab-btn">
@@ -2894,7 +2897,7 @@ class="flex items-center gap-2 text-xs font-semibold text-[oklch(50%_0.01_285)] 
 // y agregar el dominio de tu Cloudflare Pages en las restricciones de la key
 window.GOOGLE_PLACES_KEY = ''; // <-- pega aquí tu API key de Google Places
 </script>
-<script src="main.js?v=69.36"></script>
+<script src="main.js?v=69.37"></script>
 
  <div id="ses-aviso">
   <div class="ico"><i class="fas fa-clock-rotate-left"></i></div>

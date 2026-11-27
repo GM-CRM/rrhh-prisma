@@ -1244,18 +1244,98 @@ let pasoActual=0, altaData={};
 // ─── STEPPER RENDER ───────────────────────────────────────────
 function renderizarStepper(){
     const barra=document.getElementById('stepper-barra');
-    barra.innerHTML=PASOS.map((p,i)=>{
+    const pct=Math.round(pasoActual/(PASOS.length-1)*100);
+    barra.innerHTML='<div class="pr-pasos" role="list">'+PASOS.map((p,i)=>{
         const hecho=i<pasoActual,activo=i===pasoActual;
-        const dot=hecho?'bg-emerald-500 text-white':activo?'bg-blue-600 text-white ring-2 ring-blue-500 ring-offset-2':'bg-slate-100 text-slate-400';
-        const ic=hecho?'fa-check':p.icono;
-        const tc=hecho?'text-emerald-600':activo?'text-blue-600':'text-slate-400';
-        const linea=i<PASOS.length-1?`<div class="flex-1 h-0.5 mx-1.5 rounded ${hecho?'bg-emerald-400':'bg-slate-200'}"></div>`:'';
-        return `<div class="flex items-center flex-1 min-w-0"><button onclick="irAPaso(${i})" class="flex flex-col items-center gap-1 flex-shrink-0" title="${p.titulo}"><div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${dot}"><i class="fas ${ic} text-xs"></i></div><span class="text-xs font-medium hidden lg:block whitespace-nowrap ${tc}">${p.titulo}</span></button>${linea}</div>`;
-    }).join('');
+        return '<button type="button" role="listitem" onclick="irAPaso('+i+')" class="pr-paso'+(hecho?' hecho':'')+(activo?' activo':'')+'"'
+            +(activo?' aria-current="step"':'')+' title="'+p.titulo+'">'
+            +'<span class="pr-paso-num">'+(hecho?'<i class="fas fa-check"></i>':(i+1))+'</span>'
+            +'<span class="pr-paso-txt">'+p.titulo+'</span></button>';
+    }).join('')+'</div><div class="pr-pasos-barra" aria-hidden="true"><span style="width:'+pct+'%"></span></div>';
     renderizarPasoActual();
     actualizarBotones();
     const ind=document.getElementById('paso-indicador');
-    if(ind)ind.innerText=`Paso ${pasoActual+1} de ${PASOS.length}`;
+    if(ind)ind.innerText=`Paso ${pasoActual+1} de ${PASOS.length} · ${PASOS[pasoActual].titulo}`;
+    actualizarLateralAlta();
+}
+
+// ── Panel lateral del alta: quién es, cuánto falta y qué documentos lleva ──
+function _valorAlta(id){
+    const el=document.getElementById('alta_'+id);
+    if(el && el.offsetParent!==null) return (el.value||'').trim();
+    return (altaData[id]||'').toString().trim();
+}
+function actualizarLateralAlta(){
+    const lado=document.getElementById('alta-lateral'); if(!lado) return;
+    const reqs=PASOS.flatMap(p=>p.campos.filter(c=>c.req));
+    const llenos=reqs.filter(c=>_valorAlta(c.id)).length, total=reqs.length, pct=total?Math.round(llenos/total*100):0;
+    const nom=_valorAlta('nombreTrabajador'), emp=_valorAlta('empresa'), pue=_valorAlta('puesto');
+    const arch=Array.from(altaData._archivos||[]);
+    const nIA=altaData._ia?Object.keys(altaData._ia).length:0;
+    const faltan=reqs.filter(c=>!_valorAlta(c.id));
+    const r=26, circ=2*Math.PI*r;
+    lado.innerHTML=
+        '<div class="pr-lado-card">'
+          +'<div class="pr-lado-persona">'+(nom?htmlFotoIniciales(nom,'',52):'<span class="pr-foto" style="width:52px;height:52px">'+SILUETA_SVG+'</span>')
+          +'<div class="min-w-0"><p class="pr-lado-nom">'+escHtmlInicio(nom||'Nuevo colaborador')+'</p>'
+          +'<p class="pr-lado-sub">'+escHtmlInicio([emp,pue].filter(Boolean).join(' · ')||'Empresa y puesto pendientes')+'</p></div></div>'
+          +'<div class="pr-lado-prog"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="'+r+'" class="pista"/>'
+          +'<circle cx="32" cy="32" r="'+r+'" class="avance" stroke-dasharray="'+(circ*pct/100).toFixed(1)+' '+circ.toFixed(1)+'" transform="rotate(-90 32 32)"/>'
+          +'<text x="32" y="36" text-anchor="middle">'+pct+'%</text></svg>'
+          +'<div><p class="pr-lado-dato">'+llenos+' de '+total+' datos obligatorios</p>'
+          +(faltan.length?'<p class="pr-lado-sub">Faltan: '+escHtmlInicio(faltan.slice(0,3).map(c=>c.label).join(', '))+(faltan.length>3?' y '+(faltan.length-3)+' más':'')+'</p>':'<p class="pr-lado-ok"><i class="fas fa-circle-check"></i> Listo para confirmar</p>')
+          +'</div></div>'
+        +'</div>'
+        +'<div class="pr-lado-card">'
+          +'<div class="pr-panel-cab" style="margin-bottom:6px"><p class="pr-lado-tit">Documentos</p>'
+          +(pasoActual!==0?'<button type="button" class="pr-enlace" onclick="irAPaso(0)">'+(arch.length?'Cambiar':'Agregar')+'</button>':'')+'</div>'
+          +(arch.length?'<ul class="pr-lado-docs">'+arch.map(f=>'<li><i class="fas '+((f.type||'').startsWith('image/')?'fa-file-image':'fa-file-pdf')+'"></i><span>'+escHtmlInicio(f.name)+'</span></li>').join('')+'</ul>'
+             :'<p class="pr-lado-sub">Aún no agregas documentos. Se guardan en el expediente al confirmar.</p>')
+          +(nIA?'<p class="pr-lado-ia"><span class="pr-ia">IA</span>'+nIA+' dato'+(nIA===1?'':'s')+' leído'+(nIA===1?'':'s')+' de los documentos. Revísalos antes de confirmar.</p>':'')
+        +'</div>';
+}
+document.addEventListener('input',function(e){ if(e.target.closest&&e.target.closest('#stepper-contenido')){ clearTimeout(window._tLatAlta); window._tLatAlta=setTimeout(actualizarLateralAlta,250); } });
+document.addEventListener('change',function(e){ if(e.target.closest&&e.target.closest('#stepper-contenido')) setTimeout(actualizarLateralAlta,50); });
+
+// ── Revisión de CURP, RFC y NSS mientras se escriben ──
+const _DIC_CURP='0123456789ABCDEFGHIJKLMNÑOPQRSTUVWXYZ';
+function validarCURP(v){
+    v=(v||'').toUpperCase().trim(); if(!v) return {};
+    if(!/^[A-Z][AEIOUX][A-Z]{2}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[HMX](AS|BC|BS|CC|CL|CM|CS|CH|DF|DG|GT|GR|HG|JC|MC|MN|MS|NT|NL|OC|PL|QT|QR|SP|SL|SR|TC|TS|TL|VZ|YN|ZS|NE)[B-DF-HJ-NP-TV-ZÑ]{3}[A-Z\d]\d$/.test(v))
+        return {error:v.length<18?((18-v.length)===1?'Falta 1 carácter.':'Faltan '+(18-v.length)+' caracteres.'):'No tiene el formato de un CURP. Revisa letras, fecha, sexo y estado.'};
+    let suma=0; for(let i=0;i<17;i++) suma+=_DIC_CURP.indexOf(v[i])*(18-i);
+    const dig=(10-suma%10)%10;
+    if(String(dig)!==v[17]) return {aviso:'El último dígito no corresponde al resto del CURP (debería ser '+dig+'). Puede haber una letra o número mal escrito.'};
+    return {ok:true};
+}
+function validarRFC(v,curp){
+    v=(v||'').toUpperCase().trim(); if(!v) return {};
+    if(!/^[A-ZÑ&]{4}\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])[A-Z\d]{3}$/.test(v))
+        return {error:v.length<13?(((13-v.length)===1?'Falta 1 carácter':'Faltan '+(13-v.length)+' caracteres')+' (persona física: 13).'):'No tiene el formato de un RFC de persona física.'};
+    curp=(curp||'').toUpperCase().trim();
+    if(curp.length>=10 && curp.slice(0,10)!==v.slice(0,10)) return {aviso:'Las primeras 10 posiciones no coinciden con el CURP ('+curp.slice(0,10)+').'};
+    return {ok:true};
+}
+function validarNSS(v){
+    v=(v||'').replace(/\s|-/g,''); if(!v) return {};
+    if(!/^\d{11}$/.test(v)) return {error:/\D/.test(v)?'Solo lleva números.':'Debe tener 11 dígitos; lleva '+v.length+'.'};
+    let s=0; for(let i=0;i<10;i++){ let d=+v[i]; if(i%2===1){ d*=2; if(d>9) d-=9; } s+=d; }
+    if((10-s%10)%10!==+v[10]) return {aviso:'El dígito verificador no coincide. Revisa que el número esté bien escrito.'};
+    return {ok:true};
+}
+function resultadoValidacionAlta(id){
+    const val=_valorAlta(id);
+    if(id==='curp') return validarCURP(val);
+    if(id==='rfc')  return validarRFC(val,_valorAlta('curp'));
+    if(id==='nss')  return validarNSS(val);
+    return {};
+}
+function mostrarValidacionAlta(id){
+    const el=document.getElementById('alta_'+id), msg=document.getElementById('msg_alta_'+id); if(!el||!msg) return;
+    const r=resultadoValidacionAlta(id);
+    el.classList.toggle('pr-campo-error',!!r.error); el.classList.toggle('pr-campo-aviso',!!r.aviso);
+    msg.className='pr-campo-msg'+(r.error?' error':r.aviso?' aviso':r.ok?' ok':'');
+    msg.innerHTML=r.error?'<i class="fas fa-circle-xmark"></i>'+r.error:r.aviso?'<i class="fas fa-triangle-exclamation"></i>'+r.aviso:r.ok?'<i class="fas fa-circle-check"></i>Correcto':'';
 }
 
 function renderizarPasoActual(){
@@ -1311,7 +1391,7 @@ function renderizarPasoActual(){
 
           <p class="text-xs text-center text-slate-400 mt-5">
             <i class="fas fa-info-circle mr-1"></i>
-            Puedes omitir este paso y continuar capturando manualmente. Los archivos se guardarán en Drive al confirmar el alta.
+            Puedes omitir este paso y capturar los datos a mano. Los archivos se guardan en el expediente digital al confirmar el alta.
           </p>
         </div>`;
         return;
@@ -1329,9 +1409,9 @@ function renderizarPasoActual(){
             <p class="text-sm text-slate-500 mt-1">Verifica que todos los datos sean correctos</p>
           </div>
           <div id="resumen-alta" class="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden mb-4"></div>
-          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
-            <i class="fas fa-folder-open mr-2"></i>
-            Al confirmar se creará automáticamente la carpeta del expediente en Google Drive bajo <span class="font-mono bg-blue-100 px-1 py-0.5 rounded">/${altaData.empresa||'Empresa'}/${altaData.numeroEmpleado||'No.Emp'} — ${altaData.nombreTrabajador||'Nombre'}/</span>
+          <div class="pr-nota-info">
+            <i class="fas fa-folder-open"></i>
+            <span>Al confirmar se crea el expediente digital de <b>${escHtmlInicio(altaData.nombreTrabajador||'el colaborador')}</b> en <b>${escHtmlInicio(altaData.empresa||'la empresa')}</b>${Array.from(altaData._archivos||[]).length?' con '+Array.from(altaData._archivos).length+' documento(s)':''}, y después podrás generar su contrato.</span>
           </div>
         </div>`;
         renderizarResumen();
@@ -1379,6 +1459,15 @@ function renderizarPasoActual(){
     // Listener fecha nac
     const fn=document.getElementById('alta_fechaNacimiento');
     if(fn){fn.addEventListener('change',calcularRangoEdadAuto);fn.addEventListener('blur',calcularRangoEdadAuto);}
+    // Revisión en vivo de CURP, RFC y NSS (en mayúsculas, sin espacios)
+    ['curp','rfc','nss'].forEach(function(id){
+        const inp=document.getElementById('alta_'+id); if(!inp) return;
+        inp.addEventListener('input',function(){
+            const limpio=id==='nss'?this.value.replace(/[^\d]/g,''):this.value.toUpperCase().replace(/\s/g,'');
+            if(limpio!==this.value){ const pos=this.selectionStart; this.value=limpio; try{this.setSelectionRange(pos,pos);}catch(e){} }
+            mostrarValidacionAlta(id); if(id==='curp') mostrarValidacionAlta('rfc');
+        });
+    });
     // Listener CURP
     const curpEl=document.getElementById('alta_curp');
     if(curpEl)curpEl.addEventListener('input',function(){if(this.value.length===18){const d=decodificarCURP(this.value.toUpperCase());if(d)aplicarDatosCURP(d);}});
@@ -1409,7 +1498,7 @@ function renderizarCampo(c){
     const ph=c.placeholder?`placeholder="${c.placeholder}"`:'';
     const ml=c.maxlen?`maxlength="${c.maxlen}"`:'';
     const req=c.req?'<span class="text-red-400">*</span>':'';
-    const nota=c.readonly?'<span class="text-xs text-blue-400 ml-1 font-normal">⟵ automático</span>':'';
+    const nota=c.readonly?'<span class="pr-auto">automático</span>':'';
     let inp;
     if(c.type==='places'){
         // Input con autocompletado de Google Places (Mexico)
@@ -1447,7 +1536,9 @@ function renderizarCampo(c){
     }
     // adminOnly: oculto por defecto, se muestra solo cuando tipoIngreso = Administrativo
     const estiloAdmin = c.adminOnly ? ' style="display:none"' : '';
-    return`<div class="${span}" data-campo-id="alta_${c.id}"${estiloAdmin}><label class="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">${c.label} ${req}${nota}</label>${inp}</div>`;
+    const marcaIA = (altaData._ia && altaData._ia[c.id]) ? '<span class="pr-ia" title="Este dato lo leyó la IA de los documentos. Revísalo.">IA</span>' : '';
+    const msgVal = ['curp','rfc','nss'].includes(c.id) ? '<p class="pr-campo-msg" id="msg_alta_'+c.id+'" aria-live="polite"></p>' : '';
+    return`<div class="${span}" data-campo-id="alta_${c.id}"${estiloAdmin}><label for="alta_${c.id}" class="pr-alta-label">${c.label} ${req}${nota}${marcaIA}</label>${inp}${msgVal}</div>`;
 }
 
 function manejarDrop(event){
@@ -1781,6 +1872,7 @@ async function ejecutarOCR() {
         const _noUp = new Set(['correoElectronico','fechaNacimiento','urlFoto']);
         if (!_noUp.has(k)) v = v.toString().toUpperCase().trim();
         altaData[k] = v;
+        altaData._ia = altaData._ia || {}; altaData._ia[k] = true;
         detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
             <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
             <span class="text-xs font-semibold text-slate-500 w-24 flex-shrink-0">${mapaL[k] || k}:</span>
@@ -1811,6 +1903,7 @@ async function ejecutarOCR() {
     const resEl    = document.getElementById('ocr-resultado');
     const camposEl = document.getElementById('ocr-campos-detectados');
 
+    actualizarLateralAlta();
     if (detectados.length) {
         resEl.classList.remove('hidden');
         camposEl.innerHTML = detectados.join('');
@@ -1836,26 +1929,42 @@ async function ejecutarOCR() {
 
 
 // ─── STEPPER NAVEGACIÓN ───────────────────────────────────────
-function guardarPasoActual(){
+function guardarPasoActual(sinAvisos){
     const paso=PASOS[pasoActual];
     if(paso.id==='paso-documentos'||paso.id==='paso-resumen')return true;
     let valido=true;
     paso.campos.forEach(c=>{
         const el=document.getElementById('alta_'+c.id);if(!el)return;
-        const val=el.value.trim();
-        // Solo actualizar altaData si el campo tiene valor O si no venía del OCR
-        // Esto evita sobreescribir datos detectados por el OCR con valores vacíos
-        if(val!==''||!altaData[c.id]){
-            altaData[c.id]=val;
-        }
+        // El campo siempre se pinta con lo guardado (incluido lo de la IA), así que lo que
+        // tiene ahora es lo que la persona dejó: si lo borró, se borra.
+        altaData[c.id]=el.value.trim();
         if(c.req&&!altaData[c.id]){
             el.classList.add('border-red-400','ring-1','ring-red-300');valido=false;
         } else {
             el.classList.remove('border-red-400','ring-1','ring-red-300');
         }
     });
-    if(!valido)mostrarToast('warning','Campos requeridos','Completa los campos marcados con * para continuar.');
-    return valido;
+    if(!valido){ mostrarToast('warning','Campos requeridos','Completa los campos marcados con * para continuar.'); return false; }
+    if(paso.id==='paso-personal'){
+        const ids=['curp','rfc','nss'], res={}; ids.forEach(id=>{ res[id]=resultadoValidacionAlta(id); mostrarValidacionAlta(id); });
+        const errores=ids.filter(id=>res[id].error);
+        if(errores.length){
+            mostrarToast('warning','Revisa los datos','Corrige '+errores.map(id=>id.toUpperCase()).join(', ')+' para continuar.');
+            const el=document.getElementById('alta_'+errores[0]); if(el) el.focus();
+            return false;
+        }
+        const avisos=ids.filter(id=>res[id].aviso);
+        const clave=ids.map(id=>altaData[id]||'').join('|');
+        if(avisos.length && !sinAvisos && altaData._avisosOk!==clave){
+            const seguir=window._navPendiente;
+            Swal.fire({icon:'warning',title:'¿Los datos están bien escritos?',
+                html:'<div style="text-align:left">'+avisos.map(id=>'<p style="margin:0 0 8px"><b>'+id.toUpperCase()+':</b> '+res[id].aviso+'</p>').join('')+'</div>',
+                showCancelButton:true,confirmButtonText:'Sí, continuar así',cancelButtonText:'Corregir'
+            }).then(function(r){ if(r.isConfirmed){ altaData._avisosOk=clave; if(typeof seguir==='function') seguir(); } else { const el=document.getElementById('alta_'+avisos[0]); if(el) el.focus(); } });
+            return false;
+        }
+    }
+    return true;
 }
 function restaurarValoresPaso(){
     const paso=PASOS[pasoActual];
@@ -1864,7 +1973,8 @@ function restaurarValoresPaso(){
         else if(altaData.tipoContrato === TIPO_CONTRATO_OBRA){ altaData.tipoContrato = ''; }
     }
     paso.campos.forEach(c=>{const el=document.getElementById('alta_'+c.id);if(!el||altaData[c.id]===undefined)return;el.value=altaData[c.id];});
-    if(paso.id==='paso-personal') calcularRangoEdadAuto();
+    if(paso.id==='paso-personal'){ calcularRangoEdadAuto(); ['curp','rfc','nss'].forEach(id=>{ if(altaData[id]) mostrarValidacionAlta(id); }); }
+    actualizarLateralAlta();
     if(paso.id==='paso-contrato'){
         // Paso 1 (50ms): mostrar/ocultar campos 4-6 según tipo
         // Paso 2 (300ms): calcular fechas DESPUÉS de que los campos ya son visibles
@@ -1902,12 +2012,12 @@ function restaurarValoresPaso(){
     }
 }
 function irAPaso(idx){
-    if(idx>pasoActual){if(!guardarPasoActual())return;}else guardarPasoActual();
+    if(idx>pasoActual){ window._navPendiente=function(){irAPaso(idx);}; if(!guardarPasoActual())return; } else guardarPasoActual(true);
     pasoActual=idx;renderizarStepper();restaurarValoresPaso();
     document.getElementById('stepper-contenido').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
-function siguientePaso(){if(!guardarPasoActual())return;if(pasoActual<PASOS.length-1){pasoActual++;renderizarStepper();restaurarValoresPaso();}}
-function anteriorPaso(){guardarPasoActual();if(pasoActual>0){pasoActual--;renderizarStepper();restaurarValoresPaso();}}
+function siguientePaso(){window._navPendiente=siguientePaso;if(!guardarPasoActual())return;if(pasoActual<PASOS.length-1){pasoActual++;renderizarStepper();restaurarValoresPaso();}}
+function anteriorPaso(){guardarPasoActual(true);if(pasoActual>0){pasoActual--;renderizarStepper();restaurarValoresPaso();}}
 function actualizarBotones(){
     const ul=pasoActual===PASOS.length-1;
     document.getElementById('btn-anterior')?.classList.toggle('hidden',pasoActual===0);
@@ -1917,23 +2027,34 @@ function actualizarBotones(){
 
 function renderizarResumen(){
     const el=document.getElementById('resumen-alta');if(!el)return;
+    const idx=id=>PASOS.findIndex(p=>p.id===id);
+    const din=v=>v?'$'+Number(v).toLocaleString('es-MX',{minimumFractionDigits:2}):'';
     const secciones=[
-        {titulo:'Datos Laborales',icono:'fa-briefcase',color:'text-blue-500',filas:[['No. Empleado',altaData.numeroEmpleado],['Fecha de Ingreso',altaData.fechaIngreso],['Nombre Completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Grupo Comercial',altaData.grupoComercial],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de Ingreso',altaData.tipoIngreso],['Sueldo Mensual',altaData.sueldoMensual?'$'+Number(altaData.sueldoMensual).toLocaleString('es-MX'):''],['Frecuencia de Pago',altaData.frecuenciaPago]]},
-        {titulo:'Contrato',icono:'fa-file-contract',color:'text-indigo-500',filas:[['Tipo de Contrato',altaData.tipoContrato],['Inicio 1er Contrato',altaData.fechaInicioContrato],['Vencimiento 1er Contrato',altaData.vencimientoPrimerContrato]]},
-        {titulo:'Datos Personales',icono:'fa-id-card',color:'text-teal-500',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Estado Civil',altaData.estadoCivil],['Escolaridad',altaData.escolaridad],['Fecha Nac. (detectada)',altaData.fechaNacimiento],['Género (detectado)',altaData.genero],['Nac. (detectada)',altaData.nacionalidad],['Lugar Nac. (detectado)',altaData.lugarNacimiento]]},
+        {paso:idx('paso-empleo'),titulo:'Datos laborales',icono:'fa-briefcase',filas:[['No. empleado',altaData.numeroEmpleado],['Fecha de ingreso',altaData.fechaIngreso],['Nombre completo',altaData.nombreTrabajador],['Empresa',altaData.empresa],['Grupo comercial',altaData.grupoComercial],['Departamento',altaData.departamento],['Puesto',altaData.puesto],['Tipo de ingreso',altaData.tipoIngreso],['Sueldo mensual',din(altaData.sueldoMensual)],['Frecuencia de pago',altaData.frecuenciaPago],['Fuente de contratación',altaData.fuenteContratacion]]},
+        {paso:idx('paso-contrato'),titulo:'Contrato',icono:'fa-file-contract',filas:[['Tipo de contrato',altaData.tipoContrato],['1er contrato',[altaData.fechaInicioContrato,altaData.vencimientoPrimerContrato].filter(Boolean).join(' → ')],['2do contrato',[altaData.iniciSegundoContrato,altaData.vencSegundoContrato].filter(Boolean).join(' → ')],['3er contrato',[altaData.iniciTercerContrato,altaData.vencTercerContrato].filter(Boolean).join(' → ')],['4to contrato',[altaData.fechaInicioContrato4,altaData.vencimientoContrato4].filter(Boolean).join(' → ')],['5to contrato',[altaData.fechaInicioContrato5,altaData.vencimientoContrato5].filter(Boolean).join(' → ')],['6to contrato',[altaData.fechaInicioContrato6,altaData.vencimientoContrato6].filter(Boolean).join(' → ')],['Entrevista 15 días',altaData.entrevista15Dias],['Entrevista 45 días',altaData.entrevista45Dias],['Evaluación 360°',altaData.fechaEval360]]},
+        {paso:idx('paso-personal'),titulo:'Datos personales',icono:'fa-id-card',filas:[['CURP',altaData.curp],['RFC',altaData.rfc],['NSS',altaData.nss],['Estado civil',altaData.estadoCivil],['Escolaridad',altaData.escolaridad],['Domicilio',altaData.domicilioCompleto],['Fecha de nacimiento (del CURP)',altaData.fechaNacimiento],['Género (del CURP)',altaData.genero],['Nacionalidad (del CURP)',altaData.nacionalidad],['Lugar de nacimiento (del CURP)',altaData.lugarNacimiento]]},
+        {paso:idx('paso-contacto'),titulo:'Contacto',icono:'fa-phone',filas:[['Correo',altaData.correoElectronico],['Teléfono',altaData.telefonoPersonal],['Contacto de emergencia',altaData.contactoEmergencia],['Parentesco',altaData.parentesco],['Teléfono de emergencia',altaData.telefonoEmergencia]]},
+        {paso:idx('paso-beneficiario'),titulo:'Beneficiario',icono:'fa-heart',filas:[['Nombre',altaData.nombreBeneficiario],['RFC',altaData.rfcBeneficiario],['Parentesco',altaData.parentescoBeneficiario],['% de asignación',altaData.porcentajeAsignacion?altaData.porcentajeAsignacion+'%':'']]},
     ];
+    const ia=altaData._ia||{}, campoIA={'Nombre completo':'nombreTrabajador','CURP':'curp','RFC':'rfc','NSS':'nss','Escolaridad':'escolaridad','Domicilio':'domicilioCompleto'};
     el.innerHTML=secciones.map(s=>{
         const filas=s.filas.filter(([,v])=>v);
-        if(!filas.length)return'';
-        return`<div class="px-5 py-4"><p class="text-xs font-bold text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2"><i class="fas ${s.icono} ${s.color}"></i>${s.titulo}</p><div class="space-y-2">${filas.map(([k,v])=>`<div class="flex justify-between gap-4"><span class="text-xs text-slate-400 font-medium">${k}</span><span class="text-sm font-semibold text-slate-700 text-right">${v}</span></div>`).join('')}</div></div>`;
+        return '<div class="pr-res-sec"><div class="pr-res-cab"><p><i class="fas '+s.icono+'"></i>'+s.titulo+'</p>'
+            +'<button type="button" class="pr-enlace" onclick="irAPaso('+s.paso+')">Editar</button></div>'
+            +(filas.length?'<dl class="pr-res-filas">'+filas.map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+escHtmlInicio(String(v).replace(/(\d{4})-(\d{2})-(\d{2})/g,'$3/$2/$1'))+(ia[campoIA[k]]?' <span class="pr-ia">IA</span>':'')+'</dd></div>').join('')+'</dl>'
+                :'<p class="pr-lado-sub">Sin datos capturados.</p>')+'</div>';
     }).join('');
 }
 
 async function enviarAlta(){
     guardarPasoActual();
-    const reqs=PASOS.flatMap(p=>p.campos.filter(c=>c.req).map(c=>c.id));
-    const falt=reqs.filter(id=>!altaData[id]);
-    if(falt.length){mostrarToast('error','Faltan datos requeridos','Revisa los pasos anteriores: '+falt.join(', '));return;}
+    const falt=PASOS.flatMap((p,ip)=>p.campos.filter(c=>c.req&&!altaData[c.id]).map(c=>({c:c,ip:ip})));
+    if(falt.length){
+        mostrarToast('error','Faltan datos requeridos',falt.map(f=>f.c.label).join(', ')+'. Te llevo al paso donde falta.');
+        pasoActual=falt[0].ip; renderizarStepper(); restaurarValoresPaso();
+        setTimeout(()=>{ const el=document.getElementById('alta_'+falt[0].c.id); if(el){ el.classList.add('border-red-400','ring-1','ring-red-300'); el.focus(); } },120);
+        return;
+    }
     mostrarLoader("Creando expediente...");
     const docs=[];
     // Los archivos se guardaron en altaData._archivos cuando se seleccionaron en el paso 0
@@ -1956,11 +2077,12 @@ async function enviarAlta(){
         docs.push({nombreArchivo:file.name,mimeType:file.type||'application/octet-stream',data:b64});
     }
     try{
-        const r=await enviarPeticion("alta",{...altaData,documentos:docs});
+        const datosAlta={}; Object.keys(altaData).forEach(k=>{ if(k.charAt(0)!=='_') datosAlta[k]=altaData[k]; });
+        const r=await enviarPeticion("alta",{...datosAlta,documentos:docs});
         ocultarLoader();
         if(r.status==="success"){
             mostrarToast('success','¡Alta registrada!',`Expediente creado para ${altaData.nombreTrabajador}.`,8000);
-            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Ver expediente en Drive',showCancelButton:true,cancelButtonText:'Cerrar'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');abrirModalGenerarContrato(r.idInterno, r.contratoPrefill);});
+            Swal.fire({icon:'success',title:'¡Alta registrada!',text:r.message,confirmButtonText:'Abrir expediente',showCancelButton:true,cancelButtonText:'Continuar con el contrato'}).then(res=>{if(res.isConfirmed&&r.urlExpediente)window.open(r.urlExpediente,'_blank');abrirModalGenerarContrato(r.idInterno, r.contratoPrefill);});
             altaData={};pasoActual=0;renderizarStepper();forzarActualizacion();
         }else mostrarToast('error','Error en el alta',r.message);
     }catch(e){ocultarLoader();mostrarToast('error','Error de conexión',e.message);}
@@ -6521,14 +6643,26 @@ function initAutocomplete(){
             const idInt = (emp['ID INTERNO']||'').toString().trim().replace(/'/g,"\\'");
             const noEmp = (emp['NO. EMPLEADO']||'').toString().trim().replace(/'/g,"\\'");
             const label = idInt ? idInt : ('#'+noEmp);
-            return '<button type="button" class="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition"'
+            return '<button type="button" class="pr-sug" role="option"'
                  + ' onclick="seleccionarEmpleado(\'' + idInt + '\',\'' + nomE + '\',\'' + est + '\',\'' + emp2 + '\',\'' + pu + '\',\'' + noEmp + '\')">'
-                 + '<div class="flex items-center justify-between gap-3">'
-                 + '<div><p class="text-sm font-semibold text-slate-800">' + (emp['NOMBRE DEL TRABAJADOR']||'—') + '</p>'
-                 + '<p class="text-xs text-slate-400">' + label + ' · ' + (emp['EMPRESA']||'') + ' · ' + (emp['PUESTO']||'') + '</p></div>'
-                 + '<span class="text-xs font-bold ' + col + ' flex-shrink-0">' + est + '</span>'
-                 + '</div></button>';
+                 + htmlFotoIniciales(emp['NOMBRE DEL TRABAJADOR'], idInt, 36)
+                 + '<span class="min-w-0" style="flex:1"><span class="pr-li-tit truncate" style="display:block">' + (emp['NOMBRE DEL TRABAJADOR']||'—') + '</span>'
+                 + '<span class="pr-li-sub truncate" style="display:block">' + label + ' · ' + (emp['EMPRESA']||'') + (emp['PUESTO']?' · ' + emp['PUESTO']:'') + '</span></span>'
+                 + '<span class="pr-estado activo">' + est + '</span></button>';
         }).join('');
+        cargarFotosVisibles(lista);
+        window._bajaSugIdx=-1;
+    });
+    // Flechas arriba/abajo y Enter para elegir sin mouse
+    nuevo.addEventListener('keydown',function(e){
+        const ops=[...lista.querySelectorAll('.pr-sug')]; if(lista.classList.contains('hidden')||!ops.length) return;
+        if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+            e.preventDefault();
+            window._bajaSugIdx=((window._bajaSugIdx??-1)+(e.key==='ArrowDown'?1:-1)+ops.length)%ops.length;
+            ops.forEach((o,i)=>o.classList.toggle('foco',i===window._bajaSugIdx));
+            ops[window._bajaSugIdx].scrollIntoView({block:'nearest'});
+        } else if(e.key==='Enter' && window._bajaSugIdx>=0){ e.preventDefault(); ops[window._bajaSugIdx].click(); }
+        else if(e.key==='Escape'){ lista.classList.add('hidden'); }
     });
     document.addEventListener('click',e=>{if(!lista.contains(e.target)&&e.target!==nuevo)lista.classList.add('hidden');});
 }
@@ -6552,9 +6686,43 @@ function seleccionarEmpleado(idInterno, nombre, estatus, empresa, puesto, noEmp)
     document.getElementById('baja_sugerencias').classList.add('hidden');
     const badge=document.getElementById('baja_empleado_badge');
     badge.classList.remove('hidden');
-    const col=estatus==='Activo'?'bg-emerald-100 text-emerald-700':'bg-red-100 text-red-600';
     const labelId = idInterno||('#'+noEmp);
-    badge.innerHTML=`<div class="flex items-center justify-between gap-3"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center"><i class="fas fa-user text-slate-500"></i></div><div><p class="text-sm font-bold text-slate-800">${nombre}</p><p class="text-xs text-slate-400">${labelId} · ${empresa} · ${puesto}</p></div></div><span class="text-xs font-bold px-2.5 py-1 rounded-full ${col}">${estatus}</span></div>`;
+    const E=empleadoSeleccionado||{};
+    const fIng=parseFechaFlexible(E["FECHA DE INGRESO"]);
+    badge.innerHTML='<div class="pr-baja-card">'
+        +htmlFotoIniciales(nombre,idInterno,60)
+        +'<div class="min-w-0" style="flex:1"><p class="pr-baja-nom">'+escHtmlInicio(nombre)+'</p>'
+        +'<p class="pr-li-sub">'+escHtmlInicio(labelId+' · '+empresa+(puesto?' · '+puesto:''))+'</p>'
+        +'<div class="pr-dw-chips">'
+        +(E["DEPARTAMENTO"]?'<span class="pr-dw-chip"><i class="fas fa-sitemap"></i>'+escHtmlInicio(E["DEPARTAMENTO"])+'</span>':'')
+        +(fIng?'<span class="pr-dw-chip"><i class="fas fa-calendar-check"></i>Ingresó '+fIng.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'})+'</span>':'')
+        +'<span class="pr-dw-chip" id="baja_antiguedad"><i class="fas fa-hourglass-half"></i>—</span>'
+        +'</div></div>'
+        +'<span class="pr-estado '+(estatus==='Activo'?'activo':'baja')+'">'+escHtmlInicio(estatus)+'</span></div>';
+    cargarFotosVisibles(badge);
+    // Fecha de baja: hoy por omisión, y la antigüedad al salir se actualiza sola
+    const fb=document.getElementById('baja_fechaBaja');
+    if(fb && !fb.value){ const h=new Date(); fb.value=h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0')+'-'+String(h.getDate()).padStart(2,'0'); }
+    if(fb && !fb._antListener){ fb.addEventListener('change',actualizarAntiguedadBaja); fb._antListener=true; }
+    actualizarAntiguedadBaja();
+}
+function _textoAntiguedad(desde,hasta){
+    if(!desde||!hasta) return '';
+    let m=(hasta.getUTCFullYear()-desde.getUTCFullYear())*12+(hasta.getUTCMonth()-desde.getUTCMonth());
+    if(hasta.getUTCDate()<desde.getUTCDate()) m--;
+    if(m<0) return '';
+    const a=Math.floor(m/12), r=m%12;
+    if(!a&&!r){ const d=Math.round((hasta-desde)/86400000); return d+(d===1?' día':' días'); }
+    return [a?a+(a===1?' año':' años'):'', r?r+(r===1?' mes':' meses'):''].filter(Boolean).join(' y ');
+}
+function actualizarAntiguedadBaja(){
+    const el=document.getElementById('baja_antiguedad'); if(!el||!empleadoSeleccionado) return;
+    const fIng=parseFechaFlexible(empleadoSeleccionado["FECHA DE INGRESO"]);
+    const v=document.getElementById('baja_fechaBaja')?.value;
+    const fB=v?new Date(v+'T00:00:00Z'):null;
+    const txt=_textoAntiguedad(fIng,fB);
+    el.innerHTML='<i class="fas fa-hourglass-half"></i>'+(txt?'Antigüedad al salir: '+txt:(fIng&&fB?'La fecha de baja es anterior al ingreso':'Antigüedad pendiente'));
+    el.classList.toggle('error',!!(fIng&&fB&&fB<fIng));
 }
 
 async function procesarBaja(event){
@@ -6562,6 +6730,27 @@ async function procesarBaja(event){
     const id=document.getElementById('baja_idEmpleado').value.trim();
     const nom=document.getElementById('baja_nombreEmpleado').value.trim();
     if(!id&&!nom){mostrarToast('warning','Selecciona un colaborador','Escribe y selecciona el nombre del colaborador primero.');return;}
+    // La fecha de baja no puede ser anterior al ingreso
+    const _fIng=empleadoSeleccionado?parseFechaFlexible(empleadoSeleccionado["FECHA DE INGRESO"]):null;
+    const _fbV=document.getElementById('baja_fechaBaja').value;
+    if(_fIng && _fbV && new Date(_fbV+'T00:00:00Z')<_fIng){
+        mostrarToast('warning','Revisa la fecha de baja','Es anterior a su fecha de ingreso ('+_fIng.toLocaleDateString('es-MX',{timeZone:'UTC'})+').');
+        document.getElementById('baja_fechaBaja').focus(); return;
+    }
+    const _motivoTxt=(function(){ var m=document.getElementById('baja_motivoSalida')?.value||''; var o=(document.getElementById('baja_motivoOtroTexto')?.value||'').trim(); return (m.toLowerCase().startsWith('otro')&&o)?'Otro: '+o:m; })();
+    const _monto=document.getElementById('baja_montoFiniquito').value;
+    const _ant=(document.getElementById('baja_antiguedad')?.textContent||'').replace('Antigüedad al salir: ','');
+    // Es un cambio que no se deshace desde aquí: se confirma con un resumen
+    const conf=await Swal.fire({icon:'warning',title:'¿Confirmar la baja?',
+        html:'<div class="pr-conf-baja"><p><b>'+escHtmlInicio(nom)+'</b></p>'
+            +'<dl><div><dt>Empresa</dt><dd>'+escHtmlInicio(document.getElementById('baja_empresaEmpleado')?.value||'—')+'</dd></div>'
+            +'<div><dt>Fecha de baja</dt><dd>'+escHtmlInicio(_fbV?new Date(_fbV+'T00:00:00Z').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'}):'—')+'</dd></div>'
+            +'<div><dt>Tipo y motivo</dt><dd>'+escHtmlInicio((document.getElementById('baja_tipoSalida').value||'—')+' · '+(_motivoTxt||'—'))+'</dd></div>'
+            +'<div><dt>Finiquito</dt><dd>'+(_monto?fmtMXN(+_monto):'Sin monto')+'</dd></div>'
+            +(_ant&&!/pendiente|anterior/i.test(_ant)?'<div><dt>Antigüedad</dt><dd>'+escHtmlInicio(_ant)+'</dd></div>':'')+'</dl>'
+            +'<p class="pr-conf-nota">Su estatus cambiará a Baja y dejará de contar en la plantilla activa.</p></div>',
+        showCancelButton:true,confirmButtonText:'Sí, registrar baja',cancelButtonText:'Revisar',focusCancel:true});
+    if(!conf.isConfirmed) return;
     mostrarLoader("Procesando baja...");
     // Leer campos hidden que seleccionarEmpleado guardó correctamente
     const idInternoVal = (document.getElementById('baja_idEmpleado')?.value||"").trim();
@@ -6590,7 +6779,7 @@ async function procesarBaja(event){
         if(r.status==="success"){
             // Generar link encuesta de salida
             // Usar empleadoSeleccionado o empBaja (ya buscado del cache)
-            const fuenteEmp = empleadoSeleccionado || empBaja || null;
+            const fuenteEmp = empleadoSeleccionado || null;
             const idInt = fuenteEmp ? (fuenteEmp["ID INTERNO"]||"") : "";
             const linkEnc = idInt
                 ? location.origin+'/encuesta.html?enc=SALIDA&idInterno='+encodeURIComponent(idInt)
@@ -6603,7 +6792,6 @@ async function procesarBaja(event){
                 html:'<p style="color:#475569;margin-bottom:16px;">'+r.message+'</p>'
                     +'<div style="background:#f5f3ff;border:1.5px solid #ddd6fe;border-radius:12px;padding:14px;text-align:left;">'
                     +'<p style="font-size:.75rem;font-weight:700;color:#7c3aed;margin-bottom:6px;"><i class="fas fa-link" style="margin-right:4px;"></i>Encuesta de Salida</p>'
-                    +'<p style="font-size:.72rem;color:#94a3b8;word-break:break-all;margin-bottom:10px;">'+linkEnc+'</p>'
                     +'<p style="font-size:.72rem;color:#94a3b8;word-break:break-all;margin-bottom:10px;" id="enc-link-txt">'+linkEnc+'</p>'
                     +'<button id="btn-copy-enc-link" style="width:100%;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:8px;font-size:.82rem;font-weight:700;cursor:pointer;">'
                     +'<i class="fas fa-copy" style="margin-right:6px;"></i>Copiar link para compartir</button>'
