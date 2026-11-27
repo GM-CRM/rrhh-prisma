@@ -1,30 +1,48 @@
 /* GENERADO por scripts/generar_tema_compat.py — no editar a mano.
    Traduce los colores claros fijos de los módulos existentes a las variables del tema. */
 html[data-tema] .chart-card{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .org-node::before{background-color:#ddd6fe!important}
+html[data-tema] .org-children::before{background-color:#ddd6fe!important}
 html[data-tema] .org-card{background-color:var(--panel)!important}
-html[data-tema] .org-count{border-color:var(--borde-suave)!important}
-html[data-tema] .drawer-tab:hover{background-color:var(--hover)!important}
+html[data-tema] .org-avatar{color:#fff!important}
+html[data-tema] .org-nombre{color:#0d1b3e!important}
+html[data-tema] .org-puesto{color:#64748b!important}
+html[data-tema] .org-empresa{color:#a78bfa!important}
+html[data-tema] .org-count{background-color:#7c3aed!important;color:#fff!important;border-color:var(--borde-suave)!important}
+html[data-tema] .drawer-tab{color:#94a3b8!important}
+html[data-tema] .drawer-tab:hover{color:#475569!important;background-color:var(--hover)!important}
+html[data-tema] .drawer-tab.drawer-tab-activa{color:#2563eb!important}
 html[data-tema] .dsh-kpi{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-kpi:hover{border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-kpi-label{color:var(--tx2)!important}
+html[data-tema] .dsh-kpi-label i{color:oklch(70% 0.01 285)!important}
 html[data-tema] .dsh-kpi-val{color:var(--tx)!important}
+html[data-tema] .dsh-kpi-val.acento{color:oklch(45% 0.2 285)!important}
+html[data-tema] .dsh-kpi-val.alerta{color:oklch(52% 0.19 25)!important}
+html[data-tema] .dsh-kpi-val.aviso{color:oklch(58% 0.15 65)!important}
 html[data-tema] .dsh-kpi-val .unidad{color:var(--tx2)!important}
+html[data-tema] .dsh-kpi-sub{color:oklch(62% 0.01 285)!important}
 html[data-tema] .dsh-strip{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-strip > div + div{border-left-color:var(--borde-suave)!important}
 html[data-tema] .dsh-strip > div + div{border-top-color:var(--borde-suave)!important}
 html[data-tema] .dsh-filtros{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-filtros-bar:hover{background-color:var(--hover)!important}
-html[data-tema] .dsh-chip{background-color:var(--sutil)!important}
+html[data-tema] .dsh-filtros-bar > i:first-child{color:oklch(60% 0.15 285)!important}
+html[data-tema] .dsh-chip{background-color:var(--sutil)!important;color:oklch(38% 0.14 285)!important}
 html[data-tema] .dsh-chip.vacio{background-color:var(--sutil)!important;color:var(--tx2)!important}
 html[data-tema] .dsh-filtros-body{border-top-color:var(--borde-suave)!important}
+html[data-tema] .dsh-caret{color:oklch(65% 0.01 285)!important}
 html[data-tema] .dsh-field label{color:var(--tx2)!important}
 html[data-tema] .dsh-select{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx)!important}
 html[data-tema] .dsh-btn{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx2)!important}
 html[data-tema] .dsh-btn:hover{background-color:var(--hover)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-panel{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dsh-panel-tit{color:var(--tx)!important}
+html[data-tema] .dsh-panel-tit i{color:oklch(65% 0.13 285)!important}
 html[data-tema] .dsh-sec{color:var(--tx2)!important}
 html[data-tema] .dsh-genero-bar{background-color:var(--sutil)!important}
+html[data-tema] .dsh-gen-h{background-color:oklch(52% 0.18 265)!important}
+html[data-tema] .dsh-gen-m{background-color:oklch(65% 0.17 350)!important}
 html[data-tema] .dsh-leyenda > div{color:var(--tx2)!important}
 html[data-tema] .dsh-leyenda b{color:var(--tx)!important}
 html[data-tema] .dsh-tabla thead th{color:var(--tx2)!important;border-bottom-color:var(--borde-suave)!important}
@@ -35,35 +53,53 @@ html[data-tema] .exp-head h3{color:var(--tx)!important}
 html[data-tema] .exp-head .sub{color:var(--tx2)!important}
 html[data-tema] .exp-btn{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx2)!important}
 html[data-tema] .exp-btn:hover{background-color:var(--hover)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .exp-btn-primario{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .exp-btn-primario:hover{background-color:oklch(43% 0.18 285)!important}
+html[data-tema] .exp-buscador i{color:oklch(65% 0.01 285)!important}
 html[data-tema] .exp-input,html[data-tema] .exp-select{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx)!important}
+html[data-tema] .exp-input::placeholder{color:oklch(66% 0.01 285)!important}
 html[data-tema] .exp-contador{color:var(--tx2)!important}
+html[data-tema] .exp-limpiar{color:oklch(50% 0.2 285)!important}
+html[data-tema] .exp-limpiar:hover{color:oklch(38% 0.16 285)!important}
 html[data-tema] .exp-tabla thead th{color:var(--tx2)!important;background-color:var(--panel)!important;border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .exp-tabla tbody tr{border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .exp-tabla tbody tr:hover{background-color:var(--hover)!important}
 html[data-tema] .exp-tabla tbody td{color:var(--tx2)!important}
 html[data-tema] .exp-tabla tbody td:nth-child(1){color:var(--tx2)!important}
 html[data-tema] .exp-tabla tbody td:nth-child(2){color:var(--tx)!important}
+html[data-tema] .exp-vacio i{color:oklch(85% 0.01 285)!important}
 html[data-tema] .exp-vacio .t{color:var(--tx2)!important}
+html[data-tema] .exp-vacio .s{color:oklch(62% 0.01 285)!important}
 html[data-tema] .exp-tabla tbody tr{border-color:var(--borde-suave)!important;background-color:var(--panel)!important}
 html[data-tema] .exp-tabla tbody tr:hover{background-color:var(--hover)!important}
-html[data-tema] .exp-tabla tbody td:nth-child(1){background-color:var(--sutil)!important}
+html[data-tema] .exp-tabla tbody td:nth-child(1){color:oklch(50% 0.14 285)!important;background-color:var(--sutil)!important}
 html[data-tema] .exp-tabla tbody td:nth-child(2){color:var(--tx)!important}
 html[data-tema] .exp-tabla tbody td:nth-child(3),html[data-tema] .exp-tabla tbody td:nth-child(4){color:var(--tx2)!important}
+html[data-tema] .exp-tabla tbody td:nth-child(3)::before,html[data-tema] .exp-tabla tbody td:nth-child(4)::before{color:oklch(62% 0.012 285)!important}
 html[data-tema] .exp-tabla tbody td:nth-child(6){border-top-color:var(--borde-suave)!important}
 html[data-tema] .ab-wrap{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .ab-head{border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .ab-head h3{color:var(--tx)!important}
 html[data-tema] .ab-head p{color:var(--tx2)!important}
-html[data-tema] .ab-icono{background-color:var(--sutil)!important}
-html[data-tema] .ab-icono.baja{background-color:var(--sutil)!important}
+html[data-tema] .ab-icono{background-color:var(--sutil)!important;color:oklch(48% 0.19 285)!important}
+html[data-tema] .ab-icono.baja{background-color:var(--sutil)!important;color:oklch(52% 0.18 25)!important}
 html[data-tema] .ab-stepper{background-color:var(--panel)!important;border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .ab-cuerpo input[type="text"],html[data-tema] .ab-cuerpo input[type="email"],html[data-tema] .ab-cuerpo input[type="tel"],html[data-tema] .ab-cuerpo input[type="number"],html[data-tema] .ab-cuerpo input[type="date"],html[data-tema] .ab-cuerpo select,html[data-tema] .ab-cuerpo textarea{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx)!important}
 html[data-tema] .ab-pie{border-top-color:var(--borde-suave)!important;background-color:var(--panel)!important}
 html[data-tema] .ab-paso-ind{color:var(--tx2)!important}
 html[data-tema] .ab-btn{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx2)!important}
 html[data-tema] .ab-btn:hover{background-color:var(--hover)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .ab-btn-primario{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .ab-btn-primario:hover{background-color:oklch(43% 0.18 285)!important}
+html[data-tema] .ab-btn-confirmar{background-color:oklch(52% 0.16 155)!important;color:oklch(98% 0.005 155)!important}
+html[data-tema] .ab-btn-confirmar:hover{background-color:oklch(45% 0.15 155)!important}
+html[data-tema] .ab-btn-peligro{background-color:oklch(50% 0.19 25)!important;color:oklch(98% 0.005 25)!important}
+html[data-tema] .ab-btn-peligro:hover{background-color:oklch(43% 0.17 25)!important}
 html[data-tema] .ab-label{color:var(--tx2)!important}
+html[data-tema] .ab-label .req{color:oklch(58% 0.18 25)!important}
 html[data-tema] .ab-input,html[data-tema] .ab-select{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx)!important}
+html[data-tema] .ab-input::placeholder{color:oklch(66% 0.01 285)!important}
+html[data-tema] .ab-buscador > i{color:oklch(65% 0.01 285)!important}
 html[data-tema] #baja_sugerencias{border-color:var(--borde-suave)!important}
 html[data-tema] #baja_sugerencias > *{border-color:var(--borde-suave)!important}
 html[data-tema] #baja_sugerencias > *:hover{background-color:var(--hover)!important}
@@ -72,19 +108,27 @@ html[data-tema] .mod-wrap{background-color:var(--panel)!important;border-color:v
 html[data-tema] .mod-tabs{border-bottom-color:var(--borde-suave)!important;background-color:var(--panel)!important}
 html[data-tema] .mod-tab{color:var(--tx2)!important}
 html[data-tema] .mod-tab:hover{background-color:var(--hover)!important;color:var(--tx)!important}
+html[data-tema] .mod-tab.active{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .mod-tab.active:hover{background-color:oklch(46% 0.19 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .mod-placeholder i{color:oklch(87% 0.012 285)!important}
+html[data-tema] .mod-placeholder p{color:oklch(60% 0.012 285)!important}
 html[data-tema] .mod-head{border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .mod-head h3{color:var(--tx)!important}
 html[data-tema] .mod-head p{color:var(--tx2)!important}
+html[data-tema] .mod-btn{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .mod-btn:hover{background-color:oklch(43% 0.18 285)!important}
 html[data-tema] .mod-body input[type="text"],html[data-tema] .mod-body input[type="search"],html[data-tema] .mod-body input[type="email"],html[data-tema] .mod-body input[type="number"],html[data-tema] .mod-body input[type="date"],html[data-tema] .mod-body select,html[data-tema] .mod-body textarea{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx)!important}
 html[data-tema] .mod-body thead th{color:var(--tx2)!important;background-color:var(--panel)!important;border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .mod-body tbody td{color:var(--tx2)!important;border-bottom-color:var(--borde-suave)!important}
 html[data-tema] .dw-panel{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .dw-head{border-bottom-color:var(--borde-suave)!important;background-color:var(--panel)!important}
+html[data-tema] .dw-cerrar{color:oklch(60% 0.012 285)!important}
 html[data-tema] .dw-cerrar:hover{background-color:var(--hover)!important;color:var(--tx)!important}
 html[data-tema] .dw-tabs-wrap{border-bottom-color:var(--borde-suave)!important;background-color:var(--panel)!important}
 html[data-tema] .drawer-tab{color:var(--tx2)!important}
 html[data-tema] .drawer-tab:hover{color:var(--tx)!important;background-color:var(--hover)!important}
-html[data-tema] .drawer-tab.drawer-tab-activa{background-color:var(--panel)!important}
+html[data-tema] .drawer-tab.drawer-tab-activa{color:oklch(45% 0.2 285)!important;background-color:var(--panel)!important}
+html[data-tema] #tab-baja-dot{background-color:oklch(58% 0.19 25)!important}
 html[data-tema] .dw-body{background-color:var(--panel)!important}
 html[data-tema] .drawer-tab-panel input[type="text"],html[data-tema] .drawer-tab-panel input[type="email"],html[data-tema] .drawer-tab-panel input[type="tel"],html[data-tema] .drawer-tab-panel input[type="number"],html[data-tema] .drawer-tab-panel input[type="date"],html[data-tema] .drawer-tab-panel select,html[data-tema] .drawer-tab-panel textarea{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx)!important}
 html[data-tema] .drawer-tab-panel input:disabled,html[data-tema] .drawer-tab-panel select:disabled{background-color:var(--sutil)!important;color:var(--tx2)!important}
@@ -93,41 +137,60 @@ html[data-tema] #tab-historial-card{background-color:var(--panel)!important;bord
 html[data-tema] .dw-pie{border-top-color:var(--borde-suave)!important;background-color:var(--panel)!important}
 html[data-tema] .dw-btn{border-color:var(--borde-suave)!important;background-color:var(--panel)!important;color:var(--tx2)!important}
 html[data-tema] .dw-btn:hover{background-color:var(--hover)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .dw-btn-guardar{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .dw-btn-guardar:hover{background-color:oklch(43% 0.18 285)!important}
 html[data-tema] .notif-panel-sup{background-color:var(--panel)!important;border-left-color:var(--borde-suave)!important}
 html[data-tema] .nt-head{border-bottom-color:var(--borde-suave)!important}
-html[data-tema] .nt-icono{background-color:var(--sutil)!important}
+html[data-tema] .nt-icono{background-color:var(--sutil)!important;color:oklch(48% 0.19 285)!important}
 html[data-tema] .nt-titulo{color:var(--tx)!important}
 html[data-tema] .nt-sub{color:var(--tx2)!important}
 html[data-tema] .nt-accion{color:var(--tx2)!important}
-html[data-tema] .nt-accion:hover{background-color:var(--hover)!important}
+html[data-tema] .nt-accion:hover{background-color:var(--hover)!important;color:oklch(52% 0.18 25)!important}
+html[data-tema] .nt-cerrar{color:oklch(60% 0.012 285)!important}
 html[data-tema] .nt-cerrar:hover{background-color:var(--hover)!important;color:var(--tx)!important}
 html[data-tema] .nt-tabs{border-bottom-color:var(--borde-suave)!important}
+html[data-tema] .notif-card .notif-emp-btn{color:oklch(48% 0.19 285)!important}
 html[data-tema] .swal2-title{color:var(--tx)!important}
 html[data-tema] .swal2-html-container{color:var(--tx2)!important}
+html[data-tema] .swal2-styled.swal2-confirm{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] .swal2-styled.swal2-confirm:hover{background-color:oklch(43% 0.18 285)!important}
 html[data-tema] .swal2-styled.swal2-cancel{background-color:var(--panel)!important;color:var(--tx2)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .swal2-styled.swal2-cancel:hover{background-color:var(--hover)!important}
-html[data-tema] .ses-badge[data-estado="activa"]{background-color:var(--sutil)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .swal2-styled.swal2-deny{background-color:oklch(50% 0.19 25)!important;color:oklch(98% 0.005 25)!important}
+html[data-tema] [class*="fixed"] button.bg-blue-600,html[data-tema] [class*="fixed"] button.bg-blue-700{background-color:oklch(50% 0.2 285)!important}
+html[data-tema] [class*="fixed"] button.bg-blue-600:hover{background-color:oklch(43% 0.18 285)!important}
+html[data-tema] .ses-badge[data-estado="activa"]{background-color:var(--sutil)!important;color:oklch(38% 0.16 285)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .ses-badge[data-estado="activa"] .ses-punto{background-color:oklch(60% 0.19 285)!important}
 html[data-tema] .ses-badge[data-estado="verificando"]{background-color:var(--sutil)!important;color:var(--tx2)!important;border-color:var(--borde-suave)!important}
-html[data-tema] .ses-badge[data-estado="porexpirar"]{background-color:var(--sutil)!important}
-html[data-tema] .ses-badge[data-estado="expirada"]{background-color:var(--sutil)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .ses-badge[data-estado="verificando"] .ses-punto{background-color:oklch(70% 0.012 285)!important}
+html[data-tema] .ses-badge[data-estado="porexpirar"]{background-color:var(--sutil)!important;color:oklch(42% 0.13 70)!important}
+html[data-tema] .ses-badge[data-estado="porexpirar"]:hover{background-color:oklch(93% 0.07 70)!important}
+html[data-tema] .ses-badge[data-estado="porexpirar"] .ses-punto{background-color:oklch(65% 0.15 70)!important}
+html[data-tema] .ses-badge[data-estado="expirada"]{background-color:var(--sutil)!important;color:oklch(45% 0.16 25)!important;border-color:var(--borde-suave)!important}
 html[data-tema] .ses-badge[data-estado="expirada"]:hover{background-color:var(--hover)!important}
+html[data-tema] .ses-badge[data-estado="expirada"] .ses-punto{background-color:oklch(55% 0.19 25)!important}
 html[data-tema] .ses-badge[data-estado="offline"]{background-color:var(--sutil)!important;color:var(--tx2)!important;border-color:var(--borde-suave)!important}
+html[data-tema] .ses-badge[data-estado="offline"] .ses-punto{background-color:oklch(62% 0.012 285)!important}
 html[data-tema] #ses-aviso{background-color:var(--panel)!important;border-color:var(--borde-suave)!important}
-html[data-tema] #ses-aviso .ico{background-color:var(--sutil)!important}
+html[data-tema] #ses-aviso .ico{background-color:var(--sutil)!important;color:oklch(52% 0.18 25)!important}
 html[data-tema] #ses-aviso .t{color:var(--tx)!important}
 html[data-tema] #ses-aviso .s{color:var(--tx2)!important}
+html[data-tema] #ses-aviso button{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
+html[data-tema] #ses-aviso button:hover{background-color:oklch(43% 0.18 285)!important}
+html[data-tema] .nt-tab-on{background-color:oklch(50% 0.2 285)!important;color:oklch(98% 0.005 285)!important}
 html[data-tema] .nt-tab-off{background-color:var(--sutil)!important;color:var(--tx2)!important}
 html[data-tema] .nt-tab-off:hover{background-color:var(--hover)!important}
 html[data-tema] .notif-tab-count{background-color:var(--panel)!important;color:var(--tx2)!important}
+html[data-tema] .nt-tab-on .notif-tab-count{color:oklch(98% 0.005 285)!important}
 html[data-tema] .nt-card{border-color:var(--borde-suave)!important;background-color:var(--panel)!important}
-html[data-tema] .nt-ico-rojo{background-color:var(--sutil)!important}
-html[data-tema] .nt-ico-ambar{background-color:var(--sutil)!important}
-html[data-tema] .nt-ico-violeta{background-color:var(--sutil)!important}
-html[data-tema] .nt-ico-verde{background-color:var(--sutil)!important}
-html[data-tema] .nt-bdg-rojo{background-color:var(--sutil)!important}
-html[data-tema] .nt-bdg-ambar{background-color:var(--sutil)!important}
-html[data-tema] .nt-bdg-violeta{background-color:var(--sutil)!important}
-html[data-tema] .nt-bdg-verde{background-color:var(--sutil)!important}
+html[data-tema] .nt-ico-rojo{background-color:var(--sutil)!important;color:oklch(52% 0.18 25)!important}
+html[data-tema] .nt-ico-ambar{background-color:var(--sutil)!important;color:oklch(50% 0.14 70)!important}
+html[data-tema] .nt-ico-violeta{background-color:var(--sutil)!important;color:oklch(48% 0.19 285)!important}
+html[data-tema] .nt-ico-verde{background-color:var(--sutil)!important;color:oklch(45% 0.14 155)!important}
+html[data-tema] .nt-bdg-rojo{background-color:var(--sutil)!important;color:oklch(45% 0.16 25)!important}
+html[data-tema] .nt-bdg-ambar{background-color:var(--sutil)!important;color:oklch(43% 0.13 70)!important}
+html[data-tema] .nt-bdg-violeta{background-color:var(--sutil)!important;color:oklch(42% 0.17 285)!important}
+html[data-tema] .nt-bdg-verde{background-color:var(--sutil)!important;color:oklch(40% 0.13 155)!important}
 html[data-tema] main .bg-\[oklch\(96\%_0\.005_285\)\]{background-color:var(--sutil)!important}
 html[data-tema] main .border-\[oklch\(90\%_0\.008_285\)\]{border-color:var(--borde-suave)!important}
 html[data-tema] main .hover\:bg-\[oklch\(95\%_0\.006_285\)\]:hover{background-color:var(--hover)!important}

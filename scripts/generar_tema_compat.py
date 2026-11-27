@@ -58,6 +58,11 @@ for sel,body in reglas(css):
             continue
         nv=mapear(prop,val)
         if nv and prop.startswith('background') and ':hover' in sel: nv='var(--hover)'
+        if not nv and prop in ('color','background','background-color') and lum(val):
+            # Color con intención (texto blanco sobre botón morado, pestaña activa…):
+            # se reafirma tal cual para que las traducciones de arriba no lo pisen.
+            decl.append(f'{"background-color" if prop.startswith("background") else prop}:{val.replace("!important","").strip()}!important')
+            continue
         if nv: decl.append(f'{"background-color" if prop.startswith("background") else prop}:{nv}!important')
     if decl:
         sels=','.join('html[data-tema] '+s.strip() for s in sel.split(',') if s.strip())
