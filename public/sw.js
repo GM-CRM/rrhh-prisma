@@ -13,7 +13,7 @@
 // termina en .html / .js, va por red.
 // ============================================================
 
-const CACHE_NAME = 'prisma-rh-v118'; // roles y permisos
+const CACHE_NAME = 'prisma-rh-v119'; // lectura de documentos v2
 
 const ASSETS_ESTATICOS = [
   '/manifest.json',

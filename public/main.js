@@ -1692,55 +1692,73 @@ function calcularRangoEdadAuto(){
 // Renderiza la primera página del PDF como imagen PNG de alta resolución.
 // PDF.js se carga dinámicamente desde CDN la primera vez.
 // No requiere instalación ni dependencias adicionales.
-async function pdfPaginaAPNG(file, escala) {
-    escala = escala || 2.5; // 2.5x = alta resolución (~A4 → ~2000px ancho)
 
-    // Cargar PDF.js si no está disponible
-    if (!window.pdfjsLib) {
-        await new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            s.onload = res;
-            s.onerror = () => rej(new Error('No se pudo cargar PDF.js'));
-            document.head.appendChild(s);
-        });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    // Leer archivo como ArrayBuffer
-    const arrayBuffer = await file.arrayBuffer();
-
-    // Cargar el PDF — renderizar TODAS las páginas en un solo canvas vertical
-    // (la constancia SAT tiene 2 páginas: RFC/nombre en p1, CURP/domicilio en p2)
-    const pdf        = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const numPaginas = pdf.numPages;
-
-    const canvases = [];
-    let anchoMax = 0, altoTotal = 0;
-    for (let i = 1; i <= numPaginas; i++) {
-        const pag      = await pdf.getPage(i);
-        const viewport = pag.getViewport({ scale: escala });
-        const c        = document.createElement('canvas');
-        c.width        = viewport.width;
-        c.height       = viewport.height;
-        await pag.render({ canvasContext: c.getContext('2d'), viewport }).promise;
-        canvases.push(c);
-        anchoMax   = Math.max(anchoMax, c.width);
-        altoTotal += c.height;
-    }
-
-    // Combinar todas las páginas verticalmente
-    const final   = document.createElement('canvas');
-    final.width   = anchoMax;
-    final.height  = altoTotal;
-    const ctx     = final.getContext('2d');
-    let offsetY   = 0;
-    for (const c of canvases) { ctx.drawImage(c, 0, offsetY); offsetY += c.height; }
-
-    const dataUrl = final.toDataURL('image/png');
-    return dataUrl.split(',')[1];
+// ══ Lectura de documentos ═══════════════════════════════════════
+// · PDF con texto (SAT, CURP, IMSS, recibos descargados): se envía el TEXTO,
+//   que el servidor lee por etiquetas sin adivinar.
+// · Fotos y escaneos: cada página por separado, a un tamaño que la IA lee bien
+//   (antes todas las páginas se pegaban en una imagen gigante).
+// · Cada dato se toma del documento más confiable para ese dato.
+async function _cargarPDFjs(){
+    if (window.pdfjsLib) return;
+    await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = res; s.onerror = () => rej(new Error('No se pudo cargar el lector de PDF.'));
+        document.head.appendChild(s);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
+// Lienzo → JPEG reducido (lado mayor máx. `max` px)
+function _lienzoAJPEG(c, max){
+    const k = Math.min(1, max / Math.max(c.width, c.height));
+    if (k < 1){ const d = document.createElement('canvas'); d.width = Math.round(c.width*k); d.height = Math.round(c.height*k); d.getContext('2d').drawImage(c,0,0,d.width,d.height); c = d; }
+    return c.toDataURL('image/jpeg', 0.88).split(',')[1];
+}
+async function _imagenAJPEG(file, max){
+    const url = URL.createObjectURL(file);
+    try{
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('No se pudo abrir la imagen.')); i.src = url; });
+        const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        return _lienzoAJPEG(c, max);
+    } finally { URL.revokeObjectURL(url); }
+}
+// Devuelve { texto, paginas:[jpegB64…] } — las páginas solo si el PDF no trae texto
+async function _leerPDF(file, max){
+    await _cargarPDFjs();
+    const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+    let texto = '';
+    for (let i = 1; i <= pdf.numPages; i++){
+        const tc = await (await pdf.getPage(i)).getTextContent();
+        texto += tc.items.map(it => it.str + (it.hasEOL ? '\n' : ' ')).join('') + '\n';
+    }
+    if (texto.replace(/\s/g,'').length >= 150) return { texto, paginas: [] };
+    const paginas = [];
+    for (let i = 1; i <= Math.min(pdf.numPages, 4); i++){
+        const pg = await pdf.getPage(i);
+        const v0 = pg.getViewport({ scale: 1 });
+        const vp = pg.getViewport({ scale: Math.min(3, max / Math.max(v0.width, v0.height)) });
+        const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+        await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        paginas.push(_lienzoAJPEG(c, max));
+    }
+    return { texto: '', paginas };
+}
+// Compatibilidad: otras partes de la app pueden seguir llamando a esta función
+async function pdfPaginaAPNG(file){ const r = await _leerPDF(file, 1800); return r.paginas[0] || null; }
+
+const _FUENTE_DOC = { SAT:'Constancia del SAT', CURP:'CURP', IMSS:'Documento del IMSS', INE:'INE', COMPROBANTE:'Comprobante de domicilio', ACTA:'Acta de nacimiento', PASAPORTE:'Pasaporte', ESTUDIOS:'Comprobante de estudios', DESCONOCIDO:'Documento sin identificar' };
+// Para cada dato, qué documento manda (el primero de la lista que lo traiga)
+const _PRIORIDAD_DATO = {
+    nombreTrabajador: ['SAT','CURP','IMSS','INE','PASAPORTE','ACTA','ESTUDIOS','DESCONOCIDO'],
+    curp:             ['CURP','SAT','IMSS','INE','PASAPORTE','ACTA','DESCONOCIDO'],
+    rfc:              ['SAT','DESCONOCIDO'],
+    nss:              ['IMSS','DESCONOCIDO'],
+    domicilioCompleto:['COMPROBANTE','INE','SAT','DESCONOCIDO'],
+    escolaridad:      ['ESTUDIOS']
+};
+function _normNom(v){ return String(v||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z ]/g,' ').replace(/\s+/g,' ').trim(); }
 
 async function ejecutarOCR() {
     const input = document.getElementById('alta_archivos');
@@ -1748,191 +1766,106 @@ async function ejecutarOCR() {
         mostrarToast('warning', 'Sin archivos', 'Selecciona o arrastra al menos un documento para analizar.');
         return;
     }
-
     const stEl  = document.getElementById('ocr-status');
     const stTxt = document.getElementById('ocr-status-txt');
     const btn   = document.getElementById('btn-ocr');
-
     stEl.classList.remove('hidden');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando con IA...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Leyendo documentos...';
 
-    let acum    = {};
-    let errores = [];
-
-    for (const file of Array.from(input.files)) {
-        const esPDF    = file.type === 'application/pdf';
-        const esImagen = file.type.startsWith('image/');
-        if (!esPDF && !esImagen) continue;
-
-        stTxt.innerText = `Enviando al servidor: ${file.name}...`;
-
-        // Validar tamaño — GAS tiene límite de payload ~30 MB
-        if (file.size > 8 * 1024 * 1024) {
-            errores.push(`${file.name}: el archivo supera 8 MB. Comprime el PDF o reduce la resolución de la imagen.`);
-            continue;
-        }
-
+    const lecturas = [];   // { archivo, tipo, lado, datos, titular, notas, metodo }
+    const errores  = [];
+    const archivos = Array.from(input.files);
+    for (let ia = 0; ia < archivos.length; ia++) {
+        const file = archivos[ia];
+        const esPDF = file.type === 'application/pdf', esImagen = (file.type||'').startsWith('image/');
+        if (!esPDF && !esImagen) { errores.push(file.name + ': formato no compatible (usa PDF, JPG o PNG).'); continue; }
+        if (file.size > 15 * 1024 * 1024) { errores.push(file.name + ': pesa más de 15 MB.'); continue; }
+        const pre = '(' + (ia+1) + ' de ' + archivos.length + ') ';
         try {
-            let b64Envio    = null;
-            let mimeEnvio   = file.type;
-            let nombreEnvio = file.name;
-
+            let envios = [];
             if (esPDF) {
-                // PDF → PNG de alta resolución con PDF.js (todas las páginas)
-                // Esto permite que Vision API lea el texto correctamente
-                stTxt.innerText = `Renderizando PDF: ${file.name}...`;
-                try {
-                    const pngB64 = await pdfPaginaAPNG(file);
-                    if (pngB64) {
-                        b64Envio    = pngB64;
-                        mimeEnvio   = 'image/png';
-                        nombreEnvio = file.name.replace(/\.pdf$/i, '.png');
-                        console.log('[OCR] PDF convertido a PNG, enviando a Vision+Groq');
-                    }
-                } catch(pdfErr) {
-                    console.warn('[OCR] PDF.js falló, se enviará el PDF directo:', pdfErr);
-                }
+                stTxt.innerText = pre + 'Abriendo ' + file.name + '...';
+                const pdf = await _leerPDF(file, 1800);
+                if (pdf.texto) envios.push({ accion:'leer_documento_texto', payload:{ texto: pdf.texto, nombre: file.name } });
+                else envios = pdf.paginas.map((b64, i) => ({ accion:'ocr_documento', pagina: i+1, payload:{ data: b64, mimeType:'image/jpeg', nombre: file.name + ' (pág. ' + (i+1) + ')' } }));
+            } else {
+                envios.push({ accion:'ocr_documento', payload:{ data: await _imagenAJPEG(file, 1800), mimeType:'image/jpeg', nombre: file.name } });
             }
-
-            // Si no se convirtió (imagen original o PDF.js falló) → leer como base64
-            if (!b64Envio) {
-                b64Envio = await new Promise((res, rej) => {
-                    const r = new FileReader();
-                    r.onload  = () => res(r.result.split(',')[1]);
-                    r.onerror = () => rej(new Error('Error leyendo ' + file.name));
-                    r.readAsDataURL(file);
-                });
+            for (const env of envios) {
+                stTxt.innerText = pre + (env.accion === 'leer_documento_texto' ? 'Leyendo el texto de ' : 'La IA está leyendo ') + file.name + (env.pagina && envios.length > 1 ? ' (página ' + env.pagina + ')' : '') + '...';
+                const r = await enviarPeticion(env.accion, env.payload, 90000);
+                if (r.status !== 'success') { errores.push(file.name + (env.pagina && envios.length > 1 ? ' pág. ' + env.pagina : '') + ': ' + r.message); continue; }
+                lecturas.push({ archivo: file.name, tipo: (r.tipoDocumento||'DESCONOCIDO').toUpperCase(), lado: r.lado||'', datos: r.datos||{}, titular: r.titular||'', notas: r.notas||[], metodo: r.metodo||'' });
             }
-
-            stTxt.innerText = `Analizando: ${file.name}...`;
-            console.log('[OCR] Enviando:', nombreEnvio, mimeEnvio);
-
-            // Motor 1: groq_ocr — Vision API extrae texto del PNG → Groq analiza campos
-            // Motor 2: ocr_documento — pipeline alternativo con regex
-            let r = await enviarPeticion('groq_ocr', {
-                data:     b64Envio,
-                mimeType: mimeEnvio,
-                nombre:   nombreEnvio
-            }, 60000); // la IA puede tardar con imágenes grandes
-            console.log('[OCR] Resultado groq_ocr:', JSON.stringify(r));
-            if (r.status !== 'success') {
-                console.warn('[OCR] groq_ocr falló, usando ocr_documento:', r.message);
-                r = await enviarPeticion('ocr_documento', {
-                    data:     b64Envio,
-                    mimeType: mimeEnvio,
-                    nombre:   nombreEnvio
-                }, 60000); // la IA puede tardar con imágenes grandes
-            }
-
-            if (r.status !== 'success') {
-                errores.push(`${file.name}: ${r.message}`);
-                continue;
-            }
-
-            // Acumular con prioridad por tipo de documento
-            const _tipo = (r.tipoDocumento || '').toUpperCase();
-            const _autoridad = {
-                'SAT':       new Set(['rfc','curp','nombreTrabajador','domicilioCompleto']),
-                'CURP':      new Set(['curp','nombreTrabajador']),
-                'INE':       new Set(['nombreTrabajador','curp','domicilioCompleto']),
-                'IMSS':      new Set(['nss','nombreTrabajador','curp']),
-                'CFE':       new Set(['domicilioCompleto','nombreTrabajador']),
-                'TELMEX':    new Set(['domicilioCompleto','nombreTrabajador']),
-                'AGUA':      new Set(['domicilioCompleto','nombreTrabajador']),
-                'PASAPORTE': new Set(['nombreTrabajador','curp']),
-                'ACTA':      new Set(['nombreTrabajador','curp']),
-                'TITULO':    new Set(['nombreTrabajador','escolaridad']),
-            };
-            const _auth = _autoridad[_tipo] || null;
-            Object.entries(r.datos || {}).forEach(([k, v]) => {
-                if (!v || !v.toString().trim()) return;
-                if (!acum[k] || !_auth || _auth.has(k)) acum[k] = v.toString().trim();
-            });
-
         } catch (e) {
-            errores.push(`${file.name}: ${e.message}`);
+            errores.push(file.name + ': ' + e.message);
         }
     }
 
-    // ── Aplicar resultados al altaData ────────────────────────
-    // Solo campos que SÍ se muestran del OCR
-    const mapaL = {
-        nombreTrabajador: 'Nombre',
-        curp:             'CURP',
-        rfc:              'RFC',
-        nss:              'NSS',
-        domicilioCompleto:'Domicilio',
-        escolaridad:      'Escolaridad'
-    };
-    const detectados = [];
-
-    // Campos que NUNCA se muestran ni se aplican desde el OCR
-    // Son calculados por fórmulas del Sheet o capturados manualmente
-    const CAMPOS_EXCLUIDOS = new Set([
-        'genero','lugarNacimiento','nacionalidad','fechaNacimiento',
-        'estadoCivil','telefonoPersonal','correoElectronico',
-        'tipoDocumento','_motor'
-    ]);
-
-    Object.entries(acum).forEach(([k, v]) => {
-        if (!v || CAMPOS_EXCLUIDOS.has(k)) return; // Filtrar campos no permitidos
-        const _noUp = new Set(['correoElectronico','fechaNacimiento','urlFoto']);
-        if (!_noUp.has(k)) v = v.toString().toUpperCase().trim();
-        altaData[k] = v;
-        altaData._ia = altaData._ia || {}; altaData._ia[k] = true;
-        detectados.push(`<div class="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-emerald-100">
-            <i class="fas fa-check text-emerald-500 text-xs flex-shrink-0"></i>
-            <span class="text-xs font-semibold text-slate-500 w-24 flex-shrink-0">${mapaL[k] || k}:</span>
-            <span class="text-xs text-slate-700 font-mono truncate">${v}</span>
-        </div>`);
+    // ── Elegir cada dato del documento más confiable ───────────
+    const elegido = {}, fuente = {}, avisos = [];
+    Object.keys(_PRIORIDAD_DATO).forEach(function(campo){
+        const orden = _PRIORIDAD_DATO[campo];
+        const con = lecturas.filter(l => l.datos[campo]).sort((a,b) => {
+            const pa = orden.indexOf(a.tipo), pb = orden.indexOf(b.tipo);
+            const dif = (pa<0?99:pa) - (pb<0?99:pb);
+            if (dif) return dif;
+            return (a.metodo === 'texto' ? 0 : 1) - (b.metodo === 'texto' ? 0 : 1);   // el texto del PDF gana a la foto
+        });
+        if (!con.length) return;
+        elegido[campo] = String(con[0].datos[campo]).trim();
+        fuente[campo] = _FUENTE_DOC[con[0].tipo] || con[0].tipo;
+        // ¿Otro documento dice algo distinto?
+        const norm = campo === 'nombreTrabajador' ? _normNom : (v => String(v).toUpperCase().replace(/\s/g,''));
+        if (campo !== 'domicilioCompleto') {
+            const distintos = con.filter(l => norm(l.datos[campo]) !== norm(elegido[campo]));
+            if (distintos.length) avisos.push({ nivel:'aviso', texto: (campo==='nombreTrabajador'?'El nombre':campo.toUpperCase()) + ' no coincide entre documentos: ' + fuente[campo] + ' dice ' + elegido[campo] + ', y ' + distintos.map(l => (_FUENTE_DOC[l.tipo]||l.tipo) + ' dice ' + l.datos[campo]).join('; ') + '. Se usó el de ' + fuente[campo] + '.' });
+        }
+    });
+    lecturas.forEach(function(l){
+        (l.notas||[]).forEach(n => avisos.push({ nivel:'aviso', texto: (_FUENTE_DOC[l.tipo]||l.tipo) + ': ' + n }));
+        if (l.tipo === 'COMPROBANTE' && l.titular && elegido.nombreTrabajador && _normNom(l.titular) !== _normNom(elegido.nombreTrabajador))
+            avisos.push({ nivel:'info', texto: 'El comprobante de domicilio está a nombre de ' + l.titular + ' (no del colaborador). Solo se tomó el domicilio.' });
     });
 
-    // Si detectó CURP, decodificar para obtener fecha, género, estado
-    if (acum.curp && acum.curp.length === 18) {
-        const d = decodificarCURP(acum.curp);
-        if (d) {
-            // Solo aplicar los que la IA no detectó directamente
-            Object.entries(d).forEach(([k, v]) => {
-                if (!acum[k] && v) { altaData[k] = v; }
-            });
-        }
+    // Fecha, género y lugar de nacimiento salen de la CURP (no de la IA)
+    if (elegido.curp && elegido.curp.length === 18) {
+        const d = decodificarCURP(elegido.curp);
+        if (d) Object.entries(d).forEach(([k, v]) => { if (v) altaData[k] = v; });
     }
     if (altaData.fechaNacimiento) {
         const fn = document.getElementById('alta_fechaNacimiento');
-        if (fn) { fn.value = altaData.fechaNacimiento; calcularRangoEdadAuto(); }
+        if (fn) fn.value = altaData.fechaNacimiento;
+        calcularRangoEdadAuto();
     }
+    const etiquetas = { nombreTrabajador:'Nombre', curp:'CURP', rfc:'RFC', nss:'NSS', domicilioCompleto:'Domicilio', escolaridad:'Escolaridad' };
+    altaData._ia = altaData._ia || {};
+    Object.entries(elegido).forEach(([k, v]) => { altaData[k] = k === 'escolaridad' ? v : v.toUpperCase(); altaData._ia[k] = true; });
 
-    // ── Restaurar UI ──────────────────────────────────────────
+    // ── Mostrar el resultado ──────────────────────────────────
     stEl.classList.add('hidden');
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Analizar documentos con IA y pre-rellenar formulario';
-
-    const resEl    = document.getElementById('ocr-resultado');
-    const camposEl = document.getElementById('ocr-campos-detectados');
-
     actualizarLateralAlta();
-    if (detectados.length) {
-        resEl.classList.remove('hidden');
-        camposEl.innerHTML = detectados.join('');
-        const notaErr = errores.length ? ` (${errores.length} archivo(s) con advertencia)` : '';
-        mostrarToast('success', `${detectados.length} campo(s) detectados`, 'Datos aplicados al formulario.' + notaErr, 6000);
-    } else if (errores.length) {
-        resEl.classList.remove('hidden');
-        camposEl.innerHTML = `<div class="col-span-2 bg-red-50 border border-red-200 rounded-xl p-4">
-            <p class="text-sm font-bold text-red-700 mb-2"><i class="fas fa-circle-xmark mr-2"></i>No se pudieron extraer datos</p>
-            ${errores.map(e => `<p class="text-xs text-red-600 mb-1">• ${e}</p>`).join('')}
-            <div class="mt-3 pt-3 border-t border-red-200 space-y-1">
-              <p class="text-xs font-semibold text-slate-600">¿Qué hacer?</p>
-              <p class="text-xs text-slate-500">• Toma la foto con buena luz, de frente y sin reflejos, o súbela en PDF</p>
-              <p class="text-xs text-slate-500">• Si el PDF tiene contraseña o está protegido, primero quítale la protección</p>
-              <p class="text-xs text-slate-500">• Puedes capturar manualmente los datos en los pasos siguientes</p>
-            </div>
-        </div>`;
-        mostrarToast('warning', 'Sin datos detectados', errores[0], 8000);
-    } else {
-        mostrarToast('warning', 'Sin datos detectados', 'La IA no encontró información reconocible en los documentos.', 6000);
-    }
+    const resEl = document.getElementById('ocr-resultado'), camposEl = document.getElementById('ocr-campos-detectados');
+    const docsLeidos = lecturas.map(l => (_FUENTE_DOC[l.tipo]||l.tipo) + (l.lado ? ' (' + l.lado + ')' : ''));
+    if (Object.keys(elegido).length || errores.length) resEl.classList.remove('hidden');
+    camposEl.innerHTML =
+        '<div class="pr-ocr-docs">' + archivos.map(function(f){
+            const ls = lecturas.filter(l => l.archivo === f.name), err = errores.filter(e => e.indexOf(f.name) === 0);
+            return '<span class="pr-ocr-doc ' + (ls.length ? 'ok' : 'error') + '" title="' + escHtmlInicio(err.join(' ')) + '"><i class="fas ' + (ls.length ? 'fa-circle-check' : 'fa-circle-xmark') + '"></i>'
+                + escHtmlInicio(f.name) + ' · ' + (ls.length ? escHtmlInicio([...new Set(ls.map(l => (_FUENTE_DOC[l.tipo]||l.tipo) + (l.lado ? ' ' + l.lado : '')))].join(', ')) : 'no se pudo leer') + '</span>';
+        }).join('') + '</div>'
+        + (Object.keys(elegido).length ? '<dl class="pr-ocr-campos">' + Object.entries(elegido).map(([k, v]) =>
+            '<div><dt>' + etiquetas[k] + '</dt><dd>' + escHtmlInicio(v) + '<span class="pr-ocr-fuente">de ' + escHtmlInicio(fuente[k]) + '</span></dd></div>').join('') + '</dl>' : '')
+        + (avisos.length ? '<ul class="pr-ocr-avisos">' + avisos.map(a => '<li class="' + a.nivel + '"><i class="fas ' + (a.nivel === 'info' ? 'fa-circle-info' : 'fa-triangle-exclamation') + '"></i>' + escHtmlInicio(a.texto) + '</li>').join('') + '</ul>' : '')
+        + (errores.length ? '<ul class="pr-ocr-avisos">' + errores.map(e => '<li class="error"><i class="fas fa-circle-xmark"></i>' + escHtmlInicio(e) + '</li>').join('') + '</ul>'
+            + '<p class="pr-lado-sub" style="margin-top:8px">Si una foto no se leyó: tómala de frente, con buena luz y sin reflejos; o súbela en PDF. Puedes capturar los datos a mano en los pasos siguientes.</p>' : '');
+    if (Object.keys(elegido).length)
+        mostrarToast('success', Object.keys(elegido).length + ' dato(s) detectados', 'Se leyeron ' + lecturas.length + ' documento(s). Revisa los marcados con IA antes de confirmar.', 6000);
+    else if (errores.length) mostrarToast('warning', 'Sin datos detectados', errores[0], 8000);
+    else mostrarToast('warning', 'Sin datos detectados', 'No se encontró información reconocible en los documentos.', 6000);
 }
 
 

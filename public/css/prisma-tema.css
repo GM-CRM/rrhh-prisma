@@ -714,3 +714,23 @@ select.pr-input{ cursor: pointer; }
 .pr-colores input{ position: absolute; opacity: 0; }
 .pr-colores span{ display: block; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
 .pr-colores input:checked + span{ border-color: var(--tx, #161B3A); box-shadow: 0 0 0 2px var(--fondo-solido, #fff) inset; }
+
+/* ── Resultado de la lectura de documentos ─────────────────── */
+html[data-tema] #ocr-resultado > div{ background: var(--sutil) !important; border: 1px solid var(--borde) !important; border-radius: 18px !important; }
+html[data-tema] #ocr-resultado > div > p:first-child{ color: var(--tx) !important; }
+#ocr-campos-detectados{ display: block !important; }
+.pr-ocr-docs{ display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.pr-ocr-doc{ display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; border: 1px solid var(--borde-suave, #e2e8f0); color: var(--tx2, #475569); max-width: 100%; }
+.pr-ocr-doc.ok i{ color: var(--verde, #08776A); }
+.pr-ocr-doc.error i{ color: var(--rosa, #D63C74); }
+.pr-ocr-campos{ margin: 0; display: grid; gap: 2px; }
+.pr-ocr-campos div{ display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 8px 2px; border-bottom: 1px dashed var(--borde-suave, #e2e8f0); }
+.pr-ocr-campos dt{ font-size: 13px; color: var(--tx3, #64748b); }
+.pr-ocr-campos dd{ margin: 0; font-size: 14px; font-weight: 600; color: var(--tx, #161B3A); word-break: break-word; }
+.pr-ocr-fuente{ display: block; font-size: 12px; font-weight: 500; color: var(--tx3, #64748b); margin-top: 2px; }
+.pr-ocr-avisos{ list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+.pr-ocr-avisos li{ display: flex; gap: 8px; align-items: flex-start; font-size: 13px; line-height: 1.45; padding: 8px 10px; border-radius: 12px; }
+.pr-ocr-avisos li i{ margin-top: 3px; }
+.pr-ocr-avisos li.aviso{ background: rgba(255,170,60,.12); color: var(--ambar, #A85F00); }
+.pr-ocr-avisos li.info{ background: rgba(91,124,255,.1); color: var(--azul, #3550C8); }
+.pr-ocr-avisos li.error{ background: rgba(255,107,166,.1); color: var(--rosa, #D63C74); }

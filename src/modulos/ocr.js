@@ -10,6 +10,7 @@
 // ============================================================
 import { s, error } from "../lib/util.js";
 import { requiereSesionValida } from "../lib/sesion.js";
+import { leerDocumentoTexto, leerMRZ, ordenarNombreConCURP, curpValida, nssValido, normalizarTexto } from "../lib/lectura_documentos.js";
 
 const MODELO = "@cf/meta/llama-4-scout-17b-16e-instruct";
 const PROHIBIDOS = ["tipoDocumento", "fechaNacimiento", "genero", "lugarNacimiento", "nacionalidad", "estadoCivil", "telefonoPersonal", "correoElectronico"];
@@ -74,45 +75,79 @@ export function corregirRFC(valor) {
 }
 
 // ── Una sola consulta: la IA ve la imagen y devuelve tipo + campos ─
-const INSTRUCCIONES = `Analiza la imagen de este documento oficial mexicano y responde SOLO con un objeto JSON, sin texto adicional, con estas claves:
-{"tipoDocumento":"","nombreTrabajador":"","curp":"","rfc":"","nss":"","domicilioCompleto":"","escolaridad":""}
-Reglas:
-- tipoDocumento: una de CURP, INE, IMSS, SAT, CFE, TELMEX, AGUA, PASAPORTE, ACTA, TITULO, DESCONOCIDO.
-- nombreTrabajador: nombre completo de la PERSONA titular del documento en formato APELLIDO_PATERNO APELLIDO_MATERNO NOMBRE(S). Nunca el nombre de funcionarios, instituciones o empresas.
-- curp: exactamente 18 caracteres (4 letras, 6 números de la fecha AAMMDD, H o M, 5 letras, 1 letra o número, 1 número). Cópiala carácter por carácter.
-- rfc: 12 o 13 caracteres, solo si aparece una etiqueta RFC. El RFC y la CURP son diferentes.
-- nss: Número de Seguridad Social, exactamente 11 dígitos, solo si aparece.
-- domicilioCompleto: domicilio de la PERSONA (calle, número, colonia, C.P., municipio, estado), nunca el de la institución o empresa emisora. En la Constancia SAT únelo así: Vialidad No. Exterior, Col. Colonia, C.P. Código, Municipio, Entidad.
-- escolaridad: solo en títulos o certificados (Secundaria, Bachillerato, TSU, Licenciatura, Maestría, Doctorado).
-- Si un dato no se ve claramente, deja "". No inventes nada.`;
+// Cada página llega por separado (frente y reverso del INE son dos consultas)
+// y en un tamaño legible: antes se pegaban todas en una imagen gigante.
+const INSTRUCCIONES = `Mira la imagen de este documento mexicano y responde SOLO con un objeto JSON, sin texto adicional, con estas claves:
+{"tipoDocumento":"","nombreTrabajador":"","curp":"","rfc":"","nss":"","domicilioCompleto":"","titularComprobante":"","mrz":"","escolaridad":""}
+
+1) tipoDocumento: elige UNO.
+- INE_FRENTE: dice "INSTITUTO NACIONAL ELECTORAL" y "CREDENCIAL PARA VOTAR"; trae foto, NOMBRE, DOMICILIO, CLAVE DE ELECTOR y CURP.
+- INE_REVERSO: tiene códigos QR y al pie 3 renglones con letras, números y signos "<" (el primero empieza con IDMEX).
+- CURP: constancia de la Clave Única de Registro de Población (RENAPO).
+- SAT: Constancia de Situación Fiscal o Cédula de Identificación Fiscal.
+- IMSS: asignación o localización del Número de Seguridad Social.
+- COMPROBANTE: recibo de luz (CFE), agua, teléfono, internet, gas, predial o estado de cuenta.
+- ACTA: acta de nacimiento.  - PASAPORTE.  - ESTUDIOS: título, cédula profesional o certificado.  - DESCONOCIDO.
+
+2) Dónde está cada dato:
+- INE_FRENTE: debajo de "NOMBRE" vienen 3 renglones: apellido paterno, apellido materno y nombre(s); escríbelos en ese mismo orden. "DOMICILIO" tiene 3 renglones (calle y número; colonia y código postal; municipio y estado): únelos con comas. "curp" es la clave de 18 caracteres junto a la etiqueta CURP; NO es la "CLAVE DE ELECTOR".
+- INE_REVERSO: copia los 3 renglones del pie EXACTAMENTE como se ven, con todos sus "<", separados por \\n, en "mrz". Deja lo demás vacío.
+- COMPROBANTE: el nombre impreso es del titular del servicio y puede ser otra persona: ponlo en "titularComprobante" y deja "nombreTrabajador" vacío. El domicilio son los renglones debajo de ese nombre (calle y número, colonia, C.P., municipio, estado). Nunca uses la dirección de la empresa que emite el recibo.
+- ACTA: el nombre de la persona registrada, no el de sus padres.
+- ESTUDIOS: "escolaridad" con uno de: Secundaria, Bachillerato, Técnico, TSU, Licenciatura, Maestría, Doctorado.
+
+3) Formato: todo en MAYÚSCULAS. nombreTrabajador como APELLIDO PATERNO APELLIDO MATERNO NOMBRE(S). curp de 18 caracteres. rfc (12 o 13) solo si dice RFC. nss (11 dígitos) solo si dice NSS o Seguridad Social.
+Si un dato no se lee con claridad, déjalo vacío. No inventes nada.`;
 
 async function extraerConVision(env, b64, mime) {
   let datosImg = String(b64 || "");
   if (!datosImg.startsWith("data:")) datosImg = `data:${mime || "image/png"};base64,` + datosImg.replace(/\s/g, "");
   const resp = await llamarIA(env, [
-    { role: "system", content: "Eres un experto en documentos oficiales mexicanos (INE, CURP, SAT, IMSS, comprobantes de domicilio). Respondes únicamente con JSON válido." },
+    { role: "system", content: "Eres un experto en documentos oficiales mexicanos. Lees con cuidado cada carácter y respondes únicamente con JSON válido." },
     { role: "user", content: [{ type: "text", text: INSTRUCCIONES }, { type: "image_url", image_url: { url: datosImg } }] },
-  ], 400);
+  ], 600);
+  const m = resp.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error("La IA no devolvió datos estructurados.");
+  return JSON.parse(m[0]);
+}
+
+// Texto de un PDF digital que no es SAT/CURP/IMSS (p. ej. un recibo descargado):
+// la IA lee el texto, que es mucho más confiable que leer una imagen
+async function extraerDeTextoConIA(env, texto) {
+  const resp = await llamarIA(env, [
+    { role: "system", content: "Eres un experto en documentos oficiales mexicanos. Respondes únicamente con JSON válido." },
+    { role: "user", content: INSTRUCCIONES.replace("Mira la imagen de este documento mexicano", "Este es el TEXTO de un documento mexicano") + "\n\nTEXTO DEL DOCUMENTO:\n" + String(texto).slice(0, 6000) },
+  ], 600);
   const m = resp.match(/\{[\s\S]*\}/);
   if (!m) throw new Error("La IA no devolvió datos estructurados.");
   return JSON.parse(m[0]);
 }
 
 function limpiarDatos(crudo) {
-  const tipo = String(crudo.tipoDocumento || "").toUpperCase().replace(/[^A-Z]/g, "") || "DESCONOCIDO";
-  const datos = {};
+  let tipo = String(crudo.tipoDocumento || "").toUpperCase().replace(/[^A-Z_]/g, "") || "DESCONOCIDO";
+  let lado = "";
+  if (tipo.startsWith("INE")) { lado = tipo.includes("REVERSO") ? "reverso" : "frente"; tipo = "INE"; }
+  if (["CFE", "TELMEX", "AGUA"].includes(tipo)) tipo = "COMPROBANTE";
+  if (tipo === "TITULO") tipo = "ESTUDIOS";
+  const datos = {}, notas = [];
   const txt = v => String(v == null ? "" : v).replace(/\s+/g, " ").trim();
-  if (txt(crudo.nombreTrabajador)) datos.nombreTrabajador = txt(crudo.nombreTrabajador).toUpperCase();
+  // Zona "<<<" del reverso del INE: nombre y fecha de nacimiento muy confiables
+  const mrz = leerMRZ(crudo.mrz);
   const curp = corregirCURP(crudo.curp);
-  if (curp) datos.curp = curp.replace("?", "");            // el frontend recibe la clave sin la marca
+  if (curp) datos.curp = curp.replace("?", "");
+  let nombre = txt(crudo.nombreTrabajador).toUpperCase();
+  if (mrz.nombre) { nombre = mrz.nombre; lado = "reverso"; }
+  if (nombre && datos.curp && !curp.endsWith("?")) nombre = ordenarNombreConCURP(nombre, datos.curp) || nombre;
+  if (nombre && tipo !== "COMPROBANTE") datos.nombreTrabajador = nombre;
   const rfc = corregirRFC(crudo.rfc);
   if (rfc && (!datos.curp || !datos.curp.startsWith(rfc))) datos.rfc = rfc;
   const nss = String(crudo.nss || "").replace(/\D/g, "");
-  if (nss.length === 11) datos.nss = nss;
-  if (txt(crudo.domicilioCompleto).length > 5) datos.domicilioCompleto = txt(crudo.domicilioCompleto);
-  if (tipo === "TITULO" && txt(crudo.escolaridad)) datos.escolaridad = txt(crudo.escolaridad);
+  if (nss.length === 11) { datos.nss = nss; if (!nssValido(nss)) notas.push("Revisa el NSS: su dígito verificador no coincide."); }
+  if (txt(crudo.domicilioCompleto).length > 5 && tipo !== "SAT") datos.domicilioCompleto = txt(crudo.domicilioCompleto).toUpperCase();
+  if (tipo === "ESTUDIOS" && txt(crudo.escolaridad)) datos.escolaridad = txt(crudo.escolaridad);
+  if (curp.endsWith("?")) notas.push("Revisa la CURP: su dígito verificador no coincide.");
   PROHIBIDOS.forEach(k => delete datos[k]);
-  return { tipo, datos, curpDudosa: curp.endsWith("?") };
+  return { tipo, lado, datos, notas, titular: tipo === "COMPROBANTE" ? txt(crudo.titularComprobante || crudo.nombreTrabajador).toUpperCase() : "", nacimientoMRZ: mrz.nacimiento || "" };
 }
 
 function mensajeErrorIA(e) {
@@ -135,17 +170,42 @@ async function ocrIA(p, env) {
   let crudo;
   try { crudo = await extraerConVision(env, p.data, mime); }
   catch (e) { console.log("[OCR] " + e); return error(mensajeErrorIA(e)); }
-  const { tipo, datos, curpDudosa } = limpiarDatos(crudo);
-  console.log(`[OCR] ${tipo} en ${Date.now() - t0} ms: ${JSON.stringify(datos)}`);
-  if (!Object.keys(datos).length)
-    return error("No se encontraron datos reconocibles. Tipo detectado: " + tipo + ". Verifica que el documento sea legible.");
-  const r = { status: "success", datos, tipoDocumento: tipo, motor: "Workers AI (Llama 4 Scout)", ms: Date.now() - t0 };
-  if (curpDudosa) r.aviso = "Revisa la CURP: su dígito verificador no coincide.";
+  const L = limpiarDatos(crudo);
+  console.log(`[OCR] ${L.tipo} ${L.lado} en ${Date.now() - t0} ms`);
+  if (!Object.keys(L.datos).length && !L.titular)
+    return { status: "error", message: "No se encontraron datos reconocibles (tipo detectado: " + L.tipo + "). Verifica que el documento se vea completo y legible.", tipoDocumento: L.tipo };
+  const r = { status: "success", datos: L.datos, tipoDocumento: L.tipo, lado: L.lado, notas: L.notas, titular: L.titular, metodo: "ia-imagen", ms: Date.now() - t0 };
+  // Diagnóstico: lo que la IA leyó antes de validar (visible en la consola; el frontend no lo usa)
+  r.crudo = { curp: s(crudo.curp), rfc: s(crudo.rfc), nss: s(crudo.nss), mrz: s(crudo.mrz) };
+  if (L.notas.length) r.aviso = L.notas.join(" ");
   return r;
+}
+
+// ── leer_documento_texto: PDF digital (el navegador ya sacó el texto) ──
+async function leerTexto(p, env) {
+  if (!(await requiereSesionValida(env, p))) return { status: "error", message: "Sesión inválida o expirada." };
+  const texto = String(p.texto || "");
+  if (texto.replace(/\s/g, "").length < 40) return error("El PDF no trae texto: se leerá como imagen.");
+  const t0 = Date.now();
+  const L = leerDocumentoTexto(texto);
+  if (L.completo) return { status: "success", datos: L.datos, tipoDocumento: L.tipo, notas: L.notas, metodo: "texto", ms: Date.now() - t0 };
+  // Otro PDF con texto (recibo descargado, acta digital…): la IA lee ese texto
+  if (env.AI) {
+    try {
+      const crudo = await extraerDeTextoConIA(env, texto);
+      const V = limpiarDatos(crudo);
+      const datos = Object.assign({}, V.datos, L.datos);          // lo leído por etiquetas manda
+      if (Object.keys(datos).length || V.titular)
+        return { status: "success", datos, tipoDocumento: V.tipo !== "DESCONOCIDO" ? V.tipo : L.tipo, notas: V.notas, titular: V.titular, metodo: "ia-texto", ms: Date.now() - t0 };
+    } catch (e) { console.log("[OCR texto] " + e); }
+  }
+  if (Object.keys(L.datos).length) return { status: "success", datos: L.datos, tipoDocumento: L.tipo, notas: L.notas, metodo: "texto", ms: Date.now() - t0 };
+  return error("No se encontraron datos reconocibles en el texto del PDF.");
 }
 
 export default {
   groq_ocr: ocrIA,
   gemini_ocr: ocrIA,
   ocr_documento: ocrIA,      // el frontend lo usa como reintento si groq_ocr falla
+  leer_documento_texto: leerTexto,
 };

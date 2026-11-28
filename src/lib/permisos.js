@@ -52,7 +52,7 @@ export const ROLES_BASE = [
 // siguen validándose dentro de su módulo como hasta ahora.
 export const PERMISO_ACCION = {
   alta: "alta.crear", siguiente_numero: "alta.crear",
-  ocr_documento: "alta.crear", groq_ocr: "alta.crear", gemini_ocr: "alta.crear",
+  ocr_documento: "alta.crear", groq_ocr: "alta.crear", gemini_ocr: "alta.crear", leer_documento_texto: "alta.crear",
   importar_masivo: "alta.crear",
   baja: "baja.crear",
   actualizar_empleado: "expedientes.editar", registrar_movimiento: "expedientes.editar",
